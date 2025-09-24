@@ -20,6 +20,8 @@ import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart'
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
@@ -110,6 +112,8 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(create: (_) => di.sl<GuestNearByRestaurantsCubit>()),
         BlocProvider(create: (_) => di.sl<GuestMenuByRestaurantIdCubit>()),
         BlocProvider(create: (_) => di.sl<DeleteAccountCubit>()),
+        BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
+        BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
       ],
       child: MaterialApp(
         title: 'local_basket',

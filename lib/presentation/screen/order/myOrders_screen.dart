@@ -226,8 +226,8 @@ class _MyOrdersState extends State<MyOrders> {
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     Text("Order ID: ${order.orderNumber}"),
-                    Text(
-                        "Time: ${timeAgo(order.createdDate ?? DateTime.now())}"),
+                    // Text(
+                    //     "Time: ${timeAgo(order.createdDate ?? DateTime.now())}"),
                   ],
                 ),
               ),
@@ -466,7 +466,9 @@ class _MyOrdersState extends State<MyOrders> {
       case 'PREPARING':
       case 'READY_FOR_PICKUP':
         return 2;
-      case 'OUT_FOR_DELIVERY':
+      case 'PICKED_UP':
+      case 'READY_FOR_SELF_PICKUP':
+
         return 3;
       case 'DELIVERED':
         return 4;

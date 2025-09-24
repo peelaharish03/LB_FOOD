@@ -1,3 +1,22 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.generated/
+coverage/
+
+# Android
+android/.gradle/
+android/app/build/
+*.iml
+.gradle/
+local.properties
+
+# iOS / macOS
 **/dgph
 *.mode1v3
 *.mode2v3
@@ -26,8 +45,41 @@ Flutter/flutter_assets/
 Flutter/flutter_export_environment.sh
 ServiceDefinitions.json
 Runner/GeneratedPluginRegistrant.*
+ios/.last_build_id
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/Flutter/flutter_export_environment.sh
+ios/build/
+*.xcuserstate
+*.xcworkspace
+*.xcuserdatad
+*.xcsettings
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
 
-# Exceptions to above rules.
+# macOS / Linux / Windows
+.DS_Store
+*.swp
+*.swo
+*.swn
+*.swm
+.idea/
+.vscode/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Other
+*.lock
+
+# Exceptions to above rules
 !default.mode1v3
 !default.mode2v3
 !default.pbxuser

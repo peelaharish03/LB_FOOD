@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 class MenuItemWidget extends StatefulWidget {
   final Content item;
   final int quantity;
+  
   final dynamic restaurantId;
   final String? restaurantName;
   final Function(int) onQuantityChanged;

@@ -3,9 +3,11 @@ class GetCartModel {
     required this.id,
     required this.userId,
     required this.status,
+    required this.selfOrder,
     required this.cartItems,
     required this.businessId,
     required this.businessName,
+    required this.notes,
     required this.totalCount,
     required this.createdAt,
     required this.updatedAt,
@@ -15,9 +17,11 @@ class GetCartModel {
   final int? id;
   final int? userId;
   final String? status;
+  final bool? selfOrder;
   final List<CartItem> cartItems;
   final int? businessId;
   final String? businessName;
+  final String? notes;
   final int? totalCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -28,12 +32,14 @@ class GetCartModel {
       id: json["id"],
       userId: json["userId"],
       status: json["status"],
+      selfOrder: json["selfOrder"],
       cartItems: json["cartItems"] == null
           ? []
           : List<CartItem>.from(
               json["cartItems"]!.map((x) => CartItem.fromJson(x))),
       businessId: json["businessId"],
       businessName: json["businessName"],
+      notes: json["notes"],
       totalCount: json["totalCount"],
       createdAt: DateTime.tryParse(json["createdAt"] ?? ""),
       updatedAt: DateTime.tryParse(json["updatedAt"] ?? ""),
@@ -45,9 +51,11 @@ class GetCartModel {
         "id": id,
         "userId": userId,
         "status": status,
+        "selfOrder": selfOrder,
         "cartItems": cartItems.map((x) => x.toJson()).toList(),
         "businessId": businessId,
         "businessName": businessName,
+        "notes": notes,
         "totalCount": totalCount,
         "createdAt": createdAt?.toIso8601String(),
         "updatedAt": updatedAt?.toIso8601String(),
@@ -87,7 +95,9 @@ class CartItem {
       productName: json["productName"],
       quantity: json["quantity"],
       categoryId: json["categoryId"],
-      price: json["price"],
+      price: (json["price"] is int)
+          ? (json["price"] as int).toDouble()
+          : json["price"]?.toDouble(),
       media: json["media"] == null
           ? []
           : List<Media>.from(json["media"]!.map((x) => Media.fromJson(x))),

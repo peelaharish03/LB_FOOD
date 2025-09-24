@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
+import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
 import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
 import 'dashboard_screen.dart';
 
 class MainDashboard extends StatelessWidget {
   final bool isGuest;
   const MainDashboard({super.key, this.isGuest = false});
-  
+
   void showLoginPromptSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -22,15 +24,8 @@ class MainDashboard extends StatelessWidget {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final List<String> offerBanners = [
-      "https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg",
-      "https://images.pexels.com/photos/5638268/pexels-photo-5638268.jpeg",
-      "https://images.pexels.com/photos/3026805/pexels-photo-3026805.jpeg",
-    ];
-
     return Scaffold(
       backgroundColor: AppColor.White,
       appBar: CustomAppBar(
@@ -41,10 +36,8 @@ class MainDashboard extends StatelessWidget {
             icon: const Icon(Icons.person, color: Colors.white),
             onPressed: () {
               if (isGuest) {
-                // 👇 Call bottom sheet if user is guest
                 showLoginPromptSheet(context);
               } else {
-                // 👇 Navigate to ProfileScreen if logged in
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -56,41 +49,10 @@ class MainDashboard extends StatelessWidget {
           ),
         ],
       ),
-
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          CarouselSlider(
-            options: CarouselOptions(
-              height: 180,
-              autoPlay: true,
-              enlargeCenterPage: true,
-              viewportFraction: 0.9,
-            ),
-            items: offerBanners.map((url) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(url, fit: BoxFit.cover),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.black.withOpacity(0.5),
-                            Colors.transparent
-                          ],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
+          const OffersCarousel(),
 
           const SizedBox(height: 24),
 
@@ -153,6 +115,7 @@ class MainDashboard extends StatelessWidget {
     );
   }
 }
+
 
 
   class _BannerCard extends StatelessWidget {

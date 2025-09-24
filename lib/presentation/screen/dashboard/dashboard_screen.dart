@@ -4,6 +4,8 @@ import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.d
 import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
@@ -31,7 +33,8 @@ import 'package:shimmer/shimmer.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool isGuest;
-  const DashboardScreen({super.key, this.isGuest = false});
+  final String? couponCode;
+  const DashboardScreen({super.key, this.isGuest = false,this.couponCode});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -67,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _scrollController.addListener(_scrollListener);
   }
 
-void showLoginPromptSheet(BuildContext context) {
+  void showLoginPromptSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -78,7 +81,6 @@ void showLoginPromptSheet(BuildContext context) {
       builder: (context) => const LoginPromptSheet(),
     );
   }
-
 
   Future<void> _requestLocationPermission() async {
     if (_isRequestingPermission) return;
@@ -241,6 +243,7 @@ void showLoginPromptSheet(BuildContext context) {
           restaurantName: name,
           restaurantId: id,
           isGuest: widget.isGuest,
+          couponCode : widget.couponCode
         ),
       ),
     );
@@ -410,13 +413,14 @@ void showLoginPromptSheet(BuildContext context) {
         child: Scaffold(
           backgroundColor: AppColor.White,
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(330),
+            preferredSize: const Size.fromHeight(330), // default max height
             child: ClipPath(
               child: Container(
                 color: AppColor.PrimaryColor,
                 child: SafeArea(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -429,7 +433,6 @@ void showLoginPromptSheet(BuildContext context) {
                                   color: Colors.white),
                               onPressed: () => Navigator.pop(context),
                             ),
-
                             const SizedBox(width: 8),
 
                             // Location (expanded in middle)
@@ -461,15 +464,13 @@ void showLoginPromptSheet(BuildContext context) {
                                   color: Colors.white, size: 26),
                               onPressed: () {
                                 if (widget.isGuest) {
-                                  // 👇 Call bottom sheet if user is guest
                                   showLoginPromptSheet(context);
                                 } else {
-                                  // 👇 Navigate to ProfileScreen if logged in
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          ProfileScreen(isGuest: widget.isGuest),
+                                      builder: (_) => ProfileScreen(
+                                          isGuest: widget.isGuest),
                                     ),
                                   );
                                 }
@@ -478,46 +479,56 @@ void showLoginPromptSheet(BuildContext context) {
                           ],
                         ),
                       ),
+
+                      // Search bar
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: CategorySearchBar(
-                            focusNode: _searchFocusNode,
-                            hintText:
-                                "Search for restaurants, dishes, and cuisines",
-                            onChanged: (query) async {
-                              setState(() => searchQuery = query);
+                          focusNode: _searchFocusNode,
+                          hintText:
+                              "Search for restaurants, dishes, and cuisines",
+                          onChanged: (query) async {
+                            setState(() => searchQuery = query);
 
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              final lat = prefs.getDouble('saved_latitude') ??
-                                  17.385044;
-                              final lon = prefs.getDouble('saved_longitude') ??
-                                  78.486671;
+                            final prefs = await SharedPreferences.getInstance();
+                            final lat =
+                                prefs.getDouble('saved_latitude') ?? 17.385044;
+                            final lon =
+                                prefs.getDouble('saved_longitude') ?? 78.486671;
 
-                              final params = {
-                                "productName":
-                                    query, // if using GetRestaurantsByProductNameCubit
-                                "latitude": lat,
-                                "longitude": lon,
-                                "postalCode": "531001",
-                                "page": 0,
-                                "size": 10,
-                                "searchTerm":
-                                    query, // use this when fetching with guest cubit
-                              };
+                            final params = {
+                              "productName": query,
+                              "latitude": lat,
+                              "longitude": lon,
+                              "postalCode": "531001",
+                              "page": 0,
+                              "size": 10,
+                              "searchTerm": query,
+                            };
 
-                              if (widget.isGuest) {
-                                context
-                                    .read<GuestNearByRestaurantsCubit>()
-                                    .fetchGuestNearbyRestaurants(params);
-                              } else {
-                                context
-                                    .read<GetRestaurantsByProductNameCubit>()
-                                    .fetchRestaurantsByProductName(params);
-                              }
-                            }),
+                            if (widget.isGuest) {
+                              context
+                                  .read<GuestNearByRestaurantsCubit>()
+                                  .fetchGuestNearbyRestaurants(params);
+                            } else {
+                              context
+                                  .read<GetRestaurantsByProductNameCubit>()
+                                  .fetchRestaurantsByProductName(params);
+                            }
+                          },
+                        ),
                       ),
-                      const OffersCarousel(),
+
+                      // BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
+                      //   builder: (context, state) {
+                      //     if (state is RestaurantOffersLoaded &&
+                      //         (state.offers.data?.content.isNotEmpty ??
+                      //             false)) {
+                      //       return const OffersCarousel();
+                      //     }
+                      //     return const SizedBox.shrink();
+                      //   },
+                      // ),
                     ],
                   ),
                 ),

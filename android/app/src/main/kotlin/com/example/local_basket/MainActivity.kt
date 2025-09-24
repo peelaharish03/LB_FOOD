@@ -1,4 +1,4 @@
-package com.example.local_basket
+package com.localbasket
 
 import io.flutter.embedding.android.FlutterActivity
 

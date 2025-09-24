@@ -1,5 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/data/model/offers/restaurant_offers/restaurant_offers_model.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
+import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 
 class OffersCarousel extends StatefulWidget {
   const OffersCarousel({super.key});
@@ -11,46 +16,19 @@ class OffersCarousel extends StatefulWidget {
 class _OffersCarouselState extends State<OffersCarousel> {
   final PageController _pageController = PageController(
     viewportFraction: 0.85,
-    initialPage: 1000, // start from a high number for infinite forward scroll
+    initialPage: 1000,
   );
 
   double _currentPage = 1000.0;
   Timer? _autoScrollTimer;
   bool _isUserInteracting = false;
 
-  final List<Map<String, dynamic>> offers = [
-    {
-      'tag': '50% OFF',
-      'title': 'Monsoon Feast',
-      'subtitle': 'Flat 50% off on top restaurants',
-      'colors': {
-        'gradient': [Color(0xFFE0F7FA), Color(0xFFB2EBF2)],
-        'accent': Color(0xFF00ACC1),
-      }
-    },
-    {
-      'tag': 'Free Delivery',
-      'title': 'No Delivery Fees',
-      'subtitle': 'On orders above ₹199',
-      'colors': {
-        'gradient': [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
-        'accent': Color(0xFF43A047),
-      }
-    },
-    {
-      'tag': '30% Cashback',
-      'title': 'Super Saver',
-      'subtitle': 'Get cashback on prepaid orders',
-      'colors': {
-        'gradient': [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
-        'accent': Color(0xFFFB8C00),
-      }
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
+
+    // Fetch offers from API using Cubit
+    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
 
     _pageController.addListener(() {
       setState(() {
@@ -82,50 +60,89 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
+      builder: (context, state) {
+        if (state is RestaurantOffersLoading) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (state is RestaurantOffersError) {
+          return Center(child: Text(state.message));
+        } else if (state is RestaurantOffersLoaded) {
+          final offers = state.offers.data?.content ?? [];
 
-    return GestureDetector(
-      onPanDown: (_) => _isUserInteracting = true,
-      onPanCancel: () => _isUserInteracting = false,
-      onPanEnd: (_) => _isUserInteracting = false,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 160,
-            child: PageView.builder(
-              controller: _pageController,
-              itemBuilder: (context, index) {
-                final actualItem = offers[index % offers.length];
-                final colors = actualItem['colors'];
+          if (offers.isEmpty) {
+            return const Center(child: Text("No offers available"));
+          }
 
-                final double scale = (_currentPage - index).abs() < 1.0
-                    ? 1 - (_currentPage - index).abs() * 0.1
-                    : 0.9;
+          return GestureDetector(
+            onPanDown: (_) => _isUserInteracting = true,
+            onPanCancel: () => _isUserInteracting = false,
+            onPanEnd: (_) => _isUserInteracting = false,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 160,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemBuilder: (context, index) {
+                      final Content offer = offers[index % offers.length];
 
-                return Transform.scale(
-                  scale: scale,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeOutQuint,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: OffersCard(
-                      tag: actualItem['tag'],
-                      title: actualItem['title'],
-                      subtitle: actualItem['subtitle'],
-                      onPressed: () {},
-                      gradientColors: List<Color>.from(colors['gradient']),
-                      accentColor: colors['accent'],
-                    ),
+                      // Dynamic UI: choose colors based on offerType
+                      final gradientColors =
+                          _getGradientColors(offer.offerType);
+                      final accentColor = gradientColors.last;
+
+                      final double scale = (_currentPage - index).abs() < 1.0
+                          ? 1 - (_currentPage - index).abs() * 0.1
+                          : 0.9;
+
+                      return Transform.scale(
+                        scale: scale,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutQuint,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: OffersCard(
+                            tag: offer.couponCode ?? "OFFER",
+                            title: offer.name ?? "",
+                            subtitle: offer.description ?? "",
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      DashboardScreen(couponCode: offer.couponCode),
+                                ),
+                              );
+                            },
+                            gradientColors: gradientColors,
+                            accentColor: accentColor,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-
-          // const SizedBox(height: 10),
-         
-        ],
-      ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
     );
+  }
+
+  // Helper to map offer type → gradient
+  List<Color> _getGradientColors(String? offerType) {
+    switch (offerType) {
+      case "DISCOUNT":
+        return [const Color(0xFFE0F7FA), const Color(0xFF00ACC1)];
+      case "FREE_DELIVERY":
+        return [const Color(0xFFE8F5E9), const Color(0xFF43A047)];
+      case "CASHBACK":
+        return [const Color(0xFFFFF3E0), const Color(0xFFFB8C00)];
+      default:
+        return [Colors.grey.shade200, const Color.fromARGB(255, 109, 200, 233)];
+    }
   }
 }
 

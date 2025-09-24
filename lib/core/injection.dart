@@ -20,6 +20,8 @@ import 'package:local_basket/data/datasource/cart/getCart/getCart_dataSource.dar
 import 'package:local_basket/data/datasource/cart/productsAddToCart/productsAddtoCart_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/updateCartItems/updateCartItems_dataSource.dart';
 import 'package:local_basket/data/datasource/location/location_remotedatasource.dart';
+import 'package:local_basket/data/datasource/offers/restaurant_offers/restaurant_offers_dataSource.dart';
+import 'package:local_basket/data/datasource/offers/restaurant_offers/validate_offer_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/createOrder/createOrder_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/orderHistory/orderHistory_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/reOrder/reOrder_dataSource.dart';
@@ -47,6 +49,8 @@ import 'package:local_basket/data/repositoryImpl/cart/getCart/getCart_repoImpl.d
 import 'package:local_basket/data/repositoryImpl/cart/productsAddToCart/productsAddtoCart_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/updateCartItems/updateCartItems_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/location/location_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/restaurant_offers_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/validate_offer_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/orderHistory/orderHistory_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/reOrder/reOrder_repoImpl.dart';
@@ -74,6 +78,8 @@ import 'package:local_basket/domain/repository/cart/getCart/getCart_repository.d
 import 'package:local_basket/domain/repository/cart/productsAddToCart/productsAddtoCart_repository.dart';
 import 'package:local_basket/domain/repository/cart/updateCartItems/updateCartItems_repository.dart';
 import 'package:local_basket/domain/repository/location/location_repo.dart';
+import 'package:local_basket/domain/repository/offers/restaurant_offers/restaurant_offers_repository.dart';
+import 'package:local_basket/domain/repository/offers/restaurant_offers/validate_offer_repository.dart';
 import 'package:local_basket/domain/repository/orders/createOrder/createOrder_repository.dart';
 import 'package:local_basket/domain/repository/orders/orderHistory/orderHistory_repository.dart';
 import 'package:local_basket/domain/repository/orders/reOrder/reOrder_repository.dart';
@@ -101,6 +107,8 @@ import 'package:local_basket/domain/usecase/cart/getCart/getCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/productsAddToCart/productsAddtoCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems_usecase.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
+import 'package:local_basket/domain/usecase/offers/restaurant_offers/restaurant_offers_usecase.dart';
+import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_offer_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
@@ -128,6 +136,8 @@ import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart'
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
@@ -595,5 +605,36 @@ void init() {
   );
   sl.registerFactory(() => DeleteAccountCubit(
         sl<DeleteAccountUseCase>(),
+      ));
+
+  //RestaurantOffers
+
+  sl.registerLazySingleton<RestaurantOffersRemoteDataSource>(
+    () => RestaurantOffersRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<RestaurantOffersRepository>(
+    () => RestaurantOffersRepositoryImpl(
+        remoteDataSource: sl<RestaurantOffersRemoteDataSource>()),
+  );
+  sl.registerLazySingleton(
+    () => RestaurantOffersUseCase(repository: sl<RestaurantOffersRepository>()),
+  );
+  sl.registerFactory(() => RestaurantOffersCubit(
+        sl<RestaurantOffersUseCase>(),
+      ));
+
+      //ValidateOffer
+        sl.registerLazySingleton<ValidateOfferRemoteDataSource>(
+    () => ValidateOfferRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<ValidateOfferRepository>(
+    () => ValidateOfferRepositoryImpl(
+        remoteDataSource: sl<ValidateOfferRemoteDataSource>()),
+  );
+  sl.registerLazySingleton(
+    () => ValidateOfferUseCase(repository: sl<ValidateOfferRepository>()),
+  );
+  sl.registerFactory(() => ValidateOfferCubit(
+        sl<ValidateOfferUseCase>(),
       ));
 }

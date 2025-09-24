@@ -4,8 +4,7 @@
 //prod//
 const baseUrl2 = 'https://kovela.app/usermgmt/';
 
-
-const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=false';
+const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=true';
 const SigninUrl = 'auth/login';
 const SignupUrl = 'auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = 'user/userDetails';
@@ -18,8 +17,7 @@ String getNearbyRestaurantsUrl(
   return 'business/find?latitude=$latitude&longitude=$longitude&radius=100&postalCode=$postalCode&page=$page&size=$size&categoryName=Restaurant';
 }
 
-String guestNearbyRestaurantsUrl(
-    double latitude, double longitude,
+String guestNearbyRestaurantsUrl(double latitude, double longitude,
     String postalCode, int page, int size, String searchTerm) {
   return 'api/public/find?latitude=$latitude&longitude=$longitude&radius=100&postalCode=$postalCode&searchTerm=$searchTerm&page=$page&size=$size';
 }
@@ -64,6 +62,9 @@ const deleteAddressUrl = 'usermgmt/api/addresses';
 const defaultAddressUrl = 'usermgmt/api/addresses/setdefaultAddress';
 const addressSavetoCartUrl = 'order/api/carts/address?addressId';
 const paymentRefundHistory = '';
+const restaurantOffersUrl =
+    'product/api/offers/list?businessId=0&active=true&page=0&size=100';
+const validateOfferUrl = 'order/offers/102/validate';
 
 String updateCartItemsUrl(String cartId) {
   return 'order/api/carts/items/$cartId';

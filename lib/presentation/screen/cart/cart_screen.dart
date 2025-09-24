@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/address_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
@@ -42,11 +44,17 @@ class _CartScreenState extends State<CartScreen> {
   static const razorPaySecret = 'UMfObdnXjWv3opzzTwHwAiv8';
   final TextEditingController notesController = TextEditingController();
 
+  final TextEditingController couponController = TextEditingController();
+  bool _isCouponApplied = false;
+
+
   final Map<String, int> cart = {};
   final List<Map<String, dynamic>> selectedItems = [];
   int? cartId;
   bool loading = false;
   String selectedAddress = "Add Address";
+  bool selfOrder = true; 
+
 
   static const double gstPercentage = 0.05;
   static const double deliveryCharge = 30.0;
@@ -123,8 +131,11 @@ class _CartScreenState extends State<CartScreen> {
       });
 
   double getGSTAmount() => getSubtotal() * gstPercentage;
-  double getTotalAmount() =>
-      (getSubtotal() + getGSTAmount() + deliveryCharge).floorToDouble();
+  double getTotalAmount() {
+    if (_isCouponApplied) return 1.0;
+    return (getSubtotal() + getGSTAmount() + deliveryCharge).floorToDouble();
+  }
+
   int getCartItemCount() => cart.values.fold(0, (sum, q) => sum + q);
 
   Future<Map<String, dynamic>> _createOrder(int amount) async {
@@ -153,6 +164,83 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
+    final proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, 
+      builder: (context) {
+        return Dialog(
+          backgroundColor: AppColor.White,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange, size: 60),
+                const SizedBox(height: 16),
+                const Text(
+                  "Before You Proceed",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "⚠️ Payments once made cannot be cancelled or refunded.\n\n"
+                  "Please review your order before proceeding.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black54,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        foregroundColor: Colors.black87,
+                      ),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColor.PrimaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text(
+                        "I Understand, Proceed",
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (proceed != true) return;
+
     final amountInPaise = (getTotalAmount() * 100).toInt();
     final orderResp = await _createOrder(amountInPaise);
     if (orderResp["status"] != "success") {
@@ -171,6 +259,7 @@ class _CartScreenState extends State<CartScreen> {
       'theme': {'color': '#081724'}
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -192,10 +281,51 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<GetCartCubit, GetCartState>(
           listener: (context, state) {
             if (state is GetCartLoaded) {
-              setState(() => cartId = state.cart.id);
+              setState(() {
+                cartId = state.cart.id;
+                // pull existing notes & selfOrder from API
+                notesController.text = state.cart.notes ?? "";
+                selfOrder = state.cart.selfOrder ?? true;
+              });
             }
           },
         ),
+
+        BlocListener<ValidateOfferCubit, ValidateOfferState>(
+          listener: (context, state) {
+            if (state is ValidateOfferSuccess) {
+              final res = state.validateOfferModel;
+
+              if (res.message?.toLowerCase() == "true") {
+                CustomSnackbars.showSuccessSnack(
+                  context: context,
+                  title: "Coupon Applied",
+                  message: "Offer applied successfully!",
+                );
+                setState(() {
+                  _isCouponApplied = true;
+                });
+              } else {
+                CustomSnackbars.showErrorSnack(
+                  context: context,
+                  title: "Offer Expired",
+                  message: res.data ?? "Coupon is not valid",
+                );
+                setState(() {
+                  _isCouponApplied = false;
+                });
+              }
+            } else if (state is ValidateOfferFailure) {
+              CustomSnackbars.showErrorSnack(
+                context: context,
+                title: "Error",
+                message: state.error,
+              );
+            }
+          },
+        ),
+
+
         BlocListener<PaymentCubit, PaymentState>(
           listener: (context, state) {
             if (state is PaymentRefundSuccess) {
@@ -257,6 +387,44 @@ class _CartScreenState extends State<CartScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: selfOrder,
+                    activeColor: AppColor.PrimaryColor,
+                    onChanged: (val) {
+                      setState(() => selfOrder = val ?? true);
+
+                      final itemsPayload = selectedItems.map((item) {
+                        final name = item['name'];
+                        final quantity = cart[name] ?? 1;
+                        return {
+                          "productId": item['productId'] ?? item['id'],
+                          "quantity": quantity,
+                          "price": item['price'] ?? 0,
+                        };
+                      }).toList();
+
+                      final payload = {
+                        "notes": notesController.text.trim(),
+                        "selfOrder": selfOrder,
+                        "items": itemsPayload,
+                      };
+
+                      context.read<ProductsAddToCartCubit>().addToCart(payload);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Self Order (I’ll pick it myself)",
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: InkWell(
                 onTap: () async {
                   final newNote = await showDialog<String>(
@@ -299,12 +467,14 @@ class _CartScreenState extends State<CartScreen> {
 
                     final Map<String, dynamic> payload = {
                       "notes": notesController.text.trim(),
+                      "selfOrder": selfOrder,
                       "items": itemsPayload,
                     };
 
                     context.read<ProductsAddToCartCubit>().addToCart(payload);
                   }
                 },
+
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -318,6 +488,7 @@ class _CartScreenState extends State<CartScreen> {
                       )
                     ],
                   ),
+                  
                   child: Row(
                     children: [
                       const Icon(Icons.notes_rounded, color: Colors.orange),
@@ -343,6 +514,42 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: couponController,
+                      decoration: InputDecoration(
+                        hintText: "Enter coupon code",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<ValidateOfferCubit>().validateOffer();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColor.PrimaryColor,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text("Apply"),
+                  ),
+                ],
+              ),
+            ),
+
             Expanded(
               child: selectedItems.isEmpty
                   ? const Center(child: Text("No items in cart"))
@@ -406,6 +613,7 @@ class _CartScreenState extends State<CartScreen> {
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
+                                
                             child: CheckoutBottomBar(
                               subtotal: getSubtotal(),
                               gst: getGSTAmount(),
