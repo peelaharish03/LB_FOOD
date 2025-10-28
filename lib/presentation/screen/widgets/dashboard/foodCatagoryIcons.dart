@@ -58,13 +58,24 @@ class _FoodCategoryIconsState extends State<FoodCategoryIcons> {
               children: [
                 Stack(
                   children: [
-                    Container(
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? AppColor.PrimaryColor : Colors.transparent,
+                          color:
+                              isSelected ? AppColor.White : Colors.transparent,
                           width: 3,
                         ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
                       ),
                       child: ClipOval(
                         child: Image.asset(
@@ -82,13 +93,13 @@ class _FoodCategoryIconsState extends State<FoodCategoryIcons> {
                         child: Container(
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: AppColor.PrimaryColor,
+                            color: AppColor.White,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.check,
                             size: 16,
-                            color: Colors.white,
+                            color: Colors.black,
                           ),
                         ),
                       ),
@@ -98,7 +109,7 @@ class _FoodCategoryIconsState extends State<FoodCategoryIcons> {
                 Text(
                   category["label"],
                   style: GoogleFonts.poppins(
-                    color: isSelected ? AppColor.PrimaryColor : Colors.black,
+                    color: isSelected ? AppColor.White : Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),

@@ -10,7 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 class MenuItemWidget extends StatefulWidget {
   final Content item;
   final int quantity;
-  
+  final bool isCouponFlow; // <--- add this
+
   final dynamic restaurantId;
   final String? restaurantName;
   final Function(int) onQuantityChanged;
@@ -26,6 +27,7 @@ class MenuItemWidget extends StatefulWidget {
     this.restaurantName,
     this.isGuest = false,
     this.onGuestAttempt,
+    this.isCouponFlow = false,
   });
 
   @override
@@ -204,9 +206,6 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
             child: Container(
               height: 140,
               width: 140,
-              // decoration: BoxDecoration(
-              //   color: Colors.transparent,
-              // ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -218,7 +217,6 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                         errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
                     ),
-
                   if (isBeforeStartTime)
                     Positioned.fill(
                       child: Container(
@@ -235,7 +233,6 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                         ),
                       ),
                     ),
-
                   Align(
                     alignment: mediaUrl == null
                         ? Alignment.center
@@ -259,8 +256,14 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                             )
                           : quantity == 0
                               ? ElevatedButton(
-                                  onPressed: () =>
-                                      _handleAdd(cartData, cartBusinessId),
+                                  onPressed: () {
+                                    if (widget.isCouponFlow) {
+                                      // Coupon flow → force qty=1
+                                      updateQuantity(1);
+                                    } else {
+                                      _handleAdd(cartData, cartBusinessId);
+                                    }
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.white,
                                     elevation: 2,
@@ -309,16 +312,27 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                                         ),
                                       ),
                                       GestureDetector(
-                                        onTap: () => _handleAdd(
-                                            cartData, cartBusinessId),
-                                        child: Icon(Icons.add,
-                                            color: AppColor.PrimaryColor,
-                                            size: 18),
+                                        onTap: () {
+                                          print(
+                                              "><><<><<${widget.isCouponFlow}");
+                                          if (widget.isCouponFlow) {
+                                            // 🚫 disable increment beyond 1 in coupon flow
+                                            return;
+                                          }
+                                          _handleAdd(cartData, cartBusinessId);
+                                        },
+                                        child: Icon(
+                                          Icons.add,
+                                          color: widget.isCouponFlow
+                                              ? Colors
+                                                  .grey // greyed out in coupon flow
+                                              : AppColor.PrimaryColor,
+                                          size: 18,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-
                     ),
                   ),
                 ],

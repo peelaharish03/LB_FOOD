@@ -4,7 +4,7 @@
 //prod//
 const baseUrl2 = 'https://kovela.app/usermgmt/';
 
-const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=true';
+const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=false';
 const SigninUrl = 'auth/login';
 const SignupUrl = 'auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = 'user/userDetails';

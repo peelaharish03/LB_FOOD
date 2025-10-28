@@ -389,53 +389,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ignore: deprecated_member_use
-    return WillPopScope(
-      onWillPop: () async {
-        if (_searchFocusNode.hasFocus) {
-          _searchFocusNode.unfocus();
-          return false;
-        }
-        return true;
-      },
-      child: BlocListener<GetCartCubit, GetCartState>(
-        listener: (context, state) {
-          if (state is GetCartLoaded) {
-            setState(() {
-              cartList = state.cart.cartItems;
-              cartData = state.cart;
-              _showBottomCart =
-                  cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0;
-            });
-          }
-          if (state is GetCartError) {}
-        },
-        child: Scaffold(
-          backgroundColor: AppColor.White,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(330), // default max height
-            child: ClipPath(
-              child: Container(
-                color: AppColor.PrimaryColor,
+    return Scaffold(
+      backgroundColor: AppColor.White,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          // 🔻 Collapsible AppBar
+          SliverAppBar(
+            automaticallyImplyLeading: false,
+            expandedHeight: 260,
+            pinned: false,
+            floating: false,
+            backgroundColor: AppColor.PrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.parallax,
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFF6B00), Color(0xFFFF1E00)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
                 child: SafeArea(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // 🔙 Top Row
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Back Button
                             IconButton(
                               icon: const Icon(Icons.arrow_back_ios,
                                   color: Colors.white),
                               onPressed: () => Navigator.pop(context),
                             ),
                             const SizedBox(width: 8),
-
-                            // Location (expanded in middle)
                             Expanded(
                               child: (isLocationInitializing ||
                                       latitude == null ||
@@ -457,8 +447,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       isGuest: widget.isGuest,
                                     ),
                             ),
-
-                            // Right-side Profile Icon
                             IconButton(
                               icon: const Icon(Icons.person,
                                   color: Colors.white, size: 26),
@@ -480,7 +468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
 
-                      // Search bar
+                      // 🔍 Search Bar
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: CategorySearchBar(
@@ -489,13 +477,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               "Search for restaurants, dishes, and cuisines",
                           onChanged: (query) async {
                             setState(() => searchQuery = query);
-
                             final prefs = await SharedPreferences.getInstance();
                             final lat =
                                 prefs.getDouble('saved_latitude') ?? 17.385044;
                             final lon =
                                 prefs.getDouble('saved_longitude') ?? 78.486671;
-
                             final params = {
                               "productName": query,
                               "latitude": lat,
@@ -505,7 +491,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               "size": 10,
                               "searchTerm": query,
                             };
-
+                            if (widget.isGuest) {
+                              context
+                                  .read<GuestNearByRestaurantsCubit>()
+                                  .fetchGuestNearbyRestaurants(params);
+                            } else {
+                              context
+                                  .read<GetRestaurantsByProductNameCubit>()
+                                  .fetchRestaurantsByProductName(params);
+                            }
+                          },
+                        ),
+                        
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: FoodCategoryIcons(
+                          onCategoryTap: (label) async {
+                            setState(() => searchQuery = label);
+                            final prefs = await SharedPreferences.getInstance();
+                            final lat =
+                                prefs.getDouble('saved_latitude') ?? 17.385044;
+                            final lon =
+                                prefs.getDouble('saved_longitude') ?? 78.486671;
+                            final params = {
+                              "productName": label,
+                              "latitude": lat,
+                              "longitude": lon,
+                              "postalCode": "531001",
+                              "page": 0,
+                              "size": 10,
+                              "searchTerm": label,
+                            };
                             if (widget.isGuest) {
                               context
                                   .read<GuestNearByRestaurantsCubit>()
@@ -518,160 +535,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                       ),
-
-                      // BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
-                      //   builder: (context, state) {
-                      //     if (state is RestaurantOffersLoaded &&
-                      //         (state.offers.data?.content.isNotEmpty ??
-                      //             false)) {
-                      //       return const OffersCarousel();
-                      //     }
-                      //     return const SizedBox.shrink();
-                      //   },
-                      // ),
+                      const SizedBox(height: 10),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          body: Stack(
-            children: [
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        FoodCategoryIcons(
-                          onCategoryTap: (label) async {
-                            setState(() => searchQuery = label);
 
-                            final prefs = await SharedPreferences.getInstance();
-                            final lat =
-                                prefs.getDouble('saved_latitude') ?? 17.385044;
-                            final lon =
-                                prefs.getDouble('saved_longitude') ?? 78.486671;
-
-                            final params = {
-                              "productName": label,
-                              "latitude": lat,
-                              "longitude": lon,
-                              "postalCode": "531001",
-                              "page": 0,
-                              "size": 10,
-                              "searchTerm": label, // relevant for guest cubit
-                            };
-
-                            if (widget.isGuest) {
-                              context
-                                  .read<GuestNearByRestaurantsCubit>()
-                                  .fetchGuestNearbyRestaurants(params);
-                            } else {
-                              context
-                                  .read<GetRestaurantsByProductNameCubit>()
-                                  .fetchRestaurantsByProductName(params);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Restaurants to Explore",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: AppColor.Black,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        searchQuery.isEmpty
-                            ? _buildNearbyRestaurants()
-                            : _buildSearchResults(),
-                        SizedBox(height: cartList.isNotEmpty ? 80 : 0),
-                      ],
+          // 🧾 Scrollable Content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  
+                  Text(
+                    "Restaurants to Explore",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppColor.Black,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  searchQuery.isEmpty
+                      ? _buildNearbyRestaurants()
+                      : _buildSearchResults(),
+                  const SizedBox(height: 120),
+                ],
               ),
-              if (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: AnimatedSlide(
-                    duration: const Duration(milliseconds: 300),
-                    offset: _showBottomCart ? Offset.zero : const Offset(0, 1),
-                    child: BottomCartCard(
-                      itemCount: cartData?.totalCount ?? 0,
-                      onDeletePressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => ClearCartDialog(
-                            onClear: () async {
-                              await _clearCart();
-                            },
-                          ),
-                        );
-                      },
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CartScreen(
-                              cartItems: cartList
-                                  .map((cartItem) => {
-                                        'productId': cartItem.productId,
-                                        'quantity': cartItem.quantity ?? 0,
-                                        'price': cartItem.price ?? 0,
-                                        'name': cartItem.productName ?? '',
-                                        'media': cartItem.media.isNotEmpty
-                                            ? cartItem.media[0].url
-                                            : null,
-                                      })
-                                  .toList(),
-                            ),
-                          ),
-                        );
-                        if (!mounted) return;
-                        if (result != null && result is Map) {
-                          final updatedCount = result['cartItemsLength'] ?? 0;
-                          final cubit = context.read<GetCartCubit>();
-                          await cubit.fetchCart(context);
-                          final state = cubit.state;
-                          if (state is GetCartLoaded) {
-                            setState(() {
-                              cartList = state.cart.cartItems;
-                              cartData = state.cart;
-                              _showBottomCart = updatedCount > 0 &&
-                                  (cartData?.totalCount ?? 0) > 0;
-                            });
-                            double total = 0;
-                            debugPrint("🛒 Updated Cart Items:");
-                            for (var item in cartList) {
-                              final quantity = item.quantity ?? 0;
-                              final price = item.price ?? 0;
-                              final itemTotal = quantity * price;
-                              total += itemTotal;
-                              debugPrint(
-                                  "→ ${item.productName}: Qty = $quantity, Price = ₹$price, Total = ₹$itemTotal");
-                            }
-                            debugPrint(
-                                "🧾 Grand Total: ₹${total.toStringAsFixed(2)}");
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+
+          // ✅ Spacer for Bottom Cart
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        ],
       ),
+
+      bottomNavigationBar:
+          (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
+              ? BottomCartCard(
+                  itemCount: cartData?.totalCount ?? 0,
+                  onDeletePressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => ClearCartDialog(
+                        onClear: () async => await _clearCart(),
+                      ),
+                    );
+                  },
+                  onTap: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CartScreen(
+                          cartItems: cartList
+                              .map((cartItem) => {
+                                    'productId': cartItem.productId,
+                                    'quantity': cartItem.quantity ?? 0,
+                                    'price': cartItem.price ?? 0,
+                                    'name': cartItem.productName ?? '',
+                                    'media': cartItem.media.isNotEmpty
+                                        ? cartItem.media[0].url
+                                        : null,
+                                  })
+                              .toList(),
+                        ),
+                      ),
+                    );
+                    if (!mounted) return;
+                    if (result != null && result is Map) {
+                      final cubit = context.read<GetCartCubit>();
+                      await cubit.fetchCart(context);
+                    }
+                  },
+                )
+              : null,
     );
   }
+
 }
 
 Widget _buildShimmerRestaurants() {

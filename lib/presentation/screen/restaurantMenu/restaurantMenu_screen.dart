@@ -38,14 +38,17 @@ class RestaurantMenuScreen extends StatefulWidget {
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, int> cart = {};
-  int totalItems = 0, page = 0, size = 10;
+  int totalItems = 0, page = 0, size = 300;
   PersistentBottomSheetController? _bottomSheetController;
+  bool get _isCouponFlow => widget.couponCode != null;
   bool isBottomSheetVisible = false;
   String searchText = '', filterType = 'All';
   List<Content> selectedItems = [], menuItems = [];
   Timer? _debounce;
   bool _isMenuLoaded = false;
   bool _isCartLoaded = false;
+  Content? _couponSelectedItem;
+
 
   @override
   void initState() {
@@ -72,6 +75,49 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         });
       }
     });
+  }
+
+void _showReplaceItemDialog(Content newItem) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text("Replace item?"),
+        content: const Text(
+            "You can only select one item with this coupon. Do you want to replace your current item with the new one?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop(); // cancel
+            },
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColor.PrimaryColor,
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+
+              // Remove old item
+              if (_couponSelectedItem != null) {
+                cart.remove(_couponSelectedItem!.name);
+                final oldIndex = menuItems
+                    .indexWhere((m) => m.id == _couponSelectedItem!.id);
+                if (oldIndex != -1) {
+                  // Force rebuild by creating a new list instance
+                  menuItems = List.from(menuItems);
+                }
+              }
+
+              _couponSelectedItem = newItem;
+              update_Cart(newItem, 1);
+            },
+            child: const Text("Replace"),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _loadCart() async {
@@ -152,6 +198,41 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   void update_Cart(Content item, int qty) {
+    if (_isCouponFlow) {
+      if (_couponSelectedItem != null && _couponSelectedItem!.id != item.id) {}
+
+      cart = {item.name ?? "": 1};
+      selectedItems = [item];
+
+      menuItems = List.from(menuItems);
+
+      totalItems = 1;
+
+      setState(() {});
+      final List<Map<String, dynamic>> items = [
+        {"productId": item.id, "quantity": 1}
+      ];
+
+      final cartState = context.read<GetCartCubit>().state;
+      String notes = "";
+      bool selfOrder = true;
+      if (cartState is GetCartLoaded) {
+        notes = cartState.cart.notes ?? "";
+        selfOrder = cartState.cart.selfOrder ?? true;
+      }
+
+      final Map<String, dynamic> payload = {
+        "notes": notes,
+        "selfOrder": selfOrder,
+        "items": items,
+      };
+      context.read<ProductsAddToCartCubit>().addToCart(payload);
+      context.read<GetCartCubit>().fetchCart(context);
+
+      return;
+    }
+
+    // ------------------ Normal Flow ------------------
     var updatedCart = Map<String, int>.from(cart);
     var updatedSelectedItems = List<Content>.from(selectedItems);
 
@@ -178,12 +259,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     });
 
     final List<Map<String, dynamic>> items = selectedItems
-        .map((item) => {
-              "productId": item.id,
-              "quantity": cart[item.name] ?? 0,
-              // "price": item.price ?? 0,
+        .map((itm) => {
+              "productId": itm.id,
+              "quantity": cart[itm.name] ?? 0,
             })
         .toList();
+
     final cartState = context.read<GetCartCubit>().state;
     String notes = "";
     bool selfOrder = true;
@@ -610,6 +691,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                                         context, 0, item);
                                   },
                                 );
+
                               },
                             );
                           } else if (state is GuestMenuByRestaurantIdFailure) {
@@ -636,6 +718,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                                 child: CupertinoActivityIndicator());
                           } else if (state is GetMenuByRestaurantIdLoaded) {
                             final filteredItems = menuItems.where((item) {
+                              if (_isCouponFlow && item.categoryId != 2)
+                                return false; // only categoryId == 2
                               final matchesSearch = (item.name ?? "")
                                   .toLowerCase()
                                   .contains(searchText.toLowerCase());
@@ -662,6 +746,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                               return matchesSearch && matchesFilter;
                             }).toList();
 
+
                             if (filteredItems.isEmpty) {
                               return const Center(
                                   child: Text("No menu items available"));
@@ -676,11 +761,34 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                                 final quantity = cart[item.name ?? ""] ?? 0;
                                 return MenuItemWidget(
                                   item: item,
-                                  quantity: quantity,
+                                  quantity: _isCouponFlow
+                                      ? (cart[item.name ?? ""] ?? 0)
+                                      : (cart[item.name ?? ""] ?? 0),
                                   restaurantId: widget.restaurantId,
                                   restaurantName: widget.restaurantName,
-                                  onQuantityChanged: (qty) =>
-                                      update_Cart(item, qty),
+                                  isCouponFlow: _isCouponFlow, // add this flag
+                                  onQuantityChanged: (qty) {
+                                    if (_isCouponFlow) {
+                                      final alreadySelected = cart.entries.any(
+                                          (entry) =>
+                                              entry.value > 0 &&
+                                              entry.key != (item.name ?? ""));
+
+                                      if (alreadySelected &&
+                                          qty == 1 &&
+                                          (cart[item.name ?? ""] ?? 0) == 0) {
+                                        // Another item is already selected → show dialog
+                                        _showReplaceItemDialog(item);
+                                      } else {
+                                        update_Cart(
+                                            item, 1); // normal coupon flow
+                                      }
+                                    } else {
+                                      update_Cart(item, qty);
+                                    }
+                                  },
+
+
                                 );
                               },
                             );
@@ -697,3 +805,5 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ));
   }
 }
+
+

@@ -1,4 +1,4 @@
-
+const appLogo = 'assets/images/png/ic_launcher.png';
 //homepage 1st
 const dish = 'assets/images/jpg/dish.jpg';
 const strawberry = 'local_basket/assets/images/jpg/strawberry.jpg';
