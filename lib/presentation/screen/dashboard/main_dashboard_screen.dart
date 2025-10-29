@@ -52,7 +52,7 @@ class MainDashboard extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const OffersCarousel(),
+           OffersCarousel(isGuest:isGuest),
 
           const SizedBox(height: 24),
 

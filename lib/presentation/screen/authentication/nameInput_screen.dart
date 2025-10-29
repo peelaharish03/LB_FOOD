@@ -59,7 +59,7 @@ bool _hasNavigated = false;
       final payload = {
         'fullName': fullName,
         'email': _emailController.text.trim(),
-        'local_basket': true,
+        'eato': true,
         'fcmToken': ''
       };
 
