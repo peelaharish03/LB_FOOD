@@ -124,7 +124,6 @@ class FoodItemCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Restaurant & Status Row
                   Row(
                     children: [
                       Expanded(

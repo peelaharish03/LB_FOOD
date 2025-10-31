@@ -266,8 +266,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             "Restaurant": getName(restaurant),
             "Items": getCategory(restaurant),
             "mediaList": getMediaList(restaurant),
-            // "itemPrice": "₹200",
-            // "rating": 4.2,
             "time": "20 - 25 MINS"
           },
           mediaUrls: getMediaList(restaurant),

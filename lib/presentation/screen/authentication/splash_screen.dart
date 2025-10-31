@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 import 'package:local_basket/presentation/screen/authentication/nameInput_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -24,7 +24,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _videoController;
   late Future<void> _videoInitFuture;
-  bool _hasNavigated = false;
+  bool _navigateManually = false;
   final NotificationServices _notificationServices = NotificationServices();
 
   @override
@@ -47,77 +47,55 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 4));
 
     final prefs = await SharedPreferences.getInstance();
+
     String? deviceId = await _getUniqueDeviceId();
     if (deviceId != null) {
       await prefs.setString('device_id', deviceId);
     }
+    print("Device ID: $deviceId");
 
-    print("📱 Device ID: $deviceId");
+    final token = prefs.getString('TOKEN');
+    final isFirstTime = prefs.getBool('isFirstTime') ?? true;
 
-    String? token = prefs.getString('TOKEN');
-
-    if (token == null || token.isEmpty) {
-      print("⚠️ Token missing, redirecting to login...");
-      _safeNavigateTo(const LoginScreen());
+    if (isFirstTime) {
+      await prefs.setBool('isFirstTime', false);
+      _navigateTo(const LoginScreen());
       return;
     }
 
-    print("🔑 Token found, verifying user...");
+    if (token == null || token.isEmpty) {
+      _navigateTo(const LoginScreen());
+      return;
+    }
 
-    // Await CurrentCustomerCubit result safely
-    final completer = Completer<void>();
-
-    final subscription = context.read<CurrentCustomerCubit>().stream.listen(
-      (state) {
-        if (_hasNavigated) return;
-
-        if (state is CurrentCustomerLoaded) {
-          completer.complete();
-          final isEato = state.currentCustomerModel.eato ?? false;
-          _safeNavigateTo(
-              isEato ? const MainDashboard() : const NameInputScreen());
-        } else if (state is CurrentCustomerError) {
-          completer.complete();
-          _safeNavigateTo(const LoginScreen());
-        }
-      },
-    );
-
-    // Trigger the Cubit request
-    context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
-
-    // Wait for Cubit to respond or time out
-    await completer.future.timeout(const Duration(seconds: 8), onTimeout: () {
-      print("⏰ Timeout waiting for CurrentCustomer response.");
-      if (!_hasNavigated) _safeNavigateTo(const LoginScreen());
-    });
-
-    await subscription.cancel();
-  }
-
-  void _safeNavigateTo(Widget screen) {
-    if (!mounted || _hasNavigated) return;
-    _hasNavigated = true;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    await context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
+    setState(() => _navigateManually = true);
   }
 
   Future<String?> _getUniqueDeviceId() async {
     final deviceInfoPlugin = DeviceInfoPlugin();
+
     try {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfoPlugin.androidInfo;
         return androidInfo.id;
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfoPlugin.iosInfo;
-        return iosInfo.identifierForVendor;
+        return iosInfo.identifierForVendor; // Unique on iOS
       }
     } catch (e) {
       debugPrint("Device ID fetch error: $e");
     }
+
     return null;
+  }
+
+  void _navigateTo(Widget screen) {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -132,8 +110,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
     await _notificationServices.firebaseInit(context);
+
     if (!mounted) return;
     await _notificationServices.setupInteractMessage(context);
+
     if (!mounted) return;
     await _notificationServices.isRefreshToken();
 
@@ -143,7 +123,7 @@ class _SplashScreenState extends State<SplashScreen> {
         final payload = {
           'fullName': '',
           'email': '',
-          'eato': true,
+          'local_basket': true,
           "fcmToken": fcmToken,
         };
         context
@@ -155,57 +135,72 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder(
-        future: _videoInitFuture,
-        builder: (context, snapshot) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              if (snapshot.connectionState == ConnectionState.done)
-                FittedBox(
-                  fit: BoxFit.cover,
-                  child: Transform.translate(
-                    offset: const Offset(25, 0),
-                    child: SizedBox(
-                      width: _videoController.value.size.width,
-                      height: _videoController.value.size.height,
-                      child: VideoPlayer(_videoController),
-                    ),
-                  ),
-                )
-              else
-                Container(color: Colors.black),
-              Container(color: Colors.black.withOpacity(0.5)),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Localbasket',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.5,
+    return BlocListener<CurrentCustomerCubit, CurrentCustomerState>(
+      listener: (context, state) {
+        if (!_navigateManually) return;
+
+        if (state is CurrentCustomerLoaded) {
+          final local_basket = state.currentCustomerModel.eato ?? false;
+          _navigateTo(
+              local_basket ? const MainDashboard() : const NameInputScreen());
+        } else {
+          _navigateTo(const LoginScreen());
+        }
+      },
+      child: Scaffold(
+        body: FutureBuilder(
+          future: _videoInitFuture,
+          builder: (context, snapshot) {
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (snapshot.connectionState == ConnectionState.done)
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: Transform.translate(
+                      offset: const Offset(25, 0),
+                      child: SizedBox(
+                        width: _videoController.value.size.width,
+                        height: _videoController.value.size.height,
+                        child: VideoPlayer(_videoController),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Delight Delivered',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
+                  )
+                else
+                  Container(color: Colors.black),
+                Container(
+                  color: Colors.black.withOpacity(0.5),
                 ),
-              ),
-            ],
-          );
-        },
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Localbasket',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Delight Delivered',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white70,
+                          fontSize: 16,
+                          fontStyle: FontStyle.italic,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

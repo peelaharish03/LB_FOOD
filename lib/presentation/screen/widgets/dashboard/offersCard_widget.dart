@@ -7,8 +7,7 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_res
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 
 class OffersCarousel extends StatefulWidget {
-  final bool isGuest;
-  const OffersCarousel({super.key, this.isGuest = false});
+  const OffersCarousel({super.key});
 
   @override
   State<OffersCarousel> createState() => _OffersCarouselState();
@@ -28,10 +27,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
   void initState() {
     super.initState();
 
-    // If not guest, fetch offers
-    if (!widget.isGuest) {
-      context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
-    }
+    // Fetch offers from API using Cubit
+    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
 
     _pageController.addListener(() {
       setState(() {
@@ -46,6 +43,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
     _autoScrollTimer?.cancel();
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (!_pageController.hasClients || _isUserInteracting) return;
+
       _pageController.nextPage(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
@@ -62,26 +60,19 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    // 🧍 Guest users see nothing
-    if (widget.isGuest) {
-      return const SizedBox.shrink();
-    }
-
     return BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
       builder: (context, state) {
         if (state is RestaurantOffersLoading) {
-          return const SizedBox.shrink(); // no loader for clean UI
+          return const Center(child: CircularProgressIndicator());
         } else if (state is RestaurantOffersError) {
-          return const SizedBox.shrink(); // no error text, silent fail
+          return Center(child: Text(state.message));
         } else if (state is RestaurantOffersLoaded) {
           final offers = state.offers.data?.content ?? [];
 
-          // If API returns empty list → hide section completely
           if (offers.isEmpty) {
-            return const SizedBox.shrink();
+            return const Center(child: Text("No offers available"));
           }
 
-          // 🏷 Offers carousel
           return GestureDetector(
             onPanDown: (_) => _isUserInteracting = true,
             onPanCancel: () => _isUserInteracting = false,
@@ -94,6 +85,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
                     controller: _pageController,
                     itemBuilder: (context, index) {
                       final Content offer = offers[index % offers.length];
+
+                      // Dynamic UI: choose colors based on offerType
                       final gradientColors =
                           _getGradientColors(offer.offerType);
                       final accentColor = gradientColors.last;
@@ -116,9 +109,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => DashboardScreen(
-                                    couponCode: offer.couponCode,
-                                  ),
+                                  builder: (_) =>
+                                      DashboardScreen(couponCode: offer.couponCode),
                                 ),
                               );
                             },
@@ -134,13 +126,12 @@ class _OffersCarouselState extends State<OffersCarousel> {
             ),
           );
         }
-
         return const SizedBox.shrink();
       },
     );
   }
 
-  // Helper for dynamic gradients based on offer type
+  // Helper to map offer type → gradient
   List<Color> _getGradientColors(String? offerType) {
     switch (offerType) {
       case "DISCOUNT":
@@ -150,7 +141,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
       case "CASHBACK":
         return [const Color(0xFFFFF3E0), const Color(0xFFFB8C00)];
       default:
-        return [Colors.grey.shade200, const Color(0xFF6DC8E9)];
+        return [Colors.grey.shade200, const Color.fromARGB(255, 109, 200, 233)];
     }
   }
 }
