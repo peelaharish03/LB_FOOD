@@ -25,7 +25,7 @@ class UpdateCurrentCustomerRemoteDataSourceImpl
         "fullName": payload['fullName'],
         "email": payload['email'],
         "fcmToken": payload['fcmToken'],
-        "eato": payload['eato'],
+        "local_basket": payload['local_basket'],
       });
       print(formData);
       final response = await client.put(

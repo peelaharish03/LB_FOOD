@@ -3,7 +3,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../model/authentication/signin_model.dart';
 
 abstract class SignInRemoteDataSource {
-  Future<SignInModel> signIn(String mobileNumber, String otp, String fullName);
+  Future<SignInModel> signIn(String mobileNumber, String otp,String fullName);
 }
 
 class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
@@ -12,8 +12,7 @@ class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
   SignInRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<SignInModel> signIn(
-      String mobileNumber, String otp, String fullName) async {
+  Future<SignInModel> signIn(String mobileNumber, String otp,String fullName) async {
     final payload = {
       "otp": otp,
       "primaryContact": mobileNumber,
@@ -21,32 +20,23 @@ class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
     };
 
     try {
-      print('📤 Sending payload: $payload');
-      print('🧹 Removing Authorization header for login...');
+      print('Sending payload: $payload');
 
-      // ✅ Ensure no Authorization header is sent
-      client.options.headers.remove('Authorization');
-
-      final response = await client.post(
+      final response = await client.request(
         '$baseUrl2$SigninUrl',
+        options: Options(method: 'POST'),
         data: payload,
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
       );
+      print('url $baseUrl2$SigninUrl');
 
-
+      print('Response status code: ${response.statusCode}');
       if (response.statusCode == 200) {
-        // print('✅ Login success response: ${response.data}');
+        print('Response data: ${response.data}');
         return SignInModel.fromJson(response.data);
       } else {
         throw Exception('Failed to load OTP data: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Login request failed: $e');
       throw Exception('Failed to load OTP data: ${e.toString()}');
     }
   }
