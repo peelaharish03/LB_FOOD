@@ -158,15 +158,152 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> openCheckOut() async {
     if (selectedAddress == "Add Address") {
       CustomSnackbars.showErrorSnack(
-          context: context,
-          title: "Attention",
-          message: "Select delivery address first");
+        context: context,
+        title: "Attention",
+        message: "Select delivery address first",
+      );
       return;
     }
 
+    // --- Step 1: Ask payment method ---
+    final paymentMethod = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: AppColor.White,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.payment_rounded,
+                    color: Colors.orange, size: 60),
+                const SizedBox(height: 12),
+                const Text(
+                  "Select Payment Method",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined,
+                      color: Colors.green),
+                  title: const Text("Pay Online (Razorpay)"),
+                  onTap: () => Navigator.pop(context, "ONLINE"),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.money, color: Colors.brown),
+                  title: const Text("Cash on Delivery (COD)"),
+                  onTap: () => Navigator.pop(context, "COD"),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (paymentMethod == null) return;
+
+    // --- Step 2: Confirm COD warning ---
+    if (paymentMethod == "COD") {
+      final confirmCOD = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return Dialog(
+            backgroundColor: AppColor.White,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange, size: 60),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Confirm COD Order",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "You’ve selected Cash on Delivery.\nPlease pay at the time of delivery.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black54,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColor.PrimaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Confirm COD"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      if (confirmCOD == true) {
+        final payload = {
+          "cartId": cartId ?? 0,
+          "amount": getTotalAmount(),
+          "paymentId": null,
+          "razorpayOrderId": null,
+          "razorpaySignature": null,
+          "status": "COD"
+        };
+
+        setState(() => loading = true);
+        await context.read<PaymentCubit>().makePayment(payload, context);
+        setState(() => loading = false);
+      }
+      return;
+    }
+
+    // --- Step 3: Online Payment flow (Razorpay) ---
     final proceed = await showDialog<bool>(
       context: context,
-      barrierDismissible: false, 
+      barrierDismissible: false,
       builder: (context) {
         return Dialog(
           backgroundColor: AppColor.White,
@@ -207,11 +344,6 @@ class _CartScreenState extends State<CartScreen> {
                   alignment: WrapAlignment.center,
                   children: [
                     TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        foregroundColor: Colors.black87,
-                      ),
                       onPressed: () => Navigator.pop(context, false),
                       child: const Text("Cancel"),
                     ),
@@ -221,13 +353,11 @@ class _CartScreenState extends State<CartScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
                       ),
                       onPressed: () => Navigator.pop(context, true),
                       child: const Text(
                         "I Understand, Proceed",
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
                   ],
@@ -245,7 +375,10 @@ class _CartScreenState extends State<CartScreen> {
     final orderResp = await _createOrder(amountInPaise);
     if (orderResp["status"] != "success") {
       CustomSnackbars.showErrorSnack(
-          context: context, title: 'ERROR', message: 'Payment gateway error');
+        context: context,
+        title: 'ERROR',
+        message: 'Payment gateway error',
+      );
       return;
     }
 
@@ -259,6 +392,7 @@ class _CartScreenState extends State<CartScreen> {
       'theme': {'color': '#081724'}
     });
   }
+
 
 
   @override

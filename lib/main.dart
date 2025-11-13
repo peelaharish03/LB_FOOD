@@ -26,6 +26,7 @@ import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_c
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
+import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
@@ -38,6 +39,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/injection.dart' as di;
+import 'core/constants/app_navigator.dart';
 
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -114,20 +116,20 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(create: (_) => di.sl<DeleteAccountCubit>()),
         BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
         BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
+        BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),
       ],
       child: MaterialApp(
         title: 'local_basket',
         debugShowCheckedModeBanner: false,
+        navigatorKey: AppNavigator.key,
         theme: ThemeData(
           primarySwatch: Colors.green,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
           useMaterial3: true,
         ),
-        home: GlobalRatingListener(
-          child: SplashScreen(),
-        ),
+        builder: (context, child) => GlobalRatingListener(child: child ?? SizedBox()),
+        home: SplashScreen(),
       ),
-
     );
   }
 }

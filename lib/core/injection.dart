@@ -26,6 +26,7 @@ import 'package:local_basket/data/datasource/orders/createOrder/createOrder_data
 import 'package:local_basket/data/datasource/orders/orderHistory/orderHistory_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/reOrder/reOrder_dataSource.dart';
 import 'package:local_basket/data/datasource/payment/payment_dataSource.dart';
+import 'package:local_basket/data/datasource/rating&reviews/rating&review_datasource.dart';
 import 'package:local_basket/data/datasource/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_dataSource.dart';
 import 'package:local_basket/data/datasource/restaurants/getNearbyRestaurants/getNearByrestarants_dataSource.dart';
 import 'package:local_basket/data/datasource/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_dataSource.dart';
@@ -55,6 +56,7 @@ import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_
 import 'package:local_basket/data/repositoryImpl/orders/orderHistory/orderHistory_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/reOrder/reOrder_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/payment_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/rating&reviews/rating&review_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getNearbyRestaurants/getNearByrestarants_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_repoImpl.dart';
@@ -84,6 +86,7 @@ import 'package:local_basket/domain/repository/orders/createOrder/createOrder_re
 import 'package:local_basket/domain/repository/orders/orderHistory/orderHistory_repository.dart';
 import 'package:local_basket/domain/repository/orders/reOrder/reOrder_repository.dart';
 import 'package:local_basket/domain/repository/payment/payment_repository.dart';
+import 'package:local_basket/domain/repository/rating&reviews/rating&review_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getNearbyRestaurants/getNearByrestarants_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_repository.dart';
@@ -113,6 +116,7 @@ import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_useca
 import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/payment_usecase.dart';
+import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getNearbyRestaurants/getNearByrestarants_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_usecase.dart';
@@ -142,6 +146,7 @@ import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_c
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
+import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
@@ -623,8 +628,8 @@ void init() {
         sl<RestaurantOffersUseCase>(),
       ));
 
-      //ValidateOffer
-        sl.registerLazySingleton<ValidateOfferRemoteDataSource>(
+  //ValidateOffer
+  sl.registerLazySingleton<ValidateOfferRemoteDataSource>(
     () => ValidateOfferRemoteDataSourceImpl(client: sl<DioClient>().dio),
   );
   sl.registerLazySingleton<ValidateOfferRepository>(
@@ -636,5 +641,20 @@ void init() {
   );
   sl.registerFactory(() => ValidateOfferCubit(
         sl<ValidateOfferUseCase>(),
+      ));
+
+  //RatingReview
+  sl.registerLazySingleton<RatingReviewRemoteDataSource>(
+    () => RatingReviewRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<RatingReviewRepository>(
+    () => RatingReviewRepositoryImpl(
+        remoteDataSource: sl<RatingReviewRemoteDataSource>()),
+  );
+  sl.registerLazySingleton(
+    () => RatingReviewUseCase(repository: sl<RatingReviewRepository>()),
+  );
+  sl.registerFactory(() => RatingReviewCubit(
+        ratingReviewUseCase: sl<RatingReviewUseCase>(),
       ));
 }

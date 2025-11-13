@@ -13,20 +13,25 @@ class GlobalRatingListener extends StatefulWidget {
   State<GlobalRatingListener> createState() => _GlobalRatingListenerState();
 }
 
-class _GlobalRatingListenerState extends State<GlobalRatingListener> {
+class _GlobalRatingListenerState extends State<GlobalRatingListener>
+    with WidgetsBindingObserver {
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startRatingCheckTimer();
+    // Delayed first check to avoid showing over SplashScreen
+    Future.delayed(const Duration(seconds: 5), _checkOrders);
   }
 
   void _startRatingCheckTimer() {
-    _timer = Timer.periodic(Duration(minutes: 2), (_) => _checkOrders());
+    _timer = Timer.periodic(Duration(minutes: 1), (_) => _checkOrders());
   }
 
   void _checkOrders() {
+    debugPrint('[GlobalRatingListener] Triggering order check');
     final cubit = context.read<OrderHistoryCubit>();
     cubit.fetchCart(0, 20, '', context);
   }
@@ -34,7 +39,15 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener> {
   @override
   void dispose() {
     _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkOrders();
+    }
   }
 
   @override
@@ -43,6 +56,11 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener> {
       listener: (context, state) {
         if (state is OrderHistoryLoaded) {
           final orders = state.orders.data?.content ?? [];
+          final delivered = orders
+              .where((o) => (o.orderStatus ?? '').toUpperCase() == 'DELIVERED')
+              .length;
+          debugPrint(
+              '[GlobalRatingListener] Orders loaded: ${orders.length}, delivered: $delivered');
           RatingService().checkAndShowRatingPopup(
             context: context,
             orders: orders,

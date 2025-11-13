@@ -3,6 +3,11 @@ import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/orders/orderHistory/orderHistory_model.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_state.dart';
+import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
+import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
+import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_state.dart';
+import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -94,7 +99,38 @@ class _MyOrdersState extends State<MyOrders> {
         },
       ),
       backgroundColor: AppColor.White,
-      body: Column(
+      body: BlocListener<ReOrderCubit, ReOrderState>(
+        listener: (context, state) async {
+          if (state is ReOrderLoading) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
+          } else {
+            // Close loader if open
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+            if (state is ReOrderSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Reorder successful. Opening cart...')),
+              );
+              await Future.delayed(const Duration(milliseconds: 300));
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CartScreen()),
+                );
+              }
+            } else if (state is ReOrderFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message)),
+              );
+            }
+          }
+        },
+        child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -190,6 +226,7 @@ class _MyOrdersState extends State<MyOrders> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -332,6 +369,61 @@ class _MyOrdersState extends State<MyOrders> {
               )
               ? SizedBox()
               : buildTracker(order.orderStatus ?? ''),
+
+          const SizedBox(height: 12),
+
+          // Reorder button for delivered orders
+          if ((order.orderStatus ?? '').toUpperCase() == 'DELIVERED')
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  // Ensure cart business consistency
+                  final cartState = context.read<GetCartCubit>().state;
+                  if (cartState is GetCartLoaded) {
+                    final cartItems = cartState.cart.cartItems;
+                    final currentBusinessId = cartState.cart.businessId;
+                    if (cartItems.isNotEmpty &&
+                        currentBusinessId != order.businessId) {
+                      final shouldReplace = await showDialog<bool>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Replace cart items?'),
+                          content: const Text(
+                              'Your cart contains dishes from a previous restaurant. Do you want to discard the selection and add dishes from this restaurant?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('No'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Yes'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (shouldReplace != true) return;
+                    }
+                  }
+
+                  final orderId = order.id;
+                  if (orderId != null) {
+                    context.read<ReOrderCubit>().reOrder(orderId, context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Invalid order id')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.refresh, color: Colors.black),
+                label: const Text(
+                  'Reorder',
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
+            ),
         ],
       ),
     );

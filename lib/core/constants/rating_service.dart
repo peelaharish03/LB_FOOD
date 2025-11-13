@@ -1,28 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/data/model/orders/orderHistory/orderHistory_model.dart';
+import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
+import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_navigator.dart';
 
 class RatingService {
   static final RatingService _instance = RatingService._internal();
   factory RatingService() => _instance;
   RatingService._internal();
 
+  bool _isDialogOpen = false;
+  final Set<String> _promptedThisSession = <String>{};
+
   Future<void> checkAndShowRatingPopup({
     required BuildContext context,
     required List<Content> orders,
   }) async {
+    if (_isDialogOpen) return;
+
     for (var order in orders) {
-      if (order.orderStatus?.toUpperCase() == 'DELIVERED' &&
-          order.createdDate != null) {
-        final deliveryTime = order.createdDate!;
+      final status = (order.orderStatus ?? '').trim().toUpperCase();
+      if (status == 'DELIVERED') {
+        final deliveryTime = order.updatedDate ?? order.createdDate;
         final now = DateTime.now();
 
-        if (now.difference(deliveryTime).inMinutes >= 20) {
+        final eligible = deliveryTime == null
+            ? true
+            : now.difference(deliveryTime).inSeconds >= 60;
+
+        if (eligible) {
           final orderId = order.orderNumber ?? '';
           final isRated = await hasRated(orderId);
-          if (!isRated) {
-            await markRated(orderId);
-            showRatingDialog(context: context, order: order);
+          final alreadyPrompted =
+              orderId.isNotEmpty && _promptedThisSession.contains(orderId);
+          debugPrint('[RatingService] Checking order ${order.orderNumber} | rated=$isRated, promptedThisSession=$alreadyPrompted');
+          if (!isRated && !alreadyPrompted) {
+            if (orderId.isNotEmpty) {
+              _promptedThisSession.add(orderId);
+            }
+            _isDialogOpen = true;
+            await showRatingDialog(context: context, order: order);
+            _isDialogOpen = false;
             break;
           }
         }
@@ -35,8 +55,11 @@ class RatingService {
     double rating = 0;
     final TextEditingController feedbackController = TextEditingController();
 
+    final navContext = AppNavigator.key.currentContext ?? context;
+
     return showDialog(
-      context: context,
+      context: navContext,
+      useRootNavigator: true,
       builder: (context) {
         return AlertDialog(
           shape:
@@ -83,12 +106,56 @@ class RatingService {
             ),
             ElevatedButton(
               onPressed: () async {
-                Navigator.pop(context);
-                final orderId = order.orderNumber ?? '';
-                await markRated(orderId);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Thanks for your feedback!")),
-                );
+                // Basic validation
+                if (rating <= 0) {
+                  ScaffoldMessenger.of(AppNavigator.key.currentContext ?? context)
+                      .showSnackBar(
+                    SnackBar(content: Text("Please select a rating.")),
+                  );
+                  return;
+                }
+
+                // Build payload per provided example (PRODUCT level)
+                final payload = <String, dynamic>{
+                  "businessId": order.businessId,
+                  "productId": order.orderItems.isNotEmpty
+                      ? order.orderItems.first.productId
+                      : null,
+                  "type": "PRODUCT",
+                  "rating": rating,
+                  "comment": feedbackController.text.trim(),
+                }..removeWhere((key, value) => value == null);
+
+                try {
+                  final cubit = (AppNavigator.key.currentContext ?? context)
+                      .read<RatingReviewCubit>();
+                  await cubit.submitRatingReview(payload);
+                  final state = cubit.state;
+                  if (state is RatingReviewSuccess) {
+                    final orderId = order.orderNumber ?? '';
+                    await markRated(orderId);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(AppNavigator.key.currentContext ??
+                              context)
+                          .showSnackBar(
+                        SnackBar(content: Text("Thanks for your feedback!")),
+                      );
+                    }
+                  } else if (state is RatingReviewFailure) {
+                    ScaffoldMessenger.of(AppNavigator.key.currentContext ??
+                            context)
+                        .showSnackBar(
+                      SnackBar(content: Text(state.errorMessage)),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(AppNavigator.key.currentContext ??
+                          context)
+                      .showSnackBar(
+                    SnackBar(content: Text("Failed to submit review")),
+                  );
+                }
               },
               child: Text("Submit"),
             ),
@@ -101,14 +168,14 @@ class RatingService {
   Future<bool> hasRated(String orderId) async {
     final prefs = await SharedPreferences.getInstance();
     if (orderId.isEmpty) return false;
-    final ratedKey = 'rated_$orderId';
+    final ratedKey = 'rating_v2_$orderId';
     return prefs.getBool(ratedKey) ?? false;
   }
 
   Future<void> markRated(String orderId) async {
     final prefs = await SharedPreferences.getInstance();
     if (orderId.isEmpty) return;
-    final ratedKey = 'rated_$orderId';
+    final ratedKey = 'rating_v2_$orderId';
     await prefs.setBool(ratedKey, true);
   }
 }
