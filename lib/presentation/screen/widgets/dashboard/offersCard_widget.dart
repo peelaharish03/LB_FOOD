@@ -45,6 +45,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
     _autoScrollTimer?.cancel();
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (!_pageController.hasClients || _isUserInteracting) return;
+
       _pageController.nextPage(
         duration: const Duration(milliseconds: 700),
         curve: Curves.easeInOut,
@@ -79,19 +80,18 @@ class _OffersCarouselState extends State<OffersCarousel> {
             onPanCancel: () => _isUserInteracting = false,
             onPanEnd: (_) => _isUserInteracting = false,
             child: SizedBox(
-              height: 180,
+              height: 160,
               child: PageView.builder(
                 controller: _pageController,
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
                 itemBuilder: (context, index) {
                   final Content offer = offers[index % offers.length];
+
                   final gradientColors = _getGradientColors(offer.offerType);
                   final accentColor = gradientColors.last;
 
-                  final double scale = (1 -
-                      (((_currentPage - index).abs() * 0.1).clamp(0.0, 0.1)));
+                  final double scale = (_currentPage - index).abs() < 1.0
+                      ? 1 - (_currentPage - index).abs() * 0.1
+                      : 0.9;
 
                   return Transform.scale(
                     scale: scale,
@@ -123,109 +123,48 @@ class _OffersCarouselState extends State<OffersCarousel> {
             ),
           );
         }
-
-        return _buildComingSoonCarousel();
+        return const SizedBox.shrink();
       },
     );
   }
 
-  /// ✅ Carousel for guest users or fallback state
+  /// Placeholder carousel when offers are unavailable or user is guest
   Widget _buildComingSoonCarousel() {
     final List<String> images = [
-      // Original first image
       'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-      // Your provided new image
       'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80',
     ];
 
-    return GestureDetector(
-      onPanDown: (_) => _isUserInteracting = true,
-      onPanCancel: () => _isUserInteracting = false,
-      onPanEnd: (_) => _isUserInteracting = false,
-      child: SizedBox(
-        height: 180,
-        width: double.infinity,
-        child: PageView.builder(
-          controller: _pageController,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          itemBuilder: (context, index) {
-            final imageUrl = images[index % images.length];
-            final double scale =
-                (1 - (((_currentPage - index).abs() * 0.1).clamp(0.0, 0.1)));
+    return SizedBox(
+      height: 160,
+      child: PageView.builder(
+        controller: _pageController,
+        itemBuilder: (context, index) {
+          final image = images[index % images.length];
+          final double scale = (_currentPage - index).abs() < 1.0
+              ? 1 - (_currentPage - index).abs() * 0.1
+              : 0.9;
 
-            return Transform.scale(
-              scale: scale,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
-                child: _buildComingSoonBanner(imageUrl),
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                image: DecorationImage(
+                  image: NetworkImage(image),
+                  fit: BoxFit.cover,
+                ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildComingSoonBanner(String imageUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: Colors.black.withOpacity(0.45),
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.restaurant_rounded,
-                    size: 44, color: Colors.white),
-                const SizedBox(height: 10),
-                const Text(
-                  "Local Basket",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  "Coming Soon 🍽️",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.orange.shade200,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// Helper to map offer type → gradient
   List<Color> _getGradientColors(String? offerType) {
     switch (offerType) {
       case "DISCOUNT":
@@ -235,7 +174,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
       case "CASHBACK":
         return [const Color(0xFFFFF3E0), const Color(0xFFFB8C00)];
       default:
-        return [Colors.grey.shade200, const Color(0xFF6DC8E9)];
+        return [Colors.grey.shade200, const Color.fromARGB(255, 109, 200, 233)];
     }
   }
 }
