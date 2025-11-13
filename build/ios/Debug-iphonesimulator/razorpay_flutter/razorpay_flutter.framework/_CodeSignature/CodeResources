@@ -18,7 +18,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		NA/swqkdEPTvkxBC3O0/qTvJ1IU=
+		8HXsoyYo+aT0vQW23beZOdw43TI=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/razorpay_flutter.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		nnoGR8q9lvaseXeSqX8UITmWQzw=
+		Ph5cEirXyz34iVkHShvvm48VYX4=
 		</data>
 		<key>Modules/razorpay_flutter.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		D3jOl3YPhcLE9P7/+cdRkQGMW0w=
+		r07VZYDYPowv4+mvp2OZiYNvkVU=
 		</data>
 		<key>Modules/razorpay_flutter.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -91,14 +91,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			vxv9y5/Ogz1ayaIWZR32i0Q7bGO/lsbDwadjPsS+AMc=
+			2W8SEBdsBi7KYNkk56FQ3izUogvnGwq/BIR42R6eXxk=
 			</data>
 		</dict>
 		<key>Modules/razorpay_flutter.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			mg3N2HcSXM3G/ro0B4ZsugFDAeLQoKRzq5N9jUOQ/BM=
+			sgzhHP/6HNk53El7+yLiTWSSufDG3RoC3VsZfWrVMtc=
 			</data>
 		</dict>
 		<key>Modules/razorpay_flutter.swiftmodule/arm64-apple-ios-simulator.abi.json</key>

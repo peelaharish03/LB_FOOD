@@ -49,7 +49,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   bool _isCartLoaded = false;
   Content? _couponSelectedItem;
 
-
   @override
   void initState() {
     super.initState();
@@ -77,7 +76,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     });
   }
 
-void _showReplaceItemDialog(Content newItem) {
+  void _showReplaceItemDialog(Content newItem) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -88,7 +87,7 @@ void _showReplaceItemDialog(Content newItem) {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(ctx).pop(); // cancel
+              Navigator.of(ctx).pop();
             },
             child: const Text("Cancel"),
           ),
@@ -99,13 +98,11 @@ void _showReplaceItemDialog(Content newItem) {
             onPressed: () {
               Navigator.of(ctx).pop();
 
-              // Remove old item
               if (_couponSelectedItem != null) {
                 cart.remove(_couponSelectedItem!.name);
                 final oldIndex = menuItems
                     .indexWhere((m) => m.id == _couponSelectedItem!.id);
                 if (oldIndex != -1) {
-                  // Force rebuild by creating a new list instance
                   menuItems = List.from(menuItems);
                 }
               }
@@ -691,7 +688,6 @@ void _showReplaceItemDialog(Content newItem) {
                                         context, 0, item);
                                   },
                                 );
-
                               },
                             );
                           } else if (state is GuestMenuByRestaurantIdFailure) {
@@ -718,8 +714,9 @@ void _showReplaceItemDialog(Content newItem) {
                                 child: CupertinoActivityIndicator());
                           } else if (state is GetMenuByRestaurantIdLoaded) {
                             final filteredItems = menuItems.where((item) {
-                              if (_isCouponFlow && item.categoryId != 2)
-                                return false; // only categoryId == 2
+                              if (_isCouponFlow && item.categoryId != 2) {
+                                return false;
+                              }
                               final matchesSearch = (item.name ?? "")
                                   .toLowerCase()
                                   .contains(searchText.toLowerCase());
@@ -746,7 +743,6 @@ void _showReplaceItemDialog(Content newItem) {
                               return matchesSearch && matchesFilter;
                             }).toList();
 
-
                             if (filteredItems.isEmpty) {
                               return const Center(
                                   child: Text("No menu items available"));
@@ -758,7 +754,6 @@ void _showReplaceItemDialog(Content newItem) {
                               itemCount: filteredItems.length,
                               itemBuilder: (context, index) {
                                 final item = filteredItems[index];
-                                final quantity = cart[item.name ?? ""] ?? 0;
                                 return MenuItemWidget(
                                   item: item,
                                   quantity: _isCouponFlow
@@ -766,7 +761,7 @@ void _showReplaceItemDialog(Content newItem) {
                                       : (cart[item.name ?? ""] ?? 0),
                                   restaurantId: widget.restaurantId,
                                   restaurantName: widget.restaurantName,
-                                  isCouponFlow: _isCouponFlow, // add this flag
+                                  isCouponFlow: _isCouponFlow,
                                   onQuantityChanged: (qty) {
                                     if (_isCouponFlow) {
                                       final alreadySelected = cart.entries.any(
@@ -777,18 +772,14 @@ void _showReplaceItemDialog(Content newItem) {
                                       if (alreadySelected &&
                                           qty == 1 &&
                                           (cart[item.name ?? ""] ?? 0) == 0) {
-                                        // Another item is already selected → show dialog
                                         _showReplaceItemDialog(item);
                                       } else {
-                                        update_Cart(
-                                            item, 1); // normal coupon flow
+                                        update_Cart(item, 1);
                                       }
                                     } else {
                                       update_Cart(item, qty);
                                     }
                                   },
-
-
                                 );
                               },
                             );
@@ -805,5 +796,3 @@ void _showReplaceItemDialog(Content newItem) {
         ));
   }
 }
-
-

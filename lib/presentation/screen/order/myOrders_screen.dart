@@ -22,7 +22,7 @@ class _MyOrdersState extends State<MyOrders> {
   bool _isLoadingMore = false;
   bool _hasMoreItems = true;
   List<Content> _allOrders = [];
-  String _currentSearchQuery = '';
+  final String _currentSearchQuery = '';
 
   @override
   void initState() {

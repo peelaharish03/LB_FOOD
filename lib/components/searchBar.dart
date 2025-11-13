@@ -20,7 +20,7 @@ class CategorySearchBar extends StatefulWidget {
 }
 
 class _CategorySearchBarState extends State<CategorySearchBar> {
-  bool _isListening = false;
+  final bool _isListening = false;
   late stt.SpeechToText _speech;
   late TextEditingController _controller;
 

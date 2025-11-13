@@ -203,7 +203,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Container(
+            child: SizedBox(
               height: 140,
               width: 140,
               child: Stack(

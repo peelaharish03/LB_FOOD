@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
 import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
@@ -52,11 +50,12 @@ class MainDashboard extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const OffersCarousel(),
+          /// 🔥 Offers Carousel
+          OffersCarousel(isGuest: isGuest),
 
           const SizedBox(height: 24),
 
-          // Food Banner
+          /// 🍽️ Food Banner
           _BannerCard(
             title: "Food",
             subtitle: "Your online aisle of taste",
@@ -74,7 +73,46 @@ class MainDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Grocery Banner
+          _BannerCard(
+            title: "Special Zone",
+            subtitle: "Exclusive deals and limited-time offers",
+            imageUrl:
+                "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
+            gradient: [Color(0xFFFF8C00), Color(0xFFFFC107)],
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const _UnderDevelopmentScreen(title: "Special Zone"),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          /// 🛒 Grocery Banner
+
+          /// 🥩 Fresh Meat Banner
+          _BannerCard(
+            title: "Fresh Meat",
+            subtitle: "Top quality, handpicked cuts",
+            imageUrl:
+                "https://images.pexels.com/photos/10201880/pexels-photo-10201880.jpeg",
+            gradient: [Color(0xFFE53935), Color(0xFFD81B60)],
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const _UnderDevelopmentScreen(title: "Fresh Meat"),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          /// 🌟 Special Zone Banner (NEW)
           _BannerCard(
             title: "Grocery",
             subtitle: "The most coveted grocery brands",
@@ -92,33 +130,14 @@ class MainDashboard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
-
-          // Fresh Meat Banner
-          _BannerCard(
-            title: "Fresh Meat",
-            subtitle: "Top quality, handpicked cuts",
-            imageUrl:
-                "https://images.pexels.com/photos/10201880/pexels-photo-10201880.jpeg",
-            gradient: [Color(0xFFE53935), Color(0xFFD81B60)],
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const _UnderDevelopmentScreen(title: "Fresh Meat"),
-                ),
-              );
-            },
-          ),
         ],
       ),
     );
   }
 }
 
-
-
-  class _BannerCard extends StatelessWidget {
+/// 🔹 Banner Card Widget
+class _BannerCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String imageUrl;
@@ -187,16 +206,21 @@ class MainDashboard extends StatelessWidget {
     );
   }
 }
+
+/// 🚧 Under Development Screen
 class _UnderDevelopmentScreen extends StatelessWidget {
   final String title;
   const _UnderDevelopmentScreen({required this.title});
 
   IconData _getIcon() {
     switch (title.toLowerCase()) {
-      case "grocery":
-        return Icons.local_grocery_store;
+      case "special zone":
+        return Icons.star;
+
       case "fresh meat":
         return Icons.set_meal;
+      case "grocery":
+        return Icons.local_grocery_store;
       default:
         return Icons.fastfood;
     }
@@ -206,9 +230,7 @@ class _UnderDevelopmentScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColor.White,
-      appBar: CustomAppBar(
-       title: title,
-      ),
+      appBar: CustomAppBar(title: title),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

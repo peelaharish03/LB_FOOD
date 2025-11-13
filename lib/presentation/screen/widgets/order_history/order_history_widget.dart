@@ -1,4 +1,5 @@
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/core/constants/rating_service.dart';
 import 'package:local_basket/data/model/orders/orderHistory/orderHistory_model.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
@@ -252,6 +253,39 @@ Widget BuildOrderItem({
                   ),
                 );
               }),
+              const SizedBox(height: 12),
+
+              // Rate & Review button for delivered orders if not rated yet
+              if ((order.orderStatus ?? '').toUpperCase() == 'DELIVERED')
+                FutureBuilder<bool>(
+                  future:
+                      RatingService().hasRated(order.orderNumber ?? ''),
+                  builder: (context, snapshot) {
+                    final hasRated = snapshot.data ?? false;
+                    if (hasRated) return const SizedBox.shrink();
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          RatingService()
+                              .showRatingDialog(context: context, order: order);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColor.PrimaryColor,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.rate_review, color: Colors.white),
+                        label: const Text(
+                          'Rate & Review',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),

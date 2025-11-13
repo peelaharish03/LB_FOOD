@@ -190,15 +190,15 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		hNJgZ3ChvOMlD/rlzCpKWLaIwsA=
+		UUkVBAOGtfEjJUE0yRAfdLPXidU=
 		</data>
 		<key>Modules/GoogleMapsUtils.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		9NXXRH6nqVJYl1Q8ghvFP347LVE=
+		Mfsqh2jk6ZjQ1e78FSfVQncO+B8=
 		</data>
 		<key>Modules/GoogleMapsUtils.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		3iyufvnSEiLWJBtP5LBMW3QKnBk=
+		zxCLj7054QFVKuqnJ2aMWm1SBHA=
 		</data>
 		<key>Modules/GoogleMapsUtils.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -233,10 +233,6 @@
 	<dict>
 		<key>Headers/GMSMarker+GMUClusteritem.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			vblmJ8G95+620sVcrbKe4rP6PIA=
-			</data>
 			<key>hash2</key>
 			<data>
 			YuGDPFEpJ2Caw3GVCjiexKhWapZ8IvCkTgAPxhKfO1k=
@@ -244,10 +240,6 @@
 		</dict>
 		<key>Headers/GMUCluster.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			0yXlZpK6qDeF8QoCHw4Z77cSo8I=
-			</data>
 			<key>hash2</key>
 			<data>
 			sKdMX+SdCULmy9M6nyvoaR9efAqQogx1Je0/A3ITizs=
@@ -255,10 +247,6 @@
 		</dict>
 		<key>Headers/GMUClusterAlgorithm.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			aBuv2hlVKpQc3L50WktT6MMPdU4=
-			</data>
 			<key>hash2</key>
 			<data>
 			8AwtmATjhbPusB2Hdcj/a2vJ/QI8dxwO4qg3On5APvQ=
@@ -266,10 +254,6 @@
 		</dict>
 		<key>Headers/GMUClusterIconGenerator.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			/MozjXiLJLQsUB+Tmb5bav7/6Ow=
-			</data>
 			<key>hash2</key>
 			<data>
 			l8/AEdBWsQ0GUrrAvEjhX7FQTlvzaG+OmDAq9d+gN2M=
@@ -277,10 +261,6 @@
 		</dict>
 		<key>Headers/GMUClusterItem.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			eGGWxKKKle80egaSPTiWpLMryQs=
-			</data>
 			<key>hash2</key>
 			<data>
 			I1eETmtJ29EhK2SzFJu/f5UxrZVBUEbeNNOAhu62J/c=
@@ -288,10 +268,6 @@
 		</dict>
 		<key>Headers/GMUClusterManager+Testing.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			KsDvlbSitgUDI1krqpfyyNBY0PU=
-			</data>
 			<key>hash2</key>
 			<data>
 			3egyroWw+VbJiySo8S9mT2ajprcAgHrBJukLksk2qTU=
@@ -299,10 +275,6 @@
 		</dict>
 		<key>Headers/GMUClusterManager.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			By1/Wvwfm7tCPSRJk9hpcbbtqaM=
-			</data>
 			<key>hash2</key>
 			<data>
 			TNbCJKFFVhQU4oKkdIOGfC7fnvTjKE9+i3SX2oUoCPQ=
@@ -310,10 +282,6 @@
 		</dict>
 		<key>Headers/GMUClusterRenderer.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			igEJpeGAmC9+uzr8YNgnvh2iMh0=
-			</data>
 			<key>hash2</key>
 			<data>
 			6nY2vnw2eKebZj+LaGzxtvmveMmg5kXS7lAd4qgqEDo=
@@ -321,10 +289,6 @@
 		</dict>
 		<key>Headers/GMUDefaultClusterIconGenerator+Testing.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			qzF8PlORfgI3E8lVh1TJSGX7Nvo=
-			</data>
 			<key>hash2</key>
 			<data>
 			Gcmyu6xoiyWfqwvLdbk8NiTkoxq309CUJ3F+n1KUElA=
@@ -332,10 +296,6 @@
 		</dict>
 		<key>Headers/GMUDefaultClusterIconGenerator.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			kzMSmHvL5TnFmDhnhLhBhLXbEu0=
-			</data>
 			<key>hash2</key>
 			<data>
 			oB7Qhsm0k22ZC+zoeZwxn0bt1aGH+q5WXzYXWrZkUWM=
@@ -343,10 +303,6 @@
 		</dict>
 		<key>Headers/GMUDefaultClusterRenderer+Testing.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			CkNwYasUu+9hlHuj9JYqLl4v6rA=
-			</data>
 			<key>hash2</key>
 			<data>
 			nHFWHk95cv0eLT++JFjrMKOwFKD7c3qD1Bx3M6hz89k=
@@ -354,10 +310,6 @@
 		</dict>
 		<key>Headers/GMUDefaultClusterRenderer.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			8HGGdss3S2GWN/Lpa16HmXX1NKE=
-			</data>
 			<key>hash2</key>
 			<data>
 			S9n0T+zKr1lomMoamDkAGOG7vn3i/ONSByLnoBITuhE=
@@ -365,10 +317,6 @@
 		</dict>
 		<key>Headers/GMUFeature.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			6LeQFoAnohTgsxIK/e292RIYnik=
-			</data>
 			<key>hash2</key>
 			<data>
 			DuvxduHLfgX3bnS4crdDq+lrrHqackFoCtq1pfpFlQY=
@@ -376,10 +324,6 @@
 		</dict>
 		<key>Headers/GMUGeoJSONParser.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			C+cltx5NhfEM6sf8eZfyAIn79nk=
-			</data>
 			<key>hash2</key>
 			<data>
 			u5QJ/u8zFIgD8gfJWSfLIJSNIL6SNvUUCo8bC6z8qF8=
@@ -387,10 +331,6 @@
 		</dict>
 		<key>Headers/GMUGeometry.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			w1raLM5pUXx6Sr3NMusxlcZ7vSA=
-			</data>
 			<key>hash2</key>
 			<data>
 			4uLRqxojb66sVHrJpqF/vaNEyWARG1m6S0kkqsNwy+o=
@@ -398,10 +338,6 @@
 		</dict>
 		<key>Headers/GMUGeometryCollection.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			UsQrU+CjlV+RWAP4G5RGTRJRPsY=
-			</data>
 			<key>hash2</key>
 			<data>
 			1GCkLV8xMLZ9iIHNs4G13eO+TzgZfeKUgkv+AUtOHy0=
@@ -409,10 +345,6 @@
 		</dict>
 		<key>Headers/GMUGeometryContainer.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Xt0Xsve7q+tPJquExANps+rUiD4=
-			</data>
 			<key>hash2</key>
 			<data>
 			sx1ZiPklQYC8nfXWOtMk65xs0Dtwvc0XK3rgnk6Oyu4=
@@ -420,10 +352,6 @@
 		</dict>
 		<key>Headers/GMUGeometryRenderer+Testing.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			PFmXBEU30yKA53JBeXxJPI9dF+w=
-			</data>
 			<key>hash2</key>
 			<data>
 			J4DyIv5XuLUaguhtAO3oYVztA3PXCCbNIdKIEAUeiZo=
@@ -431,10 +359,6 @@
 		</dict>
 		<key>Headers/GMUGeometryRenderer.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			lg4MnrPZX00Q2OEIG4XGANGPV0I=
-			</data>
 			<key>hash2</key>
 			<data>
 			w7tKHN9mHRaOs9KPV7GtbIeR/dZkvqVXW9ef3C0AA9o=
@@ -442,10 +366,6 @@
 		</dict>
 		<key>Headers/GMUGradient.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			VrMGrPc1y6Vte/EZOkI/myFniEw=
-			</data>
 			<key>hash2</key>
 			<data>
 			5m11HmDN00wtvPIBqwlGhOJct+aFv18tf57tYHzM81Q=
@@ -453,10 +373,6 @@
 		</dict>
 		<key>Headers/GMUGridBasedClusterAlgorithm.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Ek69ADlUS51n/a2Y/CdrsQ+ZT74=
-			</data>
 			<key>hash2</key>
 			<data>
 			a/av5pigQXGsmGce7n/PidCbZwGwGZze6iidJJu0pPE=
@@ -464,10 +380,6 @@
 		</dict>
 		<key>Headers/GMUGroundOverlay.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			9z/ru/7HHp48Yt7+Kw3/V+kRR6k=
-			</data>
 			<key>hash2</key>
 			<data>
 			uZBka+cqILSxNglJDkhzC9Hwu6OpUu6Z+KbwF/MsJE0=
@@ -475,10 +387,6 @@
 		</dict>
 		<key>Headers/GMUHeatmapTileLayer+Testing.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			mOq0rXEC7AgkwAIPZJYPLxY88YM=
-			</data>
 			<key>hash2</key>
 			<data>
 			BVudqsSKkyQMBOevGTLcBtZtWNcOCS7SbGOuUyK2X3U=
@@ -486,10 +394,6 @@
 		</dict>
 		<key>Headers/GMUHeatmapTileLayer.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			sa2rL5MGPNghLo16gnCq5BXUrYk=
-			</data>
 			<key>hash2</key>
 			<data>
 			ll+pXeaKhVQ/ER+zhQ52lCiZwiNq+Bzy8Cmk6RAfk3c=
@@ -497,10 +401,6 @@
 		</dict>
 		<key>Headers/GMUKMLParser.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			j2E/uqLTRGYRKwuHMMMCYm6E/kk=
-			</data>
 			<key>hash2</key>
 			<data>
 			u1qbHDvGyHXd3CWfwsz9qL3Wg4AtDiLShpod8ILM028=
@@ -508,10 +408,6 @@
 		</dict>
 		<key>Headers/GMULineString.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			452wFlW49MmpatpQrZoNcKTQTBw=
-			</data>
 			<key>hash2</key>
 			<data>
 			TS82kz1mgsoI7yxFi9KuthUhKpwnhO7Ew8UK2CEReVw=
@@ -519,10 +415,6 @@
 		</dict>
 		<key>Headers/GMUMarkerClustering.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			lQ6Q7DPzuzS1goekLoMTt3wH1TY=
-			</data>
 			<key>hash2</key>
 			<data>
 			hBfk9RrV+R+f9UnIJg/2crvC5Q06+ViZfFZk5M0TJpU=
@@ -530,10 +422,6 @@
 		</dict>
 		<key>Headers/GMUNonHierarchicalDistanceBasedAlgorithm.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			G7rMeyz4OkGMcHuOL4btZ9IVSPo=
-			</data>
 			<key>hash2</key>
 			<data>
 			u01sWGYFn2GiL95sqdzIsHsbNdaYM1I936hkN3yyTL4=
@@ -541,10 +429,6 @@
 		</dict>
 		<key>Headers/GMUPair.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			HYwiyIcuDEfPtEkBZN5TbnGsA9c=
-			</data>
 			<key>hash2</key>
 			<data>
 			q9n4x7i6dF0rC1p7Wu+DYpNBr2o0P/c7pL3vC7Kktnc=
@@ -552,10 +436,6 @@
 		</dict>
 		<key>Headers/GMUPlacemark.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Ii3S82rRKtpizRw5bZN67qBuO8o=
-			</data>
 			<key>hash2</key>
 			<data>
 			z9VhZUpB9JtKzZL0Y+hpajIgfE0AkwZydMjPgy46ZK0=
@@ -563,10 +443,6 @@
 		</dict>
 		<key>Headers/GMUPoint.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			AFf0D74yYDwesJSq8Nko27ppDeI=
-			</data>
 			<key>hash2</key>
 			<data>
 			IvMZjZMr5zwO4jyJoPK818EnCSIWuqYnurG0vK36gLc=
@@ -574,10 +450,6 @@
 		</dict>
 		<key>Headers/GMUPolygon.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			+8XjRfe/oRw6Po0FT9kCx5hf0P4=
-			</data>
 			<key>hash2</key>
 			<data>
 			PhQLpfE30OpTgFPc9W/d2pYr/T7z8EmrTljPe9C/qbY=
@@ -585,10 +457,6 @@
 		</dict>
 		<key>Headers/GMUSimpleClusterAlgorithm.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			YUKi9DChIUCFDgkSA2WoLaWGK9I=
-			</data>
 			<key>hash2</key>
 			<data>
 			b7VShTqibVie9iFZ0XIbb24BYG2V1MDxzzFYjV0ZAYU=
@@ -596,10 +464,6 @@
 		</dict>
 		<key>Headers/GMUStaticCluster.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			cOPMFEZR71rVJCuC+i66d1596uM=
-			</data>
 			<key>hash2</key>
 			<data>
 			/47fIjssXEo9K7uGLhtVSZg5UuGAegBSAEhjw2AU7tA=
@@ -607,10 +471,6 @@
 		</dict>
 		<key>Headers/GMUStyle.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			iJ974Z5OK7lKHI9HGlCRaJQxnRQ=
-			</data>
 			<key>hash2</key>
 			<data>
 			6EnPM+NNjqHD6ttYIuipSNGA273fHgzAD4ipyqtW6JY=
@@ -618,10 +478,6 @@
 		</dict>
 		<key>Headers/GMUStyleMap.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			aAQyBGfPy9ftJ7VvfjmP+2pnHEQ=
-			</data>
 			<key>hash2</key>
 			<data>
 			ZUtB9akPPUcAV+CbWjBNJCfFVTYAV34byCnFlbgYuKM=
@@ -629,10 +485,6 @@
 		</dict>
 		<key>Headers/GMUWeightedLatLng.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			PKi5eFl0ERaTl0YFa8GqC1RFVCQ=
-			</data>
 			<key>hash2</key>
 			<data>
 			zFcTb6qdGPydk+1UFJWbrDsuf1HeU3Tq1uHERQlbSXA=
@@ -640,10 +492,6 @@
 		</dict>
 		<key>Headers/GMUWrappingDictionaryKey.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			w0nHp9wFsrNUyDZfHO9jNcHGNGc=
-			</data>
 			<key>hash2</key>
 			<data>
 			yOph2GQXyMo9eZaeb5neUGEQv/JlZuB7aySU1AvfyP8=
@@ -651,10 +499,6 @@
 		</dict>
 		<key>Headers/GQTBounds.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			tNJlU/+YS0ttxlJvfu3BQM7sF0I=
-			</data>
 			<key>hash2</key>
 			<data>
 			lfwBn3o6B3JhZ8bS9Ht4PAg+5cte26UI+TAEPnyG2EE=
@@ -662,10 +506,6 @@
 		</dict>
 		<key>Headers/GQTPoint.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			7+EFvo7oOzVy0g0qSzHAPO0VM9E=
-			</data>
 			<key>hash2</key>
 			<data>
 			LiWuPXGvCGKNc2xTQEIC1wpa/graMP1Pxc14/SkexgE=
@@ -673,10 +513,6 @@
 		</dict>
 		<key>Headers/GQTPointQuadTree.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			+WLe1vlCeO1VoSn99SmrmiQr3ro=
-			</data>
 			<key>hash2</key>
 			<data>
 			jrKU9vNAmSXXHdlbuZmy0AD25+Y0wmBsAS3XjtC1bic=
@@ -684,10 +520,6 @@
 		</dict>
 		<key>Headers/GQTPointQuadTreeChild.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			VtB81qYx1fd/PLwm/GCSs9bX8Uk=
-			</data>
 			<key>hash2</key>
 			<data>
 			2B0M7dpUwldxi1QJBDmp8aMgzwuwrbIIltl0x9e4toU=
@@ -695,10 +527,6 @@
 		</dict>
 		<key>Headers/GQTPointQuadTreeItem.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			NcXZGUE62tPf1v6daLLbD70kmoU=
-			</data>
 			<key>hash2</key>
 			<data>
 			KOBtBd0Z3sby2hssQ2TsSfzSI6rAlhaba5rl9NUd+1k=
@@ -706,10 +534,6 @@
 		</dict>
 		<key>Headers/Google-Maps-iOS-Utils-umbrella.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			ni2CnN1NJQkzEHZaTUZhS+Ml9uU=
-			</data>
 			<key>hash2</key>
 			<data>
 			1c+i1BPICoyIWOFxOnwk50KLk0zxGj9ujLLDFxK7dW8=
@@ -717,10 +541,6 @@
 		</dict>
 		<key>Headers/GoogleMapsUtils-Bridging-Header.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			0usHf+e4Exw0jfxmi8lU/cALb4k=
-			</data>
 			<key>hash2</key>
 			<data>
 			2Rzyffs5j4VQ06CCnJSDcCr6O8PnHiMenauCmUWpGOA=
@@ -728,10 +548,6 @@
 		</dict>
 		<key>Headers/GoogleMapsUtils-Swift.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			RyIR0vmuwH1Ir6xTnhvB+dKPGG0=
-			</data>
 			<key>hash2</key>
 			<data>
 			YINrx6emjTGx/OtxkQs0axOmP2V6QMgJ2hJaKfGBSFw=
@@ -739,32 +555,20 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			9NXXRH6nqVJYl1Q8ghvFP347LVE=
-			</data>
 			<key>hash2</key>
 			<data>
-			hv3ibf4G4O9G8EPKFShDdCDV5/kngLodZggFcQ9U1OE=
+			s1STWErjlh/TStjCqWLid/f7e5YePMRmDX3qqT4/CTM=
 			</data>
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			3iyufvnSEiLWJBtP5LBMW3QKnBk=
-			</data>
 			<key>hash2</key>
 			<data>
-			a8WicfDKJIhkvQlEbUZyfyHk9YPosTr1PFmuEXEPjLU=
+			RGeE9rLO76yCh8vJpr5JAYPRbB70IpUXBkSlGc1sxJA=
 			</data>
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			gcwBsH4BgyFY4sVtNt+/xOKS3vY=
-			</data>
 			<key>hash2</key>
 			<data>
 			Qnesa0n4URGWAopawg9bGx36dUwkYV00BoCJ8LFzlyg=
@@ -772,10 +576,6 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			VUUq4vdIhcT2RL6+XIudHOD8Nvk=
-			</data>
 			<key>hash2</key>
 			<data>
 			LomMs+SNUaSrpvE2NWAyl3bcQCE4grDqX58NGd+5+Ik=
@@ -783,10 +583,6 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			bi1TxVB602UT8UaXz5YKYZ0wlPc=
-			</data>
 			<key>hash2</key>
 			<data>
 			nVQ9tz3wEE4wiAUrDeE3Uek90HP1QNidwbKq3x6wKmY=
@@ -794,10 +590,6 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			gcwBsH4BgyFY4sVtNt+/xOKS3vY=
-			</data>
 			<key>hash2</key>
 			<data>
 			Qnesa0n4URGWAopawg9bGx36dUwkYV00BoCJ8LFzlyg=
@@ -805,10 +597,6 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			qxMw/KPmrZnVEk/fX/FIdY03D7s=
-			</data>
 			<key>hash2</key>
 			<data>
 			pOHfa85nayURZM7FAhELjf3WWtmu/EgJ+c6zZGs8tBo=
@@ -816,10 +604,6 @@
 		</dict>
 		<key>Modules/GoogleMapsUtils.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			B9N0T8+9Lnmnki6MW8J1EDmrFMM=
-			</data>
 			<key>hash2</key>
 			<data>
 			J0TOCxqOyJbvXjTSdwT2AQ3ACFv1yieivKpOnK1U6Ws=
@@ -827,10 +611,6 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			yRLVHFO7rrSx78LGLHPNSrpJp50=
-			</data>
 			<key>hash2</key>
 			<data>
 			p/MIWvuU1rg68VPYSCfIi29rhVP+UAKLeK9h5R8dzuo=

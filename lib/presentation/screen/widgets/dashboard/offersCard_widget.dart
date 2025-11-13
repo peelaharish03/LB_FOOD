@@ -7,17 +7,16 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_res
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 
 class OffersCarousel extends StatefulWidget {
-  const OffersCarousel({super.key});
+  final bool isGuest;
+  const OffersCarousel({super.key, this.isGuest = false});
 
   @override
   State<OffersCarousel> createState() => _OffersCarouselState();
 }
 
 class _OffersCarouselState extends State<OffersCarousel> {
-  final PageController _pageController = PageController(
-    viewportFraction: 0.85,
-    initialPage: 1000,
-  );
+  final PageController _pageController =
+      PageController(viewportFraction: 1, initialPage: 1000);
 
   double _currentPage = 1000.0;
   Timer? _autoScrollTimer;
@@ -27,13 +26,16 @@ class _OffersCarouselState extends State<OffersCarousel> {
   void initState() {
     super.initState();
 
-    // Fetch offers from API using Cubit
-    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+    if (!widget.isGuest) {
+      context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+    }
 
     _pageController.addListener(() {
-      setState(() {
-        _currentPage = _pageController.page ?? _currentPage;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPage = _pageController.page ?? _currentPage;
+        });
+      }
     });
 
     _startAutoScroll();
@@ -45,7 +47,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
       if (!_pageController.hasClients || _isUserInteracting) return;
 
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 700),
         curve: Curves.easeInOut,
       );
     });
@@ -60,69 +62,64 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isGuest) return _buildComingSoonCarousel();
+
     return BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
       builder: (context, state) {
         if (state is RestaurantOffersLoading) {
           return const Center(child: CircularProgressIndicator());
         } else if (state is RestaurantOffersError) {
-          return Center(child: Text(state.message));
+          return _buildComingSoonCarousel();
         } else if (state is RestaurantOffersLoaded) {
           final offers = state.offers.data?.content ?? [];
 
-          if (offers.isEmpty) {
-            return const Center(child: Text("No offers available"));
-          }
+          if (offers.isEmpty) return _buildComingSoonCarousel();
 
           return GestureDetector(
             onPanDown: (_) => _isUserInteracting = true,
             onPanCancel: () => _isUserInteracting = false,
             onPanEnd: (_) => _isUserInteracting = false,
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 160,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemBuilder: (context, index) {
-                      final Content offer = offers[index % offers.length];
+            child: SizedBox(
+              height: 160,
+              child: PageView.builder(
+                controller: _pageController,
+                itemBuilder: (context, index) {
+                  final Content offer = offers[index % offers.length];
 
-                      // Dynamic UI: choose colors based on offerType
-                      final gradientColors =
-                          _getGradientColors(offer.offerType);
-                      final accentColor = gradientColors.last;
+                  final gradientColors = _getGradientColors(offer.offerType);
+                  final accentColor = gradientColors.last;
 
-                      final double scale = (_currentPage - index).abs() < 1.0
-                          ? 1 - (_currentPage - index).abs() * 0.1
-                          : 0.9;
+                  final double scale = (_currentPage - index).abs() < 1.0
+                      ? 1 - (_currentPage - index).abs() * 0.1
+                      : 0.9;
 
-                      return Transform.scale(
-                        scale: scale,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutQuint,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: OffersCard(
-                            tag: offer.couponCode ?? "OFFER",
-                            title: offer.name ?? "",
-                            subtitle: offer.description ?? "",
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      DashboardScreen(couponCode: offer.couponCode),
-                                ),
-                              );
-                            },
-                            gradientColors: gradientColors,
-                            accentColor: accentColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                  return Transform.scale(
+                    scale: scale,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOutQuint,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: OffersCard(
+                        tag: offer.couponCode ?? "OFFER",
+                        title: offer.name ?? "",
+                        subtitle: offer.description ?? "",
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DashboardScreen(
+                                couponCode: offer.couponCode,
+                              ),
+                            ),
+                          );
+                        },
+                        gradientColors: gradientColors,
+                        accentColor: accentColor,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           );
         }
@@ -131,7 +128,77 @@ class _OffersCarouselState extends State<OffersCarousel> {
     );
   }
 
-  // Helper to map offer type → gradient
+  /// Placeholder carousel when offers are unavailable or user is guest
+  /// Placeholder carousel when offers are unavailable or user is guest
+  Widget _buildComingSoonCarousel() {
+    final List<String> images = [
+      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80',
+    ];
+
+    return SizedBox(
+      height: 260,
+      child: PageView.builder(
+        controller: _pageController,
+        itemBuilder: (context, index) {
+          final image = images[index % images.length];
+          final double scale = (_currentPage - index).abs() < 1.0
+              ? 1 - (_currentPage - index).abs() * 0.1
+              : 0.9;
+
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                image: DecorationImage(
+                  image: NetworkImage(image),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.black.withOpacity(0.2),
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+                child: const Center(
+                  child: Text(
+                    "Local Basket Coming Soon",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 4,
+                          color: Colors.black54,
+                          offset: Offset(1, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+
+  /// Helper to map offer type → gradient
   List<Color> _getGradientColors(String? offerType) {
     switch (offerType) {
       case "DISCOUNT":

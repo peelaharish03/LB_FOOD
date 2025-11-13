@@ -4,8 +4,6 @@ import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.d
 import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
@@ -22,7 +20,6 @@ import 'package:local_basket/presentation/screen/widgets/dashboard/foodCatagoryI
 import 'package:local_basket/presentation/screen/widgets/dashboard/foodItemCard.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/locationHeader.dart';
 import 'package:local_basket/components/searchBar.dart';
-import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -34,7 +31,7 @@ import 'package:shimmer/shimmer.dart';
 class DashboardScreen extends StatefulWidget {
   final bool isGuest;
   final String? couponCode;
-  const DashboardScreen({super.key, this.isGuest = false,this.couponCode});
+  const DashboardScreen({super.key, this.isGuest = false, this.couponCode});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -50,7 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _showBottomCart = true;
   bool _isScrollingDown = false;
   double _scrollPosition = 0;
-  int page = 0, size = 10;
+  int page = 0, size = 100;
   bool _showOffers = true;
   bool isLocationInitializing = true;
   late FocusNode _searchFocusNode;
@@ -103,7 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         debugPrint("✅ Permission granted → fetching coordinates");
-        await _loadCoordinatesAndFetchRestaurants();
+         await _loadCoordinatesAndFetchRestaurants();
       } else {
         debugPrint("⚠️ Permission denied or forever denied → using fallback");
 
@@ -240,11 +237,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
-          restaurantName: name,
-          restaurantId: id,
-          isGuest: widget.isGuest,
-          couponCode : widget.couponCode
-        ),
+            restaurantName: name,
+            restaurantId: id,
+            isGuest: widget.isGuest,
+            couponCode: widget.couponCode),
       ),
     );
 
@@ -377,12 +373,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> safeSetState(VoidCallback fn) async {
+    if (!_disposed && mounted) setState(fn);
   }
 
   @override
@@ -500,7 +503,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             }
                           },
                         ),
-                        
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -549,7 +551,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
-                  
                   Text(
                     "Restaurants to Explore",
                     style: TextStyle(
@@ -572,7 +573,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
-
       bottomNavigationBar:
           (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
               ? BottomCartCard(
@@ -614,7 +614,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : null,
     );
   }
-
 }
 
 Widget _buildShimmerRestaurants() {

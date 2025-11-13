@@ -11,36 +11,31 @@ class RatingService {
     required BuildContext context,
     required List<Content> orders,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-
     for (var order in orders) {
       if (order.orderStatus?.toUpperCase() == 'DELIVERED' &&
           order.createdDate != null) {
         final deliveryTime = order.createdDate!;
         final now = DateTime.now();
 
-        // Only if delivered over 20 minutes ago
         if (now.difference(deliveryTime).inMinutes >= 20) {
           final orderId = order.orderNumber ?? '';
-          final ratedKey = 'rated_$orderId';
-          final isRated = prefs.getBool(ratedKey) ?? false;
-
+          final isRated = await hasRated(orderId);
           if (!isRated) {
-            await prefs.setBool(ratedKey, true); // mark as shown
-            _showRatingDialog(context: context, order: order);
-            break; // show only one popup at a time
+            await markRated(orderId);
+            showRatingDialog(context: context, order: order);
+            break;
           }
         }
       }
     }
   }
 
-  void _showRatingDialog(
+  Future<void> showRatingDialog(
       {required BuildContext context, required Content order}) {
     double rating = 0;
     final TextEditingController feedbackController = TextEditingController();
 
-    showDialog(
+    return showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -87,9 +82,10 @@ class RatingService {
               child: Text("Later"),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                // TODO: Send rating + feedback to your API here if needed
+                final orderId = order.orderNumber ?? '';
+                await markRated(orderId);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text("Thanks for your feedback!")),
                 );
@@ -100,5 +96,19 @@ class RatingService {
         );
       },
     );
+  }
+
+  Future<bool> hasRated(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (orderId.isEmpty) return false;
+    final ratedKey = 'rated_$orderId';
+    return prefs.getBool(ratedKey) ?? false;
+  }
+
+  Future<void> markRated(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (orderId.isEmpty) return;
+    final ratedKey = 'rated_$orderId';
+    await prefs.setBool(ratedKey, true);
   }
 }

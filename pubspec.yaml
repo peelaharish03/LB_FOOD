@@ -45,6 +45,7 @@ dependencies:
   carousel_slider: ^5.1.1
   video_player: ^2.10.0
   device_info_plus: ^11.5.0
+  infinite_carousel: ^1.1.1
 
 
 

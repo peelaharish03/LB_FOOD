@@ -1,5 +1,4 @@
 import 'package:local_basket/components/custom_topbar.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class PromotionsScreen extends StatefulWidget {

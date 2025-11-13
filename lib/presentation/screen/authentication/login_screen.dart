@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/constants/img_const.dart';
 import 'package:local_basket/components/custom_button.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_cubit.dart';

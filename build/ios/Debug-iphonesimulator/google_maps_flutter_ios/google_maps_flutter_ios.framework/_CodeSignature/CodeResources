@@ -86,7 +86,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		xJWHmhzDS5+AUMU3PtE2Rp96LV0=
+		tYuaB1hq4fYkwDSXdIpqlqCegrU=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -97,10 +97,6 @@
 	<dict>
 		<key>Headers/FGMCATransactionWrapper.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			HpNWBqyXItexD3F9MxYr9e4sERw=
-			</data>
 			<key>hash2</key>
 			<data>
 			0D9lFy2foUMiXKqaq+W+XUP+2inMlfSIWrFjp6Zg7FI=
@@ -108,10 +104,6 @@
 		</dict>
 		<key>Headers/FGMClusterManagersController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			ZZxSZYDiAcH/cmzZ4AuZXXExzYk=
-			</data>
 			<key>hash2</key>
 			<data>
 			7C20cJ4HV1Ue8m0RLnSLT7yS5IkDRgwyY5TwlGIKWIw=
@@ -119,10 +111,6 @@
 		</dict>
 		<key>Headers/FGMGroundOverlayController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			gM0bAmi1cpReEn7rYB94qpKHzgM=
-			</data>
 			<key>hash2</key>
 			<data>
 			AgWbV2q5MSE6AAbalCOEGgcPJEUruJBGVo/1/cnPeH8=
@@ -130,10 +118,6 @@
 		</dict>
 		<key>Headers/FGMGroundOverlayController_Test.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			n4Pnxregau0pARDU7u01dyRUxww=
-			</data>
 			<key>hash2</key>
 			<data>
 			0nfKCngogPN60zSrF3NiNXVmW9Z3kKDEP0zsl3ZLf+w=
@@ -141,10 +125,6 @@
 		</dict>
 		<key>Headers/FGMImageUtils.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			EdTWKzhw1l7AnpTL7D6/iV8oLAg=
-			</data>
 			<key>hash2</key>
 			<data>
 			P+9LXzce4RIQABxKWBfidUUO9x+2iSA6mMG2U3gL9Ww=
@@ -152,10 +132,6 @@
 		</dict>
 		<key>Headers/FGMMarkerUserData.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			wDVqAdG5SkwQXYcDrSlxkZuu0Eg=
-			</data>
 			<key>hash2</key>
 			<data>
 			HbfPgblYNzGwduSrRiecQvrsTwxB0y5jfi4UOpBRc3o=
@@ -163,10 +139,6 @@
 		</dict>
 		<key>Headers/FLTGoogleMapHeatmapController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			V8+jUeAWpKfCVaJONCP5fsPnVr0=
-			</data>
 			<key>hash2</key>
 			<data>
 			/Efgl6auUd1tsTZyJzdL6sh8PQDK+bJeDHvrxYF71Hs=
@@ -174,10 +146,6 @@
 		</dict>
 		<key>Headers/FLTGoogleMapJSONConversions.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			g65XtK+LqJM88x033SfgjZWT+XM=
-			</data>
 			<key>hash2</key>
 			<data>
 			R4wIbBJ8WkAj2jxzbe/awN2su4ngcNn0oFO34YNQcsc=
@@ -185,10 +153,6 @@
 		</dict>
 		<key>Headers/FLTGoogleMapTileOverlayController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			UgeDh+q8GFpGRLeSdBPP3bEH37A=
-			</data>
 			<key>hash2</key>
 			<data>
 			vUDmv+dCrGQ5TMKSNNydKqb0Fkb1AnCNpN6mNmKSKcc=
@@ -196,10 +160,6 @@
 		</dict>
 		<key>Headers/FLTGoogleMapsPlugin.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			MtdePiy4aQWYv2kQV+pMyw1E/Ug=
-			</data>
 			<key>hash2</key>
 			<data>
 			4N7y0Vd5yv9Ucu79I1sbJ0s1UZTu+2dgeQGRNXVzKYg=
@@ -207,10 +167,6 @@
 		</dict>
 		<key>Headers/GoogleMapCircleController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			vcMHFXJqGEHXV2iOCaWvUowHnl0=
-			</data>
 			<key>hash2</key>
 			<data>
 			6vonluzUFCB22Jsg2Q6eqloazdm5THPmWVmecTzYhNQ=
@@ -218,10 +174,6 @@
 		</dict>
 		<key>Headers/GoogleMapController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			hZmqfAjr06CZkRu4PqSevhxYLLA=
-			</data>
 			<key>hash2</key>
 			<data>
 			oatI9piFsTwWAvZ6B7ONXGgdfu5IkJo9MbiAHtd5dBY=
@@ -229,10 +181,6 @@
 		</dict>
 		<key>Headers/GoogleMapController_Test.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			PuZyf/0+CbPJbS+OlFELIc019qk=
-			</data>
 			<key>hash2</key>
 			<data>
 			ennWUFgM0gfAXIF7zrSkIvV3VlpVH4en48+PGfDXJS4=
@@ -240,10 +188,6 @@
 		</dict>
 		<key>Headers/GoogleMapMarkerController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			1xEW/kaGPtWAINmZjUmxvV0jhOo=
-			</data>
 			<key>hash2</key>
 			<data>
 			vPlasQk/MW66Ez/PIjPOGygtb/+YlCfONMOG+Cq0Pxs=
@@ -251,10 +195,6 @@
 		</dict>
 		<key>Headers/GoogleMapMarkerController_Test.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			LMuWKMSK0X8mHM7AVl13Sm+c9Mo=
-			</data>
 			<key>hash2</key>
 			<data>
 			mU66fMimYJIq7dFhz0T4a2TzxZkQtBzOyX5IZgv4+IU=
@@ -262,10 +202,6 @@
 		</dict>
 		<key>Headers/GoogleMapPolygonController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			eSEdiUqa/VQT856XVgcoXn/3PrQ=
-			</data>
 			<key>hash2</key>
 			<data>
 			X20kJmtn+1AGImOErK3N9Y6C1V7G743WNaUr+S0O6UA=
@@ -273,10 +209,6 @@
 		</dict>
 		<key>Headers/GoogleMapPolylineController.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			HdQKVcc7mfXsDRfmLGiEd3ZUNo4=
-			</data>
 			<key>hash2</key>
 			<data>
 			P4x2wGRbBU2wsOIlgNUrR2jJGLU3pUkBfqEoyUiVyuw=
@@ -284,10 +216,6 @@
 		</dict>
 		<key>Headers/GoogleMapPolylineController_Test.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			HqvLD6lb3iQiqauVxdwd1EMm6sA=
-			</data>
 			<key>hash2</key>
 			<data>
 			66Btz5PdDPIgnOzCiwurHCce7WBZ/sm3xFgw8axCWko=
@@ -295,10 +223,6 @@
 		</dict>
 		<key>Headers/google_maps_flutter_ios-umbrella.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			qkvkMEL4UfNMgmCdvhb6R7221PI=
-			</data>
 			<key>hash2</key>
 			<data>
 			b7SxTcVX1VSbOEnKGgmx76CY3fD/s9sdy3DW32Tgo04=
@@ -306,10 +230,6 @@
 		</dict>
 		<key>Headers/messages.g.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Xz4KTsv65O6C4f5vgzQIpfRmvpw=
-			</data>
 			<key>hash2</key>
 			<data>
 			HXhr/UjR1yG31T3nfXL/9UZjCR02zZDqM4/SFim+/tQ=
@@ -317,10 +237,6 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			MR8mbRNeo9L09yaWh4jMP7bZjnc=
-			</data>
 			<key>hash2</key>
 			<data>
 			7fspqg48Cioz7i9A4WnygV1wHzdcD/1I5bSW2HFERIU=

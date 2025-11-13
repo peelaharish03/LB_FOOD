@@ -17,7 +17,7 @@ class HomeSearchBar extends StatefulWidget {
 }
 
 class _HomeSearchBarState extends State<HomeSearchBar> {
-  bool _isListening = false;
+  final bool _isListening = false;
   late stt.SpeechToText _speech;
   late TextEditingController _controller;
   // String _spokenText = "";
