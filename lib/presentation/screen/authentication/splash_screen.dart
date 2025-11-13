@@ -140,9 +140,9 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!_navigateManually) return;
 
         if (state is CurrentCustomerLoaded) {
-          final local_basket = state.currentCustomerModel.eato ?? false;
+          final localBasket = state.currentCustomerModel.eato ?? false;
           _navigateTo(
-              local_basket ? const MainDashboard() : const NameInputScreen());
+              localBasket ? const MainDashboard() : const NameInputScreen());
         } else {
           _navigateTo(const LoginScreen());
         }

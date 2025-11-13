@@ -129,6 +129,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
   }
 
   /// Placeholder carousel when offers are unavailable or user is guest
+  /// Placeholder carousel when offers are unavailable or user is guest
   Widget _buildComingSoonCarousel() {
     final List<String> images = [
       'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
@@ -137,7 +138,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
     ];
 
     return SizedBox(
-      height: 160,
+      height: 260,
       child: PageView.builder(
         controller: _pageController,
         itemBuilder: (context, index) {
@@ -157,12 +158,45 @@ class _OffersCarouselState extends State<OffersCarousel> {
                   fit: BoxFit.cover,
                 ),
               ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.4),
+                      Colors.black.withOpacity(0.2),
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+                child: const Center(
+                  child: Text(
+                    "Local Basket Coming Soon",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 4,
+                          color: Colors.black54,
+                          offset: Offset(1, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           );
         },
       ),
     );
   }
+
 
   /// Helper to map offer type → gradient
   List<Color> _getGradientColors(String? offerType) {
