@@ -5,6 +5,7 @@ import 'package:local_basket/data/model/offers/restaurant_offers/restaurant_offe
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OffersCarousel extends StatefulWidget {
   final bool isGuest;
@@ -20,6 +21,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   double _currentPage = 1000.0;
   Timer? _autoScrollTimer;
+  Timer? _countdownTimer;
+  int _secondsLeft = 0;
   bool _isUserInteracting = false;
 
   @override
@@ -39,6 +42,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
     });
 
     _startAutoScroll();
+    _startCountdown();
   }
 
   void _startAutoScroll() {
@@ -56,6 +60,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
+    _countdownTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -80,30 +85,39 @@ class _OffersCarouselState extends State<OffersCarousel> {
             onPanCancel: () => _isUserInteracting = false,
             onPanEnd: (_) => _isUserInteracting = false,
             child: SizedBox(
-              height: 160,
-              child: PageView.builder(
-                controller: _pageController,
-                itemBuilder: (context, index) {
-                  final Content offer = offers[index % offers.length];
+              height: 180,
+              child: Stack(
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemBuilder: (context, index) {
+                      final Content offer = offers[index % offers.length];
 
-                  final gradientColors = _getGradientColors(offer.offerType);
-                  final accentColor = gradientColors.last;
+                      final gradientColors = _getGradientColors(offer.offerType);
+                      final accentColor = gradientColors.last;
 
-                  final double scale = (_currentPage - index).abs() < 1.0
-                      ? 1 - (_currentPage - index).abs() * 0.1
-                      : 0.9;
+                      final double scale = (_currentPage - index).abs() < 1.0
+                          ? 1 - (_currentPage - index).abs() * 0.1
+                          : 0.9;
 
-                  return Transform.scale(
-                    scale: scale,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutQuint,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: OffersCard(
-                        tag: offer.couponCode ?? "OFFER",
-                        title: offer.name ?? "",
-                        subtitle: offer.description ?? "",
-                        onPressed: () {
+                      return Transform.scale(
+                        scale: scale,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutQuint,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: OffersCard(
+                            tag: offer.couponCode ?? "OFFER",
+                            title: offer.name ?? "",
+                            subtitle: offer.description ?? "",
+                            onPressed: () {
+                          // Flag the special offer flow globally
+                          () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('is_offer_flow', true);
+                            await prefs.setString('offer_coupon', offer.couponCode ?? '');
+                            await prefs.setInt('offer_started_at', DateTime.now().millisecondsSinceEpoch);
+                          }();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -112,19 +126,67 @@ class _OffersCarouselState extends State<OffersCarousel> {
                               ),
                             ),
                           );
-                        },
-                        gradientColors: gradientColors,
-                        accentColor: accentColor,
-                      ),
-                    ),
-                  );
-                },
+                            },
+                            gradientColors: gradientColors,
+                            accentColor: accentColor,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    right: 12,
+                    top: 6,
+                    child: _buildCountdownChip(),
+                  ),
+                ],
               ),
             ),
           );
         }
         return const SizedBox.shrink();
       },
+    );
+  }
+
+  void _startCountdown() {
+    _updateCountdown();
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _updateCountdown());
+    });
+  }
+
+  void _updateCountdown() {
+    final now = DateTime.now();
+    final ms = now.millisecondsSinceEpoch;
+    final windowMs = 10 * 60 * 1000; // 10 minutes
+    final nextBoundary = ((ms / windowMs).floor() + 1) * windowMs;
+    _secondsLeft = ((nextBoundary - ms) / 1000).ceil();
+    if (_secondsLeft < 0) _secondsLeft = 0;
+  }
+
+  Widget _buildCountdownChip() {
+    final m = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final s = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.timer, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            'Offer ends in $m:$s',
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 

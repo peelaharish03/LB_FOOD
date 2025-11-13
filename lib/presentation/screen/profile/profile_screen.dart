@@ -13,6 +13,7 @@ import 'package:local_basket/presentation/cubit/authentication/deleteAccount/del
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/order/myOrders_screen.dart';
 import 'package:local_basket/presentation/screen/profile/faqs_screen.dart';
+import 'package:local_basket/presentation/screen/profile/complaints_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/logout.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 
@@ -35,7 +36,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColor.White,
-      appBar: CustomAppBar(title: "My Profile",),
+      appBar: CustomAppBar(
+        title: "My Profile",
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -134,9 +137,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Navigator.push(
             context, MaterialPageRoute(builder: (_) => AddressScreen()));
       }),
-      _Option(Icons.help_outline, "FAQs", onTap: () {
+      _Option(Icons.report_problem_outlined, "Complaints", onTap: () {
         Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const FaqsScreen()));
+            MaterialPageRoute(builder: (_) => const ComplaintsScreen()));
+      }),
+      _Option(Icons.help_outline, "FAQs", onTap: () {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const FaqsScreen()));
       }),
       _Option(Icons.logout, "Logout", onTap: () {
         showModalBottomSheet(

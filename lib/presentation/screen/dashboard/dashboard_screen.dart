@@ -11,6 +11,7 @@ import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProd
 import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_state.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
+import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/restaurantMenu/restaurantMenu_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/LocationPermissionDialog.dart';
@@ -62,6 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 1000));
       await _requestLocationPermission();
+      await _maybeClearCartForOfferFlow();
     });
 
     _scrollController.addListener(_scrollListener);
@@ -100,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         debugPrint("✅ Permission granted → fetching coordinates");
-         await _loadCoordinatesAndFetchRestaurants();
+        await _loadCoordinatesAndFetchRestaurants();
       } else {
         debugPrint("⚠️ Permission denied or forever denied → using fallback");
 
@@ -131,6 +133,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _clearCart() async {
     await context.read<ClearCartCubit>().clearCart(context);
     await _fetchCart();
+  }
+
+  Future<void> _maybeClearCartForOfferFlow() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // If dashboard was opened with a couponCode (e.g., deep link), mark offer flow
+      final couponFromParam = widget.couponCode;
+      if (couponFromParam != null && couponFromParam.isNotEmpty) {
+        await prefs.setBool('is_offer_flow', true);
+        await prefs.setString('offer_coupon', couponFromParam);
+        await prefs.setInt(
+            'offer_started_at', DateTime.now().millisecondsSinceEpoch);
+      }
+
+      final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
+
+      // Only clear cart for logged-in users when starting offer flow
+      if (!isOfferFlow || widget.isGuest) return;
+
+      final cartCubit = context.read<GetCartCubit>();
+      if (cartCubit.state is! GetCartLoaded) {
+        await cartCubit.fetchCart(context);
+      }
+
+      final state = cartCubit.state;
+      if (state is GetCartLoaded) {
+        final hasItems = (state.cart.totalCount ?? 0) > 0;
+        if (hasItems) {
+          await context.read<ClearCartCubit>().clearCart(context);
+          await cartCubit.fetchCart(context);
+        }
+      }
+    } catch (_) {}
   }
 
   void _scrollListener() {
@@ -424,7 +460,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             IconButton(
                               icon: const Icon(Icons.arrow_back_ios,
                                   color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () => Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const MainDashboard(isGuest: false)),
+                                  (route) => false),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
