@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:local_basket/components/custom_topbar.dart';
+import 'dart:io';
+import 'package:local_basket/core/constants/restaurant_appbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
@@ -512,56 +513,61 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-        canPop: true,
-        onPopInvoked: (didPop) async {
-          if (!didPop &&
-              isBottomSheetVisible &&
-              _bottomSheetController != null) {
-            _bottomSheetController?.close();
-            await Future.delayed(const Duration(milliseconds: 300));
-            if (mounted) Navigator.of(context).pop();
-          }
-        },
-        child: Scaffold(
-          key: _scaffoldKey,
-          backgroundColor: Colors.grey[100],
-          appBar: CustomAppBar(
-              title: widget.restaurantName,
-              onBackPressed: () async {
-                if (isBottomSheetVisible && _bottomSheetController != null) {
-                  _bottomSheetController?.close();
-                  await Future.delayed(const Duration(milliseconds: 300));
-                }
-
-                final updatedCart = <int, int>{};
-                for (var item in selectedItems) {
-                  final productId = item.id;
-                  final qty = cart[item.name] ?? 0;
-                  if (qty > 0) updatedCart[productId ?? 0] = qty;
-                }
-
-                if (mounted) {
-                  Navigator.pop(context, {
-                    'updatedCart': updatedCart,
-                    'cartItemsLength': totalItems,
-                  });
-                }
-              }),
-          body: Column(
+      canPop: true,
+      onPopInvoked: (didPop) async {
+        if (!didPop && isBottomSheetVisible && _bottomSheetController != null) {
+          _bottomSheetController?.close();
+          await Future.delayed(const Duration(milliseconds: 300));
+          if (mounted) Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.grey[100],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.only(
+              bottom: 100), // space for floating buttons/cart
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HomeSearchBar(hintText: "menu", onChanged: _onSearchChanged),
+              // AppBar
+              SwiggyStyleAppBar(
+                restaurantName: widget.restaurantName,
+                location: "Anakapalle",
+                deliveryTime: "20–25 mins",
+                rating: 4.4,
+                offerText: "Items at ₹109 on select items",
+                isBottomSheetVisible: isBottomSheetVisible,
+                bottomSheetController: _bottomSheetController,
+                selectedItems: selectedItems,
+                cart: cart,
+                totalItems: totalItems,
+              ),
+
+              SizedBox(
+                height:
+                    Platform.isIOS ? 80 : 100, 
+              ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: HomeSearchBar(
+                  hintText: "menu",
+                  onChanged: _onSearchChanged,
+                ),
+              ),
+
               const SizedBox(height: 10),
+
+              // Filter Row
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   children: ['All', 'Veg', 'NonVeg'].map((filter) {
                     final isSelected = filter == filterType;
                     Widget? icon;
-                    if (filter == 'Veg') {
-                      icon = vegNonVegIcon(true);
-                    } else if (filter == 'NonVeg') {
-                      icon = vegNonVegIcon(false);
-                    }
+                    if (filter == 'Veg') icon = vegNonVegIcon(true);
+                    if (filter == 'NonVeg') icon = vegNonVegIcon(false);
 
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -590,8 +596,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: AppColor.PrimaryColor.withOpacity(
-                                          0.2),
+                                      color:
+                                          AppColor.PrimaryColor.withAlpha(50),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     )
@@ -623,176 +629,147 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 10),
-              Expanded(
+
+              const SizedBox(height: 16),
+
+              // Menu Items
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: widget.isGuest
-                    ? BlocConsumer<GuestMenuByRestaurantIdCubit,
-                        GuestMenuByRestaurantIdState>(
-                        listener: (context, state) {
-                          if (state is GuestMenuByRestaurantIdSuccess) {
-                            _isMenuLoaded = true;
-                          }
-                        },
-                        builder: (context, state) {
-                          if (state is GuestMenuByRestaurantIdLoading) {
-                            return const Center(
-                                child: CupertinoActivityIndicator());
-                          } else if (state is GuestMenuByRestaurantIdSuccess) {
-                            final filteredItems =
-                                state.data.content.where((item) {
-                              final matchesSearch = (item.name ?? "")
-                                  .toLowerCase()
-                                  .contains(searchText.toLowerCase());
-
-                              final foodType = item.attributes
-                                  .firstWhere(
-                                    (a) =>
-                                        (a.attributeName ?? "").toLowerCase() ==
-                                        'type',
-                                    orElse: () => Attribute(
-                                        id: 0,
-                                        attributeName: '',
-                                        attributeValue: ''),
-                                  )
-                                  .attributeValue
-                                  ?.toLowerCase();
-
-                              final matchesFilter = filterType == 'All' ||
-                                  (filterType.toLowerCase() == 'veg' &&
-                                      foodType == 'veg') ||
-                                  (filterType.toLowerCase() == 'nonveg' &&
-                                      foodType == 'nonveg');
-
-                              return matchesSearch && matchesFilter;
-                            }).toList();
-
-                            if (filteredItems.isEmpty) {
-                              return const Center(
-                                  child: Text("No menu items available"));
-                            }
-
-                            return ListView.builder(
-                              padding: const EdgeInsets.all(16.0),
-                              itemCount: filteredItems.length,
-                              itemBuilder: (context, index) {
-                                final item = filteredItems[index];
-                                return MenuItemWidget(
-                                  item: item,
-                                  quantity: 0,
-                                  restaurantId: widget.restaurantId,
-                                  restaurantName: widget.restaurantName,
-                                  isGuest: true,
-                                  onQuantityChanged: (_) {},
-                                  onGuestAttempt: () {
-                                    showLoginPromptBottomSheet(
-                                        context, 0, item);
-                                  },
-                                );
-                              },
-                            );
-                          } else if (state is GuestMenuByRestaurantIdFailure) {
-                            return const Center(
-                                child: Text("Error loading menu"));
-                          }
-                          return const SizedBox();
-                        },
-                      )
-                    : BlocConsumer<GetMenuByRestaurantIdCubit,
-                        GetMenuByRestaurantIdState>(
-                        listener: (context, state) {
-                          if (state is GetMenuByRestaurantIdLoaded) {
-                            setState(() {
-                              menuItems = state.model.content;
-                              _isMenuLoaded = true;
-                            });
-                            if (!_isCartLoaded) _loadCart();
-                          }
-                        },
-                        builder: (context, state) {
-                          if (state is GetMenuByRestaurantIdLoading) {
-                            return const Center(
-                                child: CupertinoActivityIndicator());
-                          } else if (state is GetMenuByRestaurantIdLoaded) {
-                            final filteredItems = menuItems.where((item) {
-                              if (_isCouponFlow && item.categoryId != 2) {
-                                return false;
-                              }
-                              final matchesSearch = (item.name ?? "")
-                                  .toLowerCase()
-                                  .contains(searchText.toLowerCase());
-
-                              final foodType = item.attributes
-                                  .firstWhere(
-                                    (a) =>
-                                        (a.attributeName ?? "").toLowerCase() ==
-                                        'type',
-                                    orElse: () => Attribute(
-                                        id: 0,
-                                        attributeName: '',
-                                        attributeValue: ''),
-                                  )
-                                  .attributeValue
-                                  ?.toLowerCase();
-
-                              final matchesFilter = filterType == 'All' ||
-                                  (filterType.toLowerCase() == 'veg' &&
-                                      foodType == 'veg') ||
-                                  (filterType.toLowerCase() == 'nonveg' &&
-                                      foodType == 'nonveg');
-
-                              return matchesSearch && matchesFilter;
-                            }).toList();
-
-                            if (filteredItems.isEmpty) {
-                              return const Center(
-                                  child: Text("No menu items available"));
-                            }
-
-                            return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(
-                                  16.0, 16.0, 16.0, 100.0),
-                              itemCount: filteredItems.length,
-                              itemBuilder: (context, index) {
-                                final item = filteredItems[index];
-                                return MenuItemWidget(
-                                  item: item,
-                                  quantity: _isCouponFlow
-                                      ? (cart[item.name ?? ""] ?? 0)
-                                      : (cart[item.name ?? ""] ?? 0),
-                                  restaurantId: widget.restaurantId,
-                                  restaurantName: widget.restaurantName,
-                                  isCouponFlow: _isCouponFlow,
-                                  onQuantityChanged: (qty) {
-                                    if (_isCouponFlow) {
-                                      final alreadySelected = cart.entries.any(
-                                          (entry) =>
-                                              entry.value > 0 &&
-                                              entry.key != (item.name ?? ""));
-
-                                      if (alreadySelected &&
-                                          qty == 1 &&
-                                          (cart[item.name ?? ""] ?? 0) == 0) {
-                                        _showReplaceItemDialog(item);
-                                      } else {
-                                        update_Cart(item, 1);
-                                      }
-                                    } else {
-                                      update_Cart(item, qty);
-                                    }
-                                  },
-                                );
-                              },
-                            );
-                          } else if (state is GetMenuByRestaurantIdError) {
-                            return const Center(
-                                child: Text("Error loading menu"));
-                          }
-                          return const Center(child: Text("Loading..."));
-                        },
-                      ),
-              )
+                    ? _buildGuestMenuItems()
+                    : _buildUserMenuItems(),
+              ),
             ],
           ),
-        ));
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestMenuItems() {
+    return BlocConsumer<GuestMenuByRestaurantIdCubit,
+        GuestMenuByRestaurantIdState>(
+      listener: (context, state) {
+        if (state is GuestMenuByRestaurantIdSuccess) _isMenuLoaded = true;
+      },
+      builder: (context, state) {
+        if (state is GuestMenuByRestaurantIdLoading) {
+          return const Center(child: CupertinoActivityIndicator());
+        } else if (state is GuestMenuByRestaurantIdSuccess) {
+          final filteredItems = state.data.content.where((item) {
+            final matchesSearch = (item.name ?? "")
+                .toLowerCase()
+                .contains(searchText.toLowerCase());
+
+            final foodType = item.attributes
+                .firstWhere(
+                  (a) => (a.attributeName ?? "").toLowerCase() == 'type',
+                  orElse: () =>
+                      Attribute(id: 0, attributeName: '', attributeValue: ''),
+                )
+                .attributeValue
+                ?.toLowerCase();
+
+            final matchesFilter = filterType == 'All' ||
+                (filterType.toLowerCase() == 'veg' && foodType == 'veg') ||
+                (filterType.toLowerCase() == 'nonveg' && foodType == 'nonveg');
+
+            return matchesSearch && matchesFilter;
+          }).toList();
+
+          if (filteredItems.isEmpty)
+            return const Center(child: Text("No menu items available"));
+
+          return Column(
+            children: filteredItems.map((item) {
+              return MenuItemWidget(
+                item: item,
+                quantity: 0,
+                restaurantId: widget.restaurantId,
+                restaurantName: widget.restaurantName,
+                isGuest: true,
+                onQuantityChanged: (_) {},
+                onGuestAttempt: () {
+                  showLoginPromptBottomSheet(context, 0, item);
+                },
+              );
+            }).toList(),
+          );
+        } else if (state is GuestMenuByRestaurantIdFailure) {
+          return const Center(child: Text("Error loading menu"));
+        }
+        return const SizedBox();
+      },
+    );
+  }
+
+  Widget _buildUserMenuItems() {
+    return BlocConsumer<GetMenuByRestaurantIdCubit, GetMenuByRestaurantIdState>(
+      listener: (context, state) {
+        if (state is GetMenuByRestaurantIdLoaded) {
+          setState(() {
+            menuItems = state.model.content;
+            _isMenuLoaded = true;
+          });
+          if (!_isCartLoaded) _loadCart();
+        }
+      },
+      builder: (context, state) {
+        if (state is GetMenuByRestaurantIdLoading) {
+          return const Center(child: CupertinoActivityIndicator());
+        } else if (state is GetMenuByRestaurantIdLoaded) {
+          final filteredItems = menuItems.where((item) {
+            if (_isCouponFlow && item.categoryId != 2) return false;
+            final matchesSearch = (item.name ?? "")
+                .toLowerCase()
+                .contains(searchText.toLowerCase());
+            final foodType = item.attributes
+                .firstWhere(
+                  (a) => (a.attributeName ?? "").toLowerCase() == 'type',
+                  orElse: () =>
+                      Attribute(id: 0, attributeName: '', attributeValue: ''),
+                )
+                .attributeValue
+                ?.toLowerCase();
+            final matchesFilter = filterType == 'All' ||
+                (filterType.toLowerCase() == 'veg' && foodType == 'veg') ||
+                (filterType.toLowerCase() == 'nonveg' && foodType == 'nonveg');
+            return matchesSearch && matchesFilter;
+          }).toList();
+
+          if (filteredItems.isEmpty)
+            return const Center(child: Text("No menu items available"));
+
+          return Column(
+            children: filteredItems.map((item) {
+              final qty = cart[item.name ?? ""] ?? 0;
+              return MenuItemWidget(
+                item: item,
+                quantity: qty,
+                restaurantId: widget.restaurantId,
+                restaurantName: widget.restaurantName,
+                isCouponFlow: _isCouponFlow,
+                onQuantityChanged: (newQty) {
+                  if (_isCouponFlow) {
+                    final alreadySelected = cart.entries.any((entry) =>
+                        entry.value > 0 && entry.key != (item.name ?? ""));
+                    if (alreadySelected && newQty == 1 && qty == 0) {
+                      _showReplaceItemDialog(item);
+                    } else {
+                      update_Cart(item, 1);
+                    }
+                  } else {
+                    update_Cart(item, newQty);
+                  }
+                },
+              );
+            }).toList(),
+          );
+        } else if (state is GetMenuByRestaurantIdError) {
+          return const Center(child: Text("Error loading menu"));
+        }
+        return const Center(child: Text("Loading..."));
+      },
+    );
   }
 }

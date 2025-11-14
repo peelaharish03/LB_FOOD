@@ -12,6 +12,7 @@ import 'package:local_basket/presentation/cubit/authentication/deleteAccount/del
 import 'package:local_basket/presentation/cubit/authentication/deleteAccount/deleteAccount_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/order/myOrders_screen.dart';
+import 'package:local_basket/presentation/screen/profile/faqs_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/logout.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 
@@ -132,6 +133,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _Option(Icons.location_on_outlined, "Saved Addresses", onTap: () {
         Navigator.push(
             context, MaterialPageRoute(builder: (_) => AddressScreen()));
+      }),
+      _Option(Icons.help_outline, "FAQs", onTap: () {
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const FaqsScreen()));
       }),
       _Option(Icons.logout, "Logout", onTap: () {
         showModalBottomSheet(
