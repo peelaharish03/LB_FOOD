@@ -4,6 +4,7 @@ import 'package:local_basket/core/constants/restaurant_appbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/searchBar.dart';
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/bottomSheet.dart';
@@ -14,6 +15,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_basket/data/model/restaurants/guestMenuByRestaurantId/menu_content_model.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_state.dart';
@@ -41,7 +43,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Map<String, int> cart = {};
   int totalItems = 0, page = 0, size = 300;
   PersistentBottomSheetController? _bottomSheetController;
-  bool get _isCouponFlow => widget.couponCode != null;
+  bool _isOfferFlow = false;
   bool isBottomSheetVisible = false;
   String searchText = '', filterType = 'All';
   List<Content> selectedItems = [], menuItems = [];
@@ -57,6 +59,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     print("RestaurantMenuScreen - isGuest: ${widget.isGuest}");
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        final isOffer = prefs.getBool('is_offer_flow') ?? false;
+        if (mounted) setState(() => _isOfferFlow = isOffer);
+      }();
       if (widget.isGuest) {
         context
             .read<GuestMenuByRestaurantIdCubit>()
@@ -96,20 +103,16 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColor.PrimaryColor,
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
 
-              if (_couponSelectedItem != null) {
-                cart.remove(_couponSelectedItem!.name);
-                final oldIndex = menuItems
-                    .indexWhere((m) => m.id == _couponSelectedItem!.id);
-                if (oldIndex != -1) {
-                  menuItems = List.from(menuItems);
-                }
-              }
+              // Clear existing selection and switch to the new item
+              cart.clear();
+              selectedItems.clear();
+              totalItems = 0;
 
               _couponSelectedItem = newItem;
-              update_Cart(newItem, 1);
+              await update_Cart(newItem, 1);
             },
             child: const Text("Replace"),
           )
@@ -195,9 +198,16 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     });
   }
 
-  void update_Cart(Content item, int qty) {
-    if (_isCouponFlow) {
+  Future<void> update_Cart(Content item, int qty) async {
+    if (_isOfferFlow) {
       if (_couponSelectedItem != null && _couponSelectedItem!.id != item.id) {}
+
+      // If any cart exists, clear it first to enforce fresh single-item cart for offer flow
+      final existingState = context.read<GetCartCubit>().state;
+      if (existingState is GetCartLoaded &&
+          (existingState.cart.totalCount ?? 0) > 0) {
+        await context.read<ClearCartCubit>().clearCart(context);
+      }
 
       cart = {item.name ?? "": 1};
       selectedItems = [item];
@@ -224,8 +234,19 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         "selfOrder": selfOrder,
         "items": items,
       };
-      context.read<ProductsAddToCartCubit>().addToCart(payload);
-      context.read<GetCartCubit>().fetchCart(context);
+      await context.read<ProductsAddToCartCubit>().addToCart(payload);
+      await context.read<GetCartCubit>().fetchCart(context);
+
+      // Ensure bottom cart sheet reflects the new selection immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (totalItems > 0 && !isBottomSheetVisible) {
+          showPersistentCart();
+        } else if (totalItems == 0 && isBottomSheetVisible) {
+          _bottomSheetController?.close();
+        } else if (isBottomSheetVisible) {
+          _bottomSheetController?.setState?.call(() {});
+        }
+      });
 
       return;
     }
@@ -294,14 +315,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   void showPersistentCart() {
+    final rootContext = context;
     _bottomSheetController =
-        _scaffoldKey.currentState!.showBottomSheet((context) {
+        _scaffoldKey.currentState!.showBottomSheet((bottomSheetContext) {
       return RestaurantCartBottomSheet(
         totalItems: totalItems,
         onViewCartPressed: () async {
           _bottomSheetController?.close();
           final result = await Navigator.push(
-            context,
+            rootContext,
             MaterialPageRoute(
               builder: (_) => CartScreen(
                 cartItems: selectedItems.map((item) {
@@ -350,40 +372,42 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             final updatedCartLength = result['cartItemsLength'] ?? 0;
 
             if (updatedCart != null) {
-              cart.clear();
-              selectedItems.clear();
+              setState(() {
+                cart.clear();
+                selectedItems.clear();
 
-              for (var entry in updatedCart.entries) {
-                final productId = entry.key;
-                final quantity = entry.value;
+                for (var entry in updatedCart.entries) {
+                  final productId = entry.key;
+                  final quantity = entry.value;
 
-                final item = menuItems.firstWhere(
-                  (item) => item.id == productId,
-                  orElse: () => Content(
-                    id: 0,
-                    name: '',
-                    shortCode: '',
-                    ignoreTax: false,
-                    discount: true,
-                    description: '',
-                    price: 0,
-                    available: false,
-                    shopifyProductId: '',
-                    shopifyVariantId: '',
-                    businessId: 0,
-                    categoryId: 0,
-                    media: [],
-                    attributes: [],
-                  ),
-                );
+                  final item = menuItems.firstWhere(
+                    (item) => item.id == productId,
+                    orElse: () => Content(
+                      id: 0,
+                      name: '',
+                      shortCode: '',
+                      ignoreTax: false,
+                      discount: true,
+                      description: '',
+                      price: 0,
+                      available: false,
+                      shopifyProductId: '',
+                      shopifyVariantId: '',
+                      businessId: 0,
+                      categoryId: 0,
+                      media: [],
+                      attributes: [],
+                    ),
+                  );
 
-                if (item.id != 0) {
-                  cart[item.name ?? ""] = quantity;
-                  selectedItems.add(item);
+                  if (item.id != 0) {
+                    cart[item.name ?? ""] = quantity;
+                    selectedItems.add(item);
+                  }
                 }
-              }
 
-              totalItems = updatedCartLength;
+                totalItems = updatedCartLength;
+              });
 
               _onBottomSheetVisibilityChanged(false);
               await Future.delayed(const Duration(milliseconds: 100));
@@ -392,7 +416,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 showPersistentCart();
               }
 
-              if (!widget.isGuest) _loadMenu();
+              if (!widget.isGuest) {
+                // Refresh cart from backend to ensure full consistency
+                await rootContext.read<GetCartCubit>().fetchCart(rootContext);
+                _loadMenu();
+              }
             }
           }
         },
@@ -545,8 +573,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               ),
 
               SizedBox(
-                height:
-                    Platform.isIOS ? 80 : 100, 
+                height: Platform.isIOS ? 80 : 100,
               ),
 
               Padding(
@@ -719,7 +746,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is GetMenuByRestaurantIdLoaded) {
           final filteredItems = menuItems.where((item) {
-            if (_isCouponFlow && item.categoryId != 2) return false;
+            if (_isOfferFlow) {
+              final name = (item.name ?? '').toLowerCase();
+              final isBiryani = name.contains('biryani');
+              if (!isBiryani) return false;
+            }
             final matchesSearch = (item.name ?? "")
                 .toLowerCase()
                 .contains(searchText.toLowerCase());
@@ -748,18 +779,18 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 quantity: qty,
                 restaurantId: widget.restaurantId,
                 restaurantName: widget.restaurantName,
-                isCouponFlow: _isCouponFlow,
-                onQuantityChanged: (newQty) {
-                  if (_isCouponFlow) {
+                isCouponFlow: _isOfferFlow,
+                onQuantityChanged: (newQty) async {
+                  if (_isOfferFlow) {
                     final alreadySelected = cart.entries.any((entry) =>
                         entry.value > 0 && entry.key != (item.name ?? ""));
                     if (alreadySelected && newQty == 1 && qty == 0) {
                       _showReplaceItemDialog(item);
                     } else {
-                      update_Cart(item, 1);
+                      await update_Cart(item, 1);
                     }
                   } else {
-                    update_Cart(item, newQty);
+                    await update_Cart(item, newQty);
                   }
                 },
               );

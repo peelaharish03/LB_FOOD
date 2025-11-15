@@ -64,7 +64,7 @@ const addressSavetoCartUrl = 'order/api/carts/address?addressId';
 const paymentRefundHistory = '';
 const restaurantOffersUrl =
     'product/api/offers/list?businessId=0&active=true&page=0&size=100';
-const validateOfferUrl = 'order/offers/102/validate';
+const validateOfferUrl = 'order/offers/5/validate';
 const ratingReviewUrl = 'product/internal/reviews';
 
 String updateCartItemsUrl(String cartId) {

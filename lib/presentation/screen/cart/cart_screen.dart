@@ -20,6 +20,7 @@ import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsA
 import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
+import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 
 class CartScreen extends StatefulWidget {
   final int? orderId;
@@ -47,14 +48,15 @@ class _CartScreenState extends State<CartScreen> {
   final TextEditingController couponController = TextEditingController();
   bool _isCouponApplied = false;
 
+  bool _offerValidationInFlight = false;
+  DateTime? _lastOfferValidationAt;
 
   final Map<String, int> cart = {};
   final List<Map<String, dynamic>> selectedItems = [];
   int? cartId;
   bool loading = false;
   String selectedAddress = "Add Address";
-  bool selfOrder = true; 
-
+  bool selfOrder = true;
 
   static const double gstPercentage = 0.05;
   static const double deliveryCharge = 30.0;
@@ -70,6 +72,16 @@ class _CartScreenState extends State<CartScreen> {
     context.read<GetCartCubit>().fetchCart(context);
     _loadSavedAddress();
     _initCartItems();
+    // Try to auto-validate the offer shortly after init
+    Future.delayed(const Duration(milliseconds: 300), _maybeAutoValidateOffer);
+    // Restore previously applied offer to keep ₹1 sticky across navigation
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final applied = prefs.getBool('offer_applied') ?? false;
+      if (applied && mounted && getCartItemCount() == 1) {
+        setState(() => _isCouponApplied = true);
+      }
+    }();
   }
 
   void _onPaymentSuccess(PaymentSuccessResponse response) async {
@@ -102,6 +114,40 @@ class _CartScreenState extends State<CartScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() =>
         selectedAddress = prefs.getString('delivery_address') ?? "Add Address");
+  }
+
+  Future<void> _maybeAutoValidateOffer() async {
+    try {
+      final now = DateTime.now();
+      // Debounce: skip if we validated very recently
+      if (_lastOfferValidationAt != null &&
+          now.difference(_lastOfferValidationAt!).inMilliseconds < 800) {
+        return;
+      }
+      if (_offerValidationInFlight) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
+      final stickyApplied = prefs.getBool('offer_applied') ?? false;
+
+      // Validate as soon as there is exactly one item in offer flow
+      final hasExactlyOne = getCartItemCount() == 1;
+      if (hasExactlyOne) {
+        // If offer was already applied earlier, keep it sticky
+        if (stickyApplied) {
+          if (mounted) setState(() => _isCouponApplied = true);
+          return;
+        }
+        if (!isOfferFlow) return;
+        _offerValidationInFlight = true;
+        _lastOfferValidationAt = now;
+        try {
+          await context.read<ValidateOfferCubit>().validateOffer();
+        } finally {
+          _offerValidationInFlight = false;
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveAddress(String address) async {
@@ -393,8 +439,6 @@ class _CartScreenState extends State<CartScreen> {
     });
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -409,6 +453,9 @@ class _CartScreenState extends State<CartScreen> {
                     message: "Something went wrong");
               }
               setState(() => loading = false);
+            } else if (state is ProductsAddToCartSuccess) {
+              // Re-run validation as soon as items are added in offer flow
+              _maybeAutoValidateOffer();
             }
           },
         ),
@@ -421,16 +468,37 @@ class _CartScreenState extends State<CartScreen> {
                 notesController.text = state.cart.notes ?? "";
                 selfOrder = state.cart.selfOrder ?? true;
               });
+              // Re-check eligibility when cart updates
+              _maybeAutoValidateOffer();
+              // Keep sticky offer only while there is exactly one item
+              final count = getCartItemCount();
+              if (count != 1 && _isCouponApplied) {
+                () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('offer_applied');
+                }();
+                if (mounted) setState(() => _isCouponApplied = false);
+              } else if (count == 1) {
+                () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  final sticky = prefs.getBool('offer_applied') ?? false;
+                  if (sticky && mounted) setState(() => _isCouponApplied = true);
+                }();
+              }
             }
           },
         ),
-
         BlocListener<ValidateOfferCubit, ValidateOfferState>(
           listener: (context, state) {
             if (state is ValidateOfferSuccess) {
               final res = state.validateOfferModel;
 
-              if (res.message?.toLowerCase() == "true") {
+              final isSuccess = (res.status ?? '').toUpperCase() == 'SUCCESS';
+              final saysTrue = (res.data ?? '').toLowerCase() == 'true' ||
+                  (res.message ?? '').toLowerCase() == 'true';
+
+              // Apply ₹1 only when backend says SUCCESS and true
+              if (isSuccess && saysTrue) {
                 CustomSnackbars.showSuccessSnack(
                   context: context,
                   title: "Coupon Applied",
@@ -439,6 +507,11 @@ class _CartScreenState extends State<CartScreen> {
                 setState(() {
                   _isCouponApplied = true;
                 });
+                // Persist sticky until cart changes or payment
+                () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('offer_applied', true);
+                }();
               } else {
                 CustomSnackbars.showErrorSnack(
                   context: context,
@@ -448,6 +521,13 @@ class _CartScreenState extends State<CartScreen> {
                 setState(() {
                   _isCouponApplied = false;
                 });
+                () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('offer_applied');
+                  await prefs.remove('is_offer_flow');
+                  await prefs.remove('offer_coupon');
+                  await prefs.remove('offer_started_at');
+                }();
               }
             } else if (state is ValidateOfferFailure) {
               CustomSnackbars.showErrorSnack(
@@ -455,11 +535,16 @@ class _CartScreenState extends State<CartScreen> {
                 title: "Error",
                 message: state.error,
               );
+              () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('offer_applied');
+                await prefs.remove('is_offer_flow');
+                await prefs.remove('offer_coupon');
+                await prefs.remove('offer_started_at');
+              }();
             }
           },
         ),
-
-
         BlocListener<PaymentCubit, PaymentState>(
           listener: (context, state) {
             if (state is PaymentRefundSuccess) {
@@ -474,6 +559,25 @@ class _CartScreenState extends State<CartScreen> {
                 title: 'Success',
                 message: 'Payment Successful!',
               );
+              // Clear offer flow after successful payment
+              () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('is_offer_flow');
+                await prefs.remove('offer_coupon');
+                await prefs.remove('offer_started_at');
+                await prefs.remove('offer_applied');
+              }();
+
+              // Navigate to Dashboard and clear the back stack so Back does not return to Cart/Menu
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => const DashboardScreen(isGuest: false),
+                  ),
+                  (route) => false,
+                );
+              });
             } else if (state is PaymentFailure) {
               CustomSnackbars.showErrorSnack(
                 context: context,
@@ -484,11 +588,41 @@ class _CartScreenState extends State<CartScreen> {
           },
         ),
       ],
-      child: Scaffold(
+      child: WillPopScope(
+        onWillPop: () async {
+          // Clear offer flag when leaving cart
+          () async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('is_offer_flow');
+            await prefs.remove('offer_coupon');
+            await prefs.remove('offer_started_at');
+          }();
+
+          final updatedCart = <int, int>{};
+          for (var item in selectedItems) {
+            final productId = item['productId'] ?? item['id'];
+            final qty = cart[item['name']] ?? 0;
+            if (qty > 0) updatedCart[productId] = qty;
+          }
+
+          Navigator.pop(context, {
+            'updatedCart': updatedCart,
+            'cartItemsLength': getCartItemCount()
+          });
+          return false;
+        },
+        child: Scaffold(
         backgroundColor: AppColor.White,
         appBar: CustomAppBar(
           title: "Cart (${getCartItemCount()} items)",
           onBackPressed: () {
+            // Clear offer flag when leaving cart
+            () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('is_offer_flow');
+              await prefs.remove('offer_coupon');
+              await prefs.remove('offer_started_at');
+            }();
             final updatedCart = <int, int>{};
             for (var item in selectedItems) {
               final productId = item['productId'] ?? item['id'];
@@ -556,7 +690,6 @@ class _CartScreenState extends State<CartScreen> {
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: InkWell(
@@ -608,7 +741,6 @@ class _CartScreenState extends State<CartScreen> {
                     context.read<ProductsAddToCartCubit>().addToCart(payload);
                   }
                 },
-
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -622,7 +754,6 @@ class _CartScreenState extends State<CartScreen> {
                       )
                     ],
                   ),
-                  
                   child: Row(
                     children: [
                       const Icon(Icons.notes_rounded, color: Colors.orange),
@@ -668,7 +799,7 @@ class _CartScreenState extends State<CartScreen> {
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
-                      context.read<ValidateOfferCubit>().validateOffer();
+                      _maybeAutoValidateOffer();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.PrimaryColor,
@@ -683,7 +814,6 @@ class _CartScreenState extends State<CartScreen> {
                 ],
               ),
             ),
-
             Expanded(
               child: selectedItems.isEmpty
                   ? const Center(child: Text("No items in cart"))
@@ -696,7 +826,6 @@ class _CartScreenState extends State<CartScreen> {
                             item: item,
                             quantity: cart[item['name']] ?? 1,
                             onQuantityChanged: (q) async {
-
                               setState(() {
                                 if (q <= 0) {
                                   cart.remove(item['name']);
@@ -747,11 +876,11 @@ class _CartScreenState extends State<CartScreen> {
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
-                                
                             child: CheckoutBottomBar(
-                              subtotal: getSubtotal(),
-                              gst: getGSTAmount(),
-                              deliveryCharge: deliveryCharge,
+                              subtotal: _isCouponApplied ? 0 : getSubtotal(),
+                              gst: _isCouponApplied ? 0 : getGSTAmount(),
+                              deliveryCharge:
+                                  _isCouponApplied ? 0 : deliveryCharge,
                               total: getTotalAmount(),
                               loading: loading,
                               onPlaceOrder: openCheckOut,
@@ -763,6 +892,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
