@@ -3,7 +3,7 @@ import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_state.dart';
-import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,7 +15,11 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
   CreateOrderCubit(this.useCase, this.networkService)
       : super(CreateOrderInitial());
 
-  Future<void> createOrder(BuildContext context, String paymentId) async {
+  Future<void> createOrder(
+    BuildContext context, {
+    String? paymentId,
+    required String paymentType,
+  }) async {
     bool isConnected = await networkService.hasInternetConnection();
     print('Internet connected: $isConnected');
 
@@ -27,9 +31,16 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
       );
       return;
     }
-    final payload = {
-      "paymentTransactionId" : paymentId 
+
+    final Map<String, dynamic> payload = {
+      'paymentType': paymentType,
     };
+
+    // Only add paymentTransactionId for online payments
+    if (paymentType == 'ONLINE' && paymentId != null) {
+      payload['paymentTransactionId'] = paymentId;
+    }
+
     emit(CreateOrderLoading());
     try {
       final order = await useCase(payload);
@@ -42,14 +53,18 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
           MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
         );
         emit(CreateOrderLoaded(order));
-      } else {
+      } else if (paymentType == 'ONLINE' && paymentId != null) {
+        // Only attempt refund for failed online payments
         final paymentCubit = context.read<PaymentCubit>();
         await paymentCubit.paymentRefund(paymentId, context);
       }
     } catch (e) {
-       final paymentCubit = context.read<PaymentCubit>();
+      // Only attempt refund for online payments if paymentId is available
+      if (paymentType == 'ONLINE' && paymentId != null) {
+        final paymentCubit = context.read<PaymentCubit>();
         await paymentCubit.paymentRefund(paymentId, context);
-        
+      }
+
       print('CreateOrder error: $e');
       emit(CreateOrderError(e.toString()));
     }

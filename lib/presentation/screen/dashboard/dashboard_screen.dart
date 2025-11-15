@@ -627,7 +627,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                   },
                   onTap: () async {
-                    final result = await Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => CartScreen(
@@ -646,10 +646,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     );
                     if (!mounted) return;
-                    if (result != null && result is Map) {
-                      final cubit = context.read<GetCartCubit>();
-                      await cubit.fetchCart(context);
-                    }
+                    await _fetchCart();
                   },
                 )
               : null,

@@ -4,7 +4,7 @@
 //prod//
 const baseUrl2 = 'https://kovela.app/usermgmt/';
 
-const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=true';
+const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=false';
 const SigninUrl = 'auth/login';
 const SignupUrl = 'auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = 'user/userDetails';
@@ -66,6 +66,8 @@ const restaurantOffersUrl =
     'product/api/offers/list?businessId=0&active=true&page=0&size=100';
 const validateOfferUrl = 'order/offers/5/validate';
 const ratingReviewUrl = 'product/internal/reviews';
+const createComplaintUrl = 'order/api/orders/complaints';
+const checkoutUrl = 'order/api/orders/estimate-amount';
 
 String updateCartItemsUrl(String cartId) {
   return 'order/api/carts/items/$cartId';
