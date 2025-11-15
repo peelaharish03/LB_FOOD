@@ -3,14 +3,14 @@ import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/orders/orderHistory/orderHistory_model.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_state.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_state.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
+import 'package:local_basket/presentation/screen/profile/complaints_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 
 class MyOrders extends StatefulWidget {
   const MyOrders({super.key});
@@ -36,13 +36,6 @@ class _MyOrdersState extends State<MyOrders> {
     _fetchInitialOrders();
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    searchController.dispose();
-    super.dispose();
-  }
-
   void _fetchInitialOrders() {
     _currentPage = 0;
     _hasMoreItems = true;
@@ -54,9 +47,7 @@ class _MyOrdersState extends State<MyOrders> {
 
   void _fetchMoreOrders() {
     if (!_isLoadingMore && _hasMoreItems) {
-      setState(() {
-        _isLoadingMore = true;
-      });
+      setState(() => _isLoadingMore = true);
       _currentPage++;
       context
           .read<OrderHistoryCubit>()
@@ -72,33 +63,15 @@ class _MyOrdersState extends State<MyOrders> {
     }
   }
 
-  // void _onSearchChanged(String query) {
-  //   _currentSearchQuery = query;
-  //   _fetchInitialOrders();
-  // }
-
-  String timeAgo(DateTime timeUtc) {
-    final timeIst = timeUtc.add(Duration(hours: 5, minutes: 30));
-    final now = DateTime.now();
-    final diff = now.difference(timeIst);
-
-    if (diff.inDays > 0) return '${diff.inDays} days ago';
-    if (diff.inHours > 0) return '${diff.inHours} hours ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes} mins ago';
-    return 'just now';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
         title: "My Orders",
         showBackButton: true,
-        onBackPressed: () {
-          Navigator.pop(context);
-        },
+        onBackPressed: () => Navigator.pop(context),
       ),
-      backgroundColor: AppColor.White,
+      backgroundColor: Colors.white,
       body: BlocListener<ReOrderCubit, ReOrderState>(
         listener: (context, state) async {
           if (state is ReOrderLoading) {
@@ -108,21 +81,15 @@ class _MyOrdersState extends State<MyOrders> {
               builder: (_) => const Center(child: CircularProgressIndicator()),
             );
           } else {
-            // Close loader if open
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
+            if (Navigator.canPop(context)) Navigator.pop(context);
             if (state is ReOrderSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reorder successful. Opening cart...')),
+                const SnackBar(content: Text('Reorder successful')),
               );
-              await Future.delayed(const Duration(milliseconds: 300));
-              if (context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CartScreen()),
-                );
-              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CartScreen()),
+              );
             } else if (state is ReOrderFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.message)),
@@ -131,449 +98,290 @@ class _MyOrdersState extends State<MyOrders> {
           }
         },
         child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            // child: TextField(
-            //   controller: searchController,
-            //   onChanged: _onSearchChanged,
-            //   decoration: InputDecoration(
-            //     hintText: 'Search restaurant...',
-            //     prefixIcon: Icon(Icons.search),
-            //     filled: true,
-            //     fillColor: Colors.grey.shade100,
-            //     border: OutlineInputBorder(
-            //       borderRadius: BorderRadius.circular(12),
-            //       borderSide: BorderSide.none,
-            //     ),
-            //   ),
-            // ),
-          ),
-          Expanded(
-            child: BlocConsumer<OrderHistoryCubit, OrderHistoryState>(
-              listener: (context, state) {
-                if (state is OrderHistoryLoaded) {
-                  final newOrders = state.orders.data?.content ?? [];
-                  _hasMoreItems = newOrders.length >= _pageSize;
+          children: [
+            const SizedBox(height: 10),
+            Expanded(
+              child: BlocConsumer<OrderHistoryCubit, OrderHistoryState>(
+                listener: (context, state) {
+                  if (state is OrderHistoryLoaded) {
+                    final newOrders = state.orders.data?.content ?? [];
+                    _hasMoreItems = newOrders.length >= _pageSize;
 
-                  if (_currentPage == 0) {
-                    _allOrders = newOrders;
-                  } else {
-                    _allOrders.addAll(newOrders);
-                  }
-
-                  setState(() {
-                    _isLoadingMore = false;
-                  });
-                }
-              },
-              builder: (context, state) {
-                if (state is OrderHistoryLoading && _currentPage == 0) {
-                  return Center(
-                      child: CupertinoActivityIndicator(
-                    color: AppColor.PrimaryColor,
-                  ));
-                } else if (state is OrderHistoryError && _currentPage == 0) {
-                  return Center(child: Text("Failed loading orders."));
-                }
-
-                final filteredOrders = _allOrders.where((order) {
-                  final query = _currentSearchQuery.toLowerCase();
-                  return order.businessName?.toLowerCase().contains(query) ??
-                      false;
-                }).toList();
-
-                if (filteredOrders.isEmpty) {
-                  return Center(child: Text("No orders found."));
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: filteredOrders.length + (_isLoadingMore ? 1 : 0),
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  itemBuilder: (context, index) {
-                    if (index >= filteredOrders.length) {
-                      return Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CupertinoActivityIndicator(),
-                        ),
-                      );
+                    if (_currentPage == 0) {
+                      _allOrders = newOrders;
+                    } else {
+                      _allOrders.addAll(newOrders);
                     }
 
-                    final order = filteredOrders[index];
-                    return Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      margin: EdgeInsets.only(bottom: 16),
-                      elevation: 3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColor.PrimaryColor),
-                          borderRadius: BorderRadius.circular(16),
-                          color: AppColor.White,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: buildOrderCard(order),
-                        ),
-                      ),
+                    setState(() => _isLoadingMore = false);
+                  }
+                },
+                builder: (context, state) {
+                  if (state is OrderHistoryLoading && _currentPage == 0) {
+                    return _buildShimmerList();
+                  }
+
+                  if (_allOrders.isEmpty) {
+                    return const Center(
+                      child: Text("No orders found",
+                          style: TextStyle(fontSize: 16)),
                     );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
+                  }
 
-  Widget buildOrderCard(Content order) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColor.White,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// Order Summary
-          Row(
-            children: [
-              // ClipRRect(
-              //   borderRadius: BorderRadius.circular(8),
-              //   child: Image.asset(
-              //     dish,
-              //     width: 60,
-              //     height: 60,
-              //     fit: BoxFit.cover,
-              //     errorBuilder: (context, error, stackTrace) =>
-              //         Icon(Icons.broken_image, size: 60),
-              //   ),
-              // ),
-              // SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(order.businessName ?? '',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text("Order ID: ${order.orderNumber}"),
-                    // Text(
-                    //     "Time: ${timeAgo(order.createdDate ?? DateTime.now())}"),
-                  ],
-                ),
-              ),
-              Text("₹${order.totalAmount?.toStringAsFixed(2) ?? '0.00'}",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColor.PrimaryColor)),
-            ],
-          ),
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _allOrders.length + (_isLoadingMore ? 1 : 0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    itemBuilder: (context, index) {
+                      if (index >= _allOrders.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CupertinoActivityIndicator(),
+                        );
+                      }
 
-          SizedBox(height: 12),
-
-          /// Order Status
-          // Text(
-          //   "Status: ${capitalizeStatus(order.orderStatus ?? '')}",
-          //   style: TextStyle(
-          //     fontWeight: FontWeight.bold,
-          //     color: getStatusColor(order.orderStatus ?? ''),
-          //   ),
-          // ),
-
-          // SizedBox(height: 12),
-
-          /// Order Items
-          if (order.orderItems.isNotEmpty) ...[
-            SizedBox(
-              height: 100, // reduced from 110
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: order.orderItems.length,
-                separatorBuilder: (_, __) => SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final item = order.orderItems[index];
-                  final imageUrl =
-                      item.media.isNotEmpty ? item.media.first.url : null;
-
-                  return Container(
-                    width: 90,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        ClipRRect(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(12)),
-                          child: imageUrl != null
-                              ? Image.network(
-                                  imageUrl,
-                                  height: 60, // reduced from 70
-                                  width: 90,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                    height: 60,
-                                    width: 90,
-                                    color: Colors.grey.shade200,
-                                    child: Icon(Icons.broken_image, size: 28),
-                                  ),
-                                )
-                              : Container(
-                                  height: 60,
-                                  width: 90,
-                                  color: Colors.grey.shade200,
-                                  child: Icon(Icons.image, size: 28),
-                                ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 4),
-                          child: Text(
-                            item.productName ?? 'Unnamed',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      ],
-                    ),
+                      return _buildPremiumOrderCard(_allOrders[index]);
+                    },
                   );
                 },
               ),
             ),
-            SizedBox(height: 12),
           ],
-
-          /// Order Tracker
-          (order.orderStatus?.toUpperCase() == 'REJECTED'
-              //  ||
-              //         order.orderStatus?.toUpperCase() == 'DELIVERED'
-              )
-              ? SizedBox()
-              : buildTracker(order.orderStatus ?? ''),
-
-          const SizedBox(height: 12),
-
-          // Reorder button for delivered orders
-          if ((order.orderStatus ?? '').toUpperCase() == 'DELIVERED')
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  // Ensure cart business consistency
-                  final cartState = context.read<GetCartCubit>().state;
-                  if (cartState is GetCartLoaded) {
-                    final cartItems = cartState.cart.cartItems;
-                    final currentBusinessId = cartState.cart.businessId;
-                    if (cartItems.isNotEmpty &&
-                        currentBusinessId != order.businessId) {
-                      final shouldReplace = await showDialog<bool>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Replace cart items?'),
-                          content: const Text(
-                              'Your cart contains dishes from a previous restaurant. Do you want to discard the selection and add dishes from this restaurant?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('No'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Yes'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (shouldReplace != true) return;
-                    }
-                  }
-
-                  final orderId = order.id;
-                  if (orderId != null) {
-                    context.read<ReOrderCubit>().reOrder(orderId, context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Invalid order id')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.refresh, color: Colors.black),
-                label: const Text(
-                  'Reorder',
-                  style: TextStyle(color: Colors.black),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget buildTracker(String status) {
-    final statusUpper = status.toUpperCase();
+  ///
+  /// ADVANCED PREMIUM ORDER CARD
+  ///
+  Widget _buildPremiumOrderCard(Content order) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20), // Bigger Gap Item → Item
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
 
-    final statusSteps = [
-      'PLACED',
-      'PREPARING',
-      'OUT_FOR_DELIVERY',
-      'DELIVERED',
-    ];
-
-    if (statusUpper == 'CANCELLED' || statusUpper == 'REJECTED') {
-      statusSteps.add(statusUpper);
-    }
-
-    final statusIcons = {
-      'PLACED': Icons.shopping_cart,
-      'PREPARING': Icons.kitchen,
-      'OUT_FOR_DELIVERY': Icons.delivery_dining,
-      'DELIVERED': Icons.check_circle,
-      'CANCELLED': Icons.cancel,
-      'REJECTED': Icons.close,
-    };
-
-    final progress = getProgressIndex(statusUpper);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        /// Enhanced box-shadow (smooth, premium, deep)
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 18,
+            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 70,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(statusSteps.length, (i) {
-                final step = statusSteps[i];
-                final isActive = i < progress;
-                final isCurrent = i == progress - 1;
+          /// Header Row
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  order.businessName ?? "",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                "₹${order.totalAmount?.toStringAsFixed(2)}",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColor.PrimaryColor,
+                ),
+              ),
+            ],
+          ),
 
-                return Expanded(
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          if (i != 0)
-                            Expanded(
-                              child: Container(
-                                height: 2,
-                                color: i < progress
-                                    ? AppColor.PrimaryColor
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isActive
-                                  ? AppColor.PrimaryColor
-                                  : Colors.grey.shade300,
-                            ),
-                            child: Icon(
-                              statusIcons[step] ?? Icons.info,
-                              size: 16,
-                              color: isActive
-                                  ? Colors.white
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                          if (i != statusSteps.length - 1)
-                            Expanded(
-                              child: Container(
-                                height: 2,
-                                color: i < progress - 1
-                                    ? AppColor.PrimaryColor
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        capitalizeStatus(step.replaceAll('_', ' ')),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isActive ? Colors.black87 : Colors.grey,
-                          fontWeight:
-                              isCurrent ? FontWeight.bold : FontWeight.normal,
+          const SizedBox(height: 6),
+          Text(
+            "Order ID: ${order.orderNumber}",
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+
+          const SizedBox(height: 16),
+
+          _buildCompactItems(order),
+
+          const SizedBox(height: 16),
+
+          _buildMiniTracker(order.orderStatus ?? ""),
+
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              // if ((order.orderStatus ?? '').toUpperCase() == 'DELIVERED')
+              //   Expanded(
+              //     child: ElevatedButton(
+              //       onPressed: () {
+              //         final payload = {
+              //           "paymentTransactionId": order.paymentTransactionId,
+              //           "previousOrderId": order.id,
+              //           "updates": order.orderItems
+              //               .map((item) => {
+              //                     "productId": item.productId,
+              //                     "quantity": item.quantity,
+              //                   })
+              //               .toList(),
+              //         };
+              //         context.read<ReOrderCubit>().reOrder(payload, context);
+              //       },
+              //       style: ElevatedButton.styleFrom(
+              //         backgroundColor: AppColor.PrimaryColor,
+              //         shape: RoundedRectangleBorder(
+              //           borderRadius: BorderRadius.circular(12),
+              //         ),
+              //         padding: const EdgeInsets.symmetric(vertical: 12),
+              //       ),
+              //       child: const Text(
+              //         "Reorder",
+              //         style: TextStyle(color: Colors.white, fontSize: 14),
+              //       ),
+              //     ),
+              //   ),
+
+              // if ((order.orderStatus ?? '').toUpperCase() == 'DELIVERED')
+              //   const SizedBox(width: 10),
+
+              /// Complaint Button
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ComplaintsScreen(
+                          orderId: order.id!,
+                          b2bId: order.businessId!,
+                          fromOrderHistory: true,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }),
-            ),
+                    );
+                  },
+                  icon: const Icon(Icons.report, size: 20),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  ///
+  /// Compact item thumbnails
+  ///
+  Widget _buildCompactItems(Content order) {
+    if (order.orderItems.isEmpty) return const SizedBox();
 
-  Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return Colors.green;
-      case 'preparing':
-        return Colors.orange;
-      case 'out for delivery':
-        return Colors.blue;
-      case 'rejected':
-        return Colors.red;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+    return SizedBox(
+      height: 75,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: order.orderItems.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final item = order.orderItems[i];
+          final url = item.media.isNotEmpty ? item.media.first.url : null;
+
+          return Container(
+            width: 75,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.07),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: url != null
+                  ? Image.network(url, fit: BoxFit.cover)
+                  : Container(
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.image, size: 30),
+                    ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
-  int getProgressIndex(String status) {
-    switch (status.toUpperCase()) {
-      case 'PLACED':
-        return 1;
-      case 'CONFIRMED':
-      case 'ACCEPTED':
-      case 'PREPARING':
-      case 'READY_FOR_PICKUP':
-        return 2;
-      case 'PICKED_UP':
-      case 'READY_FOR_SELF_PICKUP':
+  ///
+  /// Mini Status Tracker
+  ///
+  Widget _buildMiniTracker(String status) {
+    final stages = ["PLACED", "PREPARING", "DELIVERED"];
+    final current = stages.indexOf(status.toUpperCase());
 
-        return 3;
-      case 'DELIVERED':
-        return 4;
-      case 'CANCELLED':
-      case 'REJECTED':
-        return 5;
-      default:
-        return 0;
-    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(stages.length, (i) {
+        final active = i <= current;
+
+        return Expanded(
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? AppColor.PrimaryColor : Colors.grey.shade300,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                stages[i],
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                  color: active ? Colors.black : Colors.grey.shade500,
+                ),
+              )
+            ],
+          ),
+        );
+      }),
+    );
   }
-}
 
-String capitalizeStatus(String status) {
-  if (status.isEmpty) return '';
-  return status[0].toUpperCase() + status.substring(1).toLowerCase();
+  ///
+  /// Shimmer skeleton loader
+  ///
+  Widget _buildShimmerList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 6,
+      itemBuilder: (_, __) => Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Container(
+          height: 130,
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
 }

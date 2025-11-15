@@ -10,7 +10,7 @@ class ReOrderCubit extends Cubit<ReOrderState> {
 
   ReOrderCubit(this.usecase, this.networkService) : super(ReOrderInitial());
 
-  Future<void> reOrder(int orderId, context) async {
+  Future<void> reOrder(dynamic payload, context) async {
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {
@@ -24,7 +24,7 @@ class ReOrderCubit extends Cubit<ReOrderState> {
     } else {
       emit(ReOrderLoading());
       try {
-        final result = await usecase(orderId);
+        final result = await usecase(payload);
         emit(ReOrderSuccess(reOrderModel: result));
       } catch (e) {
         emit(ReOrderFailure(message: e.toString()));

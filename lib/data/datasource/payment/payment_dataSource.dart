@@ -1,8 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/payment/payment_model.dart';
-import 'package:local_basket/data/model/payments/payment_refund_model.dart';
-import 'package:local_basket/data/model/payments/refund_status_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class PaymentRemoteDataSource {

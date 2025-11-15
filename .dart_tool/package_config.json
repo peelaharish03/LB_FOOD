@@ -320,6 +320,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "flutter_slidable",
+      "rootUri": "file:///Users/jagadeesh/.pub-cache/hosted/pub.dev/flutter_slidable-4.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
       "name": "flutter_svg",
       "rootUri": "file:///Users/jagadeesh/.pub-cache/hosted/pub.dev/flutter_svg-2.2.0",
       "packageUri": "lib/",

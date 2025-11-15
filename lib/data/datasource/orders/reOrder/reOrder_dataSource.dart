@@ -4,7 +4,7 @@ import 'package:local_basket/data/model/orders/reOrder/reOrder_model.dart';
 
 abstract class ReOrderRemoteDataSource {
   Future<ReOrderModel> reOrder(
-    int orderId,
+    dynamic payload,
   );
 }
 
@@ -14,10 +14,14 @@ class ReOrderRemoteDataSourceImpl implements ReOrderRemoteDataSource {
   ReOrderRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<ReOrderModel> reOrder( int orderId,) async {
+  Future<ReOrderModel> reOrder(
+    dynamic payload,
+  ) async {
+    print(payload);
     try {
       final response = await client.post(
-        '$baseUrl${'$reOrderUrl/$orderId'}',
+        '$baseUrl$reOrderUrl',
+        data: payload,
       );
 
       print('ReOrder Response: ${response.data}');
@@ -25,7 +29,8 @@ class ReOrderRemoteDataSourceImpl implements ReOrderRemoteDataSource {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return ReOrderModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to ReOrder. Status code: ${response.statusCode}');
+        throw Exception(
+            'Failed to ReOrder. Status code: ${response.statusCode}');
       }
     } catch (e) {
       print('ReOrder Error: $e');

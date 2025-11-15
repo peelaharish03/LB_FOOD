@@ -6,7 +6,9 @@ class ReOrderUseCase {
 
   ReOrderUseCase({required this.repository});
 
-  Future<ReOrderModel> call(int orderId) async {
-    return await repository.reOrder(orderId);
+  Future<ReOrderModel> call(
+    dynamic payload,
+  ) async {
+    return await repository.reOrder(payload);
   }
 }

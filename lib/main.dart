@@ -19,13 +19,15 @@ import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
+import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
-import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
@@ -117,9 +119,11 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
         BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
         BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),
+        BlocProvider(create: (_) => di.sl<CreateComplaintCubit>()),
+        BlocProvider(create: (_) => di.sl<CheckoutCubit>()),
       ],
       child: MaterialApp(
-        title: 'local_basket',
+        title: 'local basket',
         debugShowCheckedModeBanner: false,
         navigatorKey: AppNavigator.key,
         theme: ThemeData(
@@ -127,7 +131,8 @@ class _MyAppState extends State<MyApp> {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
           useMaterial3: true,
         ),
-        builder: (context, child) => GlobalRatingListener(child: child ?? SizedBox()),
+        builder: (context, child) =>
+            GlobalRatingListener(child: child ?? SizedBox()),
         home: SplashScreen(),
       ),
     );

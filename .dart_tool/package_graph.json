@@ -22,6 +22,7 @@
         "flutter_map",
         "flutter_pdfview",
         "flutter_secure_storage",
+        "flutter_slidable",
         "flutter_svg",
         "geocoding",
         "geolocator",
@@ -97,6 +98,13 @@
         "test_api",
         "vector_math",
         "vm_service"
+      ]
+    },
+    {
+      "name": "flutter_slidable",
+      "version": "4.0.3",
+      "dependencies": [
+        "flutter"
       ]
     },
     {

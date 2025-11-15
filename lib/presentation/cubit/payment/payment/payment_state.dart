@@ -1,15 +1,17 @@
 import 'package:local_basket/data/model/payment/payment_model.dart';
-import 'package:local_basket/data/model/payments/payment_refund_model.dart';
-import 'package:local_basket/data/model/payments/refund_status_model.dart';
 
 abstract class PaymentState {}
 
 class PaymentInitial extends PaymentState {}
+
 class PaymentTrackingInitial extends PaymentState {}
+
 class PaymentRefundInitial extends PaymentState {}
 
 class PaymentLoading extends PaymentState {}
+
 class PaymentTrackingLoading extends PaymentState {}
+
 class PaymentRefundLoading extends PaymentState {}
 
 class PaymentSuccess extends PaymentState {

@@ -23,7 +23,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
   late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   final _formKey = GlobalKey<FormState>();
-bool _hasNavigated = false;
+  bool _hasNavigated = false;
 
   bool _isSubmitting = false;
 
@@ -54,12 +54,13 @@ bool _hasNavigated = false;
       });
 
       final fullName =
-          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
+          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+              .trim();
 
       final payload = {
         'fullName': fullName,
         'email': _emailController.text.trim(),
-        'local_basket': true,
+        'eato': true,
         'fcmToken': ''
       };
 
@@ -200,7 +201,8 @@ bool _hasNavigated = false;
         decoration: InputDecoration(
           hintText: hintText,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           hintStyle: const TextStyle(color: Colors.grey),
         ),
         inputFormatters: [

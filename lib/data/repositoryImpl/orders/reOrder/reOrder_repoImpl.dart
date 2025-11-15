@@ -8,7 +8,9 @@ class ReOrderRepositoryImpl implements ReOrderRepository {
   ReOrderRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<ReOrderModel> reOrder(int orderId) async {
-    return await remoteDataSource.reOrder(orderId);
+  Future<ReOrderModel> reOrder(
+    dynamic payload,
+  ) async {
+    return await remoteDataSource.reOrder(payload);
   }
 }

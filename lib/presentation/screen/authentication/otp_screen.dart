@@ -17,6 +17,7 @@ import 'package:local_basket/presentation/screen/authentication/login_screen.dar
 import 'package:local_basket/presentation/screen/authentication/nameInput_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 
+// ignore: must_be_immutable
 class OtpScreen extends StatefulWidget {
   final String mobileNumber;
   String otp;

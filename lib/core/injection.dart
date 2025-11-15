@@ -19,12 +19,14 @@ import 'package:local_basket/data/datasource/cart/createCart/createCart_dataSour
 import 'package:local_basket/data/datasource/cart/getCart/getCart_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/productsAddToCart/productsAddtoCart_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/updateCartItems/updateCartItems_dataSource.dart';
+import 'package:local_basket/data/datasource/complaints/create_complaints_datasource.dart';
 import 'package:local_basket/data/datasource/location/location_remotedatasource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/restaurant_offers_dataSource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/validate_offer_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/createOrder/createOrder_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/orderHistory/orderHistory_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/reOrder/reOrder_dataSource.dart';
+import 'package:local_basket/data/datasource/payment/checkout_datasource.dart';
 import 'package:local_basket/data/datasource/payment/payment_dataSource.dart';
 import 'package:local_basket/data/datasource/rating&reviews/rating&review_datasource.dart';
 import 'package:local_basket/data/datasource/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_dataSource.dart';
@@ -49,12 +51,14 @@ import 'package:local_basket/data/repositoryImpl/cart/createCart/createCart_repo
 import 'package:local_basket/data/repositoryImpl/cart/getCart/getCart_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/productsAddToCart/productsAddtoCart_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/updateCartItems/updateCartItems_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/complaints/create_complaints_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/location/location_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/restaurant_offers_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/validate_offer_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/orderHistory/orderHistory_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/reOrder/reOrder_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/payment/checkout_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/payment_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/rating&reviews/rating&review_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repoImpl.dart';
@@ -79,12 +83,14 @@ import 'package:local_basket/domain/repository/cart/createCart/createCart_reposi
 import 'package:local_basket/domain/repository/cart/getCart/getCart_repository.dart';
 import 'package:local_basket/domain/repository/cart/productsAddToCart/productsAddtoCart_repository.dart';
 import 'package:local_basket/domain/repository/cart/updateCartItems/updateCartItems_repository.dart';
+import 'package:local_basket/domain/repository/complaints/create_complaints_repository.dart';
 import 'package:local_basket/domain/repository/location/location_repo.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/restaurant_offers_repository.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/validate_offer_repository.dart';
 import 'package:local_basket/domain/repository/orders/createOrder/createOrder_repository.dart';
 import 'package:local_basket/domain/repository/orders/orderHistory/orderHistory_repository.dart';
 import 'package:local_basket/domain/repository/orders/reOrder/reOrder_repository.dart';
+import 'package:local_basket/domain/repository/payment/checkout_repository.dart';
 import 'package:local_basket/domain/repository/payment/payment_repository.dart';
 import 'package:local_basket/domain/repository/rating&reviews/rating&review_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repository.dart';
@@ -109,12 +115,14 @@ import 'package:local_basket/domain/usecase/cart/createCart/createCart_usecase.d
 import 'package:local_basket/domain/usecase/cart/getCart/getCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/productsAddToCart/productsAddtoCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems_usecase.dart';
+import 'package:local_basket/domain/usecase/complaints/create_complaints_usecase.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/restaurant_offers_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_offer_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
+import 'package:local_basket/domain/usecase/payment/checkout_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/payment_usecase.dart';
 import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_usecase.dart';
@@ -139,13 +147,15 @@ import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
+import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
-import 'package:local_basket/presentation/cubit/payment/payment_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
@@ -656,5 +666,35 @@ void init() {
   );
   sl.registerFactory(() => RatingReviewCubit(
         ratingReviewUseCase: sl<RatingReviewUseCase>(),
+      ));
+
+  //CreateComplaint
+  sl.registerLazySingleton<CreateComplaintRemoteDataSource>(
+    () => CreateComplaintRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<CreateComplaintRepository>(
+    () => CreateComplaintRepositoryImpl(
+        remoteDataSource: sl<CreateComplaintRemoteDataSource>()),
+  );
+  sl.registerLazySingleton(
+    () => CreateComplaintUseCase(repository: sl<CreateComplaintRepository>()),
+  );
+  sl.registerFactory(() => CreateComplaintCubit(
+        createComplaintUseCase: sl<CreateComplaintUseCase>(),
+      ));
+
+  //DeliveryCharge
+  sl.registerLazySingleton<CheckoutRemoteDataSource>(
+    () => CheckoutRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<CheckoutRepository>(
+    () => CheckoutRepositoryImpl(
+        remoteDataSource: sl<CheckoutRemoteDataSource>()),
+  );
+  sl.registerLazySingleton(
+    () => CheckoutUseCase(repository: sl<CheckoutRepository>()),
+  );
+  sl.registerFactory(() => CheckoutCubit(
+        useCase: sl<CheckoutUseCase>(),
       ));
 }

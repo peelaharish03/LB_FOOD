@@ -10,34 +10,30 @@ class NotificationServices {
       FlutterLocalNotificationsPlugin();
 
   Future<String?> getDeviceToken() async {
-  if (Platform.isIOS) {
-    await FirebaseMessaging.instance.requestPermission();
-    
-    String? apnsToken;
-    int retries = 5;
-    while (retries > 0) {
-      apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-      break;
-      print("APNS token not available yet. Retrying... ($retries)");
-      await Future.delayed(const Duration(seconds: 3));
-      retries--;
+    if (Platform.isIOS) {
+      await FirebaseMessaging.instance.requestPermission();
+
+      String? apnsToken;
+      int retries = 5;
+      while (retries > 0) {
+        apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        break;
+      }
+
+      if (apnsToken == null) {
+        print("Error: APNS token is still not available.");
+        return null;
+      }
+
+      print("iOS APNS Token: $apnsToken");
+      String? token = await FirebaseMessaging.instance.getToken();
+      print("FCM Token: $token");
+
+      return token;
+    } else {
+      return await FirebaseMessaging.instance.getToken();
     }
-
-    if (apnsToken == null) {
-      print("Error: APNS token is still not available.");
-      return null;
-    }
-
-    print("iOS APNS Token: $apnsToken");
-    String? token = await FirebaseMessaging.instance.getToken();
-    print("FCM Token: $token");
-
-    return token;
-  } else {
-    return await FirebaseMessaging.instance.getToken();
   }
-}
-
 
   void listenForTokenRefresh() {
     _messaging.onTokenRefresh.listen((token) {
@@ -113,8 +109,7 @@ class NotificationServices {
 
   void _handleNotificationTap(BuildContext context, RemoteMessage message) {
     print("🔔 Notification Clicked");
-    if (message.data['type'] == 'text') {
-    }
+    if (message.data['type'] == 'text') {}
   }
 
   Future<void> _showNotification(RemoteMessage message) async {
@@ -205,8 +200,7 @@ class NotificationServices {
   void handleMesssage(BuildContext context, RemoteMessage message) {
     print('Handling Message...');
     if (message.data.containsKey('type')) {
-      if (message.data['type'] == 'text') {
-      }
+      if (message.data['type'] == 'text') {}
     }
   }
 
