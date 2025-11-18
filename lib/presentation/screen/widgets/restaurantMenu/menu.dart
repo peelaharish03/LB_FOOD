@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:local_basket/data/model/restaurants/guestMenuByRestaurantId/menu_content_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 
 class MenuItemWidget extends StatefulWidget {
   final Content item;
@@ -39,6 +40,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
   bool showItem = true;
   String? comingSoonText;
   bool isBeforeStartTime = false;
+  bool _imageLoaded = false;
 
   @override
   void initState() {
@@ -209,12 +211,40 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  if (mediaUrl != null && !_imageLoaded)
+                    Positioned.fill(
+                      child: Shimmer.fromColors(
+                        baseColor: Colors.grey.shade300,
+                        highlightColor: Colors.grey.shade100,
+                        child: Container(color: Colors.grey.shade300),
+                      ),
+                    ),
                   if (mediaUrl != null)
                     Positioned.fill(
                       child: Image.network(
                         mediaUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            if (!_imageLoaded) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted)
+                                  setState(() => _imageLoaded = true);
+                              });
+                            }
+                            return child;
+                          }
+                          // While loading, show shimmer behind
+                          return const SizedBox.shrink();
+                        },
+                        errorBuilder: (_, __, ___) {
+                          if (!_imageLoaded) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) setState(() => _imageLoaded = true);
+                            });
+                          }
+                          return Container(color: Colors.grey.shade200);
+                        },
                       ),
                     ),
                   if (isBeforeStartTime)
@@ -378,17 +408,6 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                     ),
                   ],
                 ),
-                // if (comingSoonText != null) ...[
-                //   const SizedBox(height: 4),
-                //   Text(
-                //     comingSoonText!,
-                //     style: GoogleFonts.poppins(
-                //       fontSize: 12,
-                //       color: Colors.red,
-                //       fontWeight: FontWeight.w500,
-                //     ),
-                //   ),
-                // ],
                 const SizedBox(height: 6),
                 Text(
                   item.description ??

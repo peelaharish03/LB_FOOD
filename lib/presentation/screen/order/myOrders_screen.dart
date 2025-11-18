@@ -323,43 +323,135 @@ class _MyOrdersState extends State<MyOrders> {
     );
   }
 
-  ///
-  /// Mini Status Tracker
-  ///
   Widget _buildMiniTracker(String status) {
-    final stages = ["PLACED", "PREPARING", "DELIVERED"];
-    final current = stages.indexOf(status.toUpperCase());
+    String normalized = status.toUpperCase();
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(stages.length, (i) {
-        final active = i <= current;
-
-        return Expanded(
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: active ? AppColor.PrimaryColor : Colors.grey.shade300,
-                ),
+    /// If rejected → show only RED message
+    if (normalized == "REJECTED") {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.cancel, color: Colors.red.shade400, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              "Order Rejected",
+              style: TextStyle(
+                color: Colors.red.shade400,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
-              const SizedBox(height: 5),
-              Text(
-                stages[i],
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                  color: active ? Colors.black : Colors.grey.shade500,
+            ),
+          ],
+        ),
+      );
+    }
+
+    /// Normal flow for all other statuses
+    final stages = [
+      "PLACED",
+      "PREPARING",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+    ];
+
+    if (normalized == "READY_FOR_PICKUP") {
+      normalized = "PREPARING";
+    }
+
+    String prettyLabel(String s) {
+      return s
+          .toLowerCase()
+          .replaceAll("_", " ")
+          .replaceFirst(s[0].toLowerCase(), s[0]);
+    }
+
+    Color _softColor(String s) {
+      switch (s) {
+        case "PLACED":
+          return Colors.blue.shade200;
+        case "PREPARING":
+          return Colors.orange.shade200;
+        case "OUT_FOR_DELIVERY":
+          return Colors.purple.shade200;
+        case "DELIVERED":
+          return Colors.green.shade300;
+        default:
+          return Colors.grey.shade300;
+      }
+    }
+
+    final currentIndex = stages.indexOf(normalized);
+
+    return Column(
+      children: [
+        /// Progress Bar
+        Stack(
+          children: [
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              height: 4,
+              width: currentIndex == -1
+                  ? 0
+                  : (MediaQuery.of(context).size.width *
+                      ((currentIndex + 1) / stages.length)),
+              decoration: BoxDecoration(
+                color: _softColor(normalized).withOpacity(0.8),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(stages.length, (i) {
+            final active = i <= currentIndex;
+
+            return Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: active ? 18 : 14,
+                  height: active ? 18 : 14,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color:
+                        active ? _softColor(stages[i]) : Colors.grey.shade300,
+                    boxShadow: active
+                        ? [
+                            BoxShadow(
+                              color: _softColor(stages[i]).withOpacity(0.5),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            )
+                          ]
+                        : [],
+                  ),
                 ),
-              )
-            ],
-          ),
-        );
-      }),
+                const SizedBox(height: 4),
+                Text(
+                  prettyLabel(stages[i]),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                    color: active ? Colors.black87 : Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ],
     );
   }
 

@@ -237,12 +237,12 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_outlined,
-                      color: Colors.green),
-                  title: const Text("Pay Online (Razorpay)"),
-                  onTap: () => Navigator.pop(context, "ONLINE"),
-                ),
+                // ListTile(
+                //   leading: const Icon(Icons.account_balance_wallet_outlined,
+                //       color: Colors.green),
+                //   title: const Text("Pay Online (Razorpay)"),
+                //   onTap: () => Navigator.pop(context, "ONLINE"),
+                // ),
                 ListTile(
                   leading: const Icon(Icons.money, color: Colors.brown),
                   title: const Text("Cash on Delivery (COD)"),

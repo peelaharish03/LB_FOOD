@@ -31,6 +31,7 @@ class NotificationServices {
 
       return token;
     } else {
+      print("Android Token: ${await FirebaseMessaging.instance.getToken()}");
       return await FirebaseMessaging.instance.getToken();
     }
   }

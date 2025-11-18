@@ -28,6 +28,48 @@ import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
+import 'dart:math' as math;
+
+// Constants for service area
+const double ANAKAPALLI_LATITUDE = 17.6869;
+const double ANAKAPALLI_LONGITUDE = 82.8580;
+const double SERVICE_RADIUS_KM = 16.0;
+
+class LocationValidator {
+  /// Calculate distance between two points using Haversine formula
+  static double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371; // Earth radius in kilometers
+    final dLat = _toRad(lat2 - lat1);
+    final dLon = _toRad(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRad(lat1)) *
+            math.cos(_toRad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
+  }
+
+  static double _toRad(double degree) {
+    return degree * math.pi / 180;
+  }
+
+  /// Check if location is within service radius
+  static bool isWithinServiceArea(double latitude, double longitude) {
+    final distance = calculateDistance(
+      latitude,
+      longitude,
+      ANAKAPALLI_LATITUDE,
+      ANAKAPALLI_LONGITUDE,
+    );
+    return distance <= SERVICE_RADIUS_KM;
+  }
+}
 
 class DashboardScreen extends StatefulWidget {
   final bool isGuest;
@@ -53,6 +95,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool isLocationInitializing = true;
   late FocusNode _searchFocusNode;
   bool _isRequestingPermission = false;
+  bool _isOutOfServiceArea = false;
+  String _outOfServiceMessage = '';
 
   @override
   void initState() {
@@ -139,7 +183,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // If dashboard was opened with a couponCode (e.g., deep link), mark offer flow
       final couponFromParam = widget.couponCode;
       if (couponFromParam != null && couponFromParam.isNotEmpty) {
         await prefs.setBool('is_offer_flow', true);
@@ -150,7 +193,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
 
-      // Only clear cart for logged-in users when starting offer flow
       if (!isOfferFlow || widget.isGuest) return;
 
       final cartCubit = context.read<GetCartCubit>();
@@ -228,6 +270,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       await prefs.setDouble('saved_latitude', latitude!);
       await prefs.setDouble('saved_longitude', longitude!);
+
+      _checkServiceArea(latitude!, longitude!);
     } catch (e) {
       debugPrint("⚠️ Failed to get current position: $e");
 
@@ -245,8 +289,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         debugPrint("❌ No valid coordinates found. Skipping fetch.");
         return;
       }
+
+      _checkServiceArea(latitude!, longitude!);
     }
     if (!mounted) return;
+
+    if (_isOutOfServiceArea) {
+      return;
+    }
 
     final params = {
       "latitude": latitude,
@@ -265,6 +315,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .fetchGuestNearbyRestaurants(params);
     } else {
       context.read<GetNearbyRestaurantsCubit>().fetchNearbyRestaurants(params);
+    }
+  }
+
+  void _checkServiceArea(double lat, double lon) {
+    final isWithinArea = LocationValidator.isWithinServiceArea(lat, lon);
+
+    if (mounted) {
+      setState(() {
+        _isOutOfServiceArea = !isWithinArea;
+        if (_isOutOfServiceArea) {
+          final distance = LocationValidator.calculateDistance(
+            lat,
+            lon,
+            ANAKAPALLI_LATITUDE,
+            ANAKAPALLI_LONGITUDE,
+          );
+          _outOfServiceMessage =
+              'Service is currently available only within 5 km of Anakapalli.\n\nYou are ${distance.toStringAsFixed(1)} km away.';
+        }
+      });
     }
   }
 
@@ -409,6 +479,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Widget _buildOutOfServiceWidget() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.orange.withOpacity(0.1),
+              ),
+              child: Icon(
+                Icons.location_off_outlined,
+                size: 60,
+                color: AppColor.PrimaryColor,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Service Not Available',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColor.Black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _outOfServiceMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton(
+              onPressed: () {
+                setState(() => isLocationInitializing = true);
+                _loadCoordinatesAndFetchRestaurants();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColor.PrimaryColor,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Check Location Again',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '📍 Coming soon to your area!',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColor.PrimaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   bool _disposed = false;
 
   @override
@@ -518,6 +667,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           hintText:
                               "Search for restaurants, dishes, and cuisines",
                           onChanged: (query) async {
+                            if (_isOutOfServiceArea) return;
                             setState(() => searchQuery = query);
                             final prefs = await SharedPreferences.getInstance();
                             final lat =
@@ -545,37 +695,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: FoodCategoryIcons(
-                          onCategoryTap: (label) async {
-                            setState(() => searchQuery = label);
-                            final prefs = await SharedPreferences.getInstance();
-                            final lat =
-                                prefs.getDouble('saved_latitude') ?? 17.385044;
-                            final lon =
-                                prefs.getDouble('saved_longitude') ?? 78.486671;
-                            final params = {
-                              "productName": label,
-                              "latitude": lat,
-                              "longitude": lon,
-                              "postalCode": "531001",
-                              "page": 0,
-                              "size": 10,
-                              "searchTerm": label,
-                            };
-                            if (widget.isGuest) {
-                              context
-                                  .read<GuestNearByRestaurantsCubit>()
-                                  .fetchGuestNearbyRestaurants(params);
-                            } else {
-                              context
-                                  .read<GetRestaurantsByProductNameCubit>()
-                                  .fetchRestaurantsByProductName(params);
-                            }
-                          },
+                      if (!_isOutOfServiceArea)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: FoodCategoryIcons(
+                            onCategoryTap: (label) async {
+                              setState(() => searchQuery = label);
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              final lat = prefs.getDouble('saved_latitude') ??
+                                  17.385044;
+                              final lon = prefs.getDouble('saved_longitude') ??
+                                  78.486671;
+                              final params = {
+                                "productName": label,
+                                "latitude": lat,
+                                "longitude": lon,
+                                "postalCode": "531001",
+                                "page": 0,
+                                "size": 10,
+                                "searchTerm": label,
+                              };
+                              if (widget.isGuest) {
+                                context
+                                    .read<GuestNearByRestaurantsCubit>()
+                                    .fetchGuestNearbyRestaurants(params);
+                              } else {
+                                context
+                                    .read<GetRestaurantsByProductNameCubit>()
+                                    .fetchRestaurantsByProductName(params);
+                              }
+                            },
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 10),
                     ],
                   ),
@@ -585,30 +737,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           // 🧾 Scrollable Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    "Restaurants to Explore",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AppColor.Black,
+          if (_isOutOfServiceArea)
+            _buildOutOfServiceWidget()
+          else
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      "Restaurants to Explore",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppColor.Black,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  searchQuery.isEmpty
-                      ? _buildNearbyRestaurants()
-                      : _buildSearchResults(),
-                  const SizedBox(height: 120),
-                ],
+                    const SizedBox(height: 10),
+                    searchQuery.isEmpty
+                        ? _buildNearbyRestaurants()
+                        : _buildSearchResults(),
+                    const SizedBox(height: 120),
+                  ],
+                ),
               ),
             ),
-          ),
 
           // ✅ Spacer for Bottom Cart
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
