@@ -1,258 +1,283 @@
+// ignore_for_file: unused_local_variable
+import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:local_basket/core/constants/colors.dart';
-import 'package:local_basket/core/utils/push_notication_services.dart';
-import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
-import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
-import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
-import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-class BottomTab extends StatefulWidget {
-  final bool isGuest;
+class NotificationServices {
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
-  const BottomTab({super.key, this.isGuest = false});
+  Future<String?> getDeviceToken() async {
+  if (Platform.isIOS) {
+    await FirebaseMessaging.instance.requestPermission();
+    
+    String? apnsToken;
+    int retries = 5;
+    while (retries > 0) {
+      apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+      if (apnsToken != null) break;
+      print("APNS token not available yet. Retrying... ($retries)");
+      await Future.delayed(const Duration(seconds: 3));
+      retries--;
+    }
 
-  @override
-  State<BottomTab> createState() => _BottomTabState();
+    if (apnsToken == null) {
+      print("Error: APNS token is still not available.");
+      return null;
+    }
+
+    print("iOS APNS Token: $apnsToken");
+    String? token = await FirebaseMessaging.instance.getToken();
+    print("FCM Token: $token");
+
+    return token;
+  } else {
+    String? TKN = await FirebaseMessaging.instance.getToken();
+    print("Android FCM Token: $TKN");
+    return TKN;
+    // return await FirebaseMessaging.instance.getToken();
+  }
 }
 
-class _BottomTabState extends State<BottomTab> {
-  int _selectedIndex = 0;
-  final NotificationServices _notificationServices = NotificationServices();
 
-  late final List<_TabItem> tabItems;
-
-  @override
-  void initState() {
-    super.initState();
-    _initNotifications();
-
-    tabItems = [
-      _TabItem(
-        label: 'Home',
-        icon: Icons.home,
-        screen: MainDashboard(),
-      ),
-      // _TabItem(
-      //   label: 'Offers',
-      //   icon: Icons.local_offer_outlined,
-      //   screen: PromotionsScreen(),
-      // ),
-      _TabItem(
-        label: 'Profile',
-        icon: Icons.person_outline,
-        screen: ProfileScreen(isGuest: widget.isGuest),
-      ),
-    ];
+  void listenForTokenRefresh() {
+    _messaging.onTokenRefresh.listen((token) {
+      print("Token Refreshed: $token");
+    });
   }
 
-  Future<void> _initNotifications() async {
-    await _notificationServices.requestNotificationPermissions();
-    await _notificationServices.forgroundMessage();
+  Future<void> requestNotificationPermissions() async {
+    NotificationSettings settings = await _messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
 
-    if (!mounted) return;
-    await _notificationServices.firebaseInit(context);
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print("User granted permission for notifications");
+    } else if (settings.authorizationStatus ==
+        AuthorizationStatus.provisional) {
+      print("⚠️ User granted provisional permission");
+    } else {
+      print("User denied notifications");
+    }
+  }
 
-    if (!mounted) return;
-    await _notificationServices.setupInteractMessage(context);
+  Future<void> enableForegroundNotifications() async {
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
 
-    if (!mounted) return;
-    await _notificationServices.isRefreshToken();
+  void initializeFirebaseMessaging(BuildContext context) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
 
-    _notificationServices.getDeviceToken().then((fcmToken) {
-      if (!mounted) return;
-      if (fcmToken != null) {
-        final payload = {
-          'fullName': '',
-          'email': '',
-          'local_basket': true,
-          "fcmToken": fcmToken,
-        };
-        context
-            .read<UpdateCurrentCustomerCubit>()
-            .updateCustomer(payload, context);
+      print(
+          "Incoming Notification: ${notification?.title} - ${notification?.body}");
+      print("Data: ${message.data}");
+
+      if (Platform.isIOS) {
+        enableForegroundNotifications();
+      }
+
+      if (Platform.isAndroid) {
+        _initializeLocalNotifications(context, message);
+        _showNotification(message);
       }
     });
   }
 
-  void _onItemTapped(int index) {
-    final selectedTab = tabItems[index];
-    if (widget.isGuest &&
-        (selectedTab.label == 'Offers' || selectedTab.label == 'Profile')) {
-      showLoginPromptSheet();
-      return;
-    }
+  void _initializeLocalNotifications(
+      BuildContext context, RemoteMessage message) async {
+    const AndroidInitializationSettings androidInitSettings =
+        AndroidInitializationSettings('ic_notification');
+    const DarwinInitializationSettings iosInitSettings =
+        DarwinInitializationSettings();
 
-    setState(() {
-      _selectedIndex = index;
+    var initSettings = const InitializationSettings(
+        android: androidInitSettings, iOS: iosInitSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+      _handleNotificationTap(context, message);
     });
   }
 
-  void showLoginPromptSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (context) {
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            width: double.infinity,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 🍽️ Custom food-style icon or image (you can use AssetImage too)
-                const Icon(
-                  Icons.fastfood_rounded,
-                  size: 64,
-                  color: Colors.orangeAccent,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "Login Required",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColor.PrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "To continue enjoying delicious food and offers, please login to your account.",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey[700],
-                    height: 1.4,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.lock_open),
-                    label: const Text("Login Now"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColor.PrimaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Maybe Later",
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  void _handleNotificationTap(BuildContext context, RemoteMessage message) {
+    print("🔔 Notification Clicked");
+    if (message.data['type'] == 'text') {
+    }
+  }
+
+  Future<void> _showNotification(RemoteMessage message) async {
+    AndroidNotificationChannel androidChannel = AndroidNotificationChannel(
+      message.notification?.android?.channelId ?? "high_importance_channel",
+      "High Importance Notifications",
+      description: "This channel is used for important notifications",
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      androidChannel.id,
+      androidChannel.name,
+      channelDescription: androidChannel.description,
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      ticker: 'ticker',
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      message.notification?.title ?? "No Title",
+      message.notification?.body ?? "No Body",
+      notificationDetails,
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: tabItems[_selectedIndex].screen,
-      extendBody: true,
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-        child: Container(
-          height: 64,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 15,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(tabItems.length, (index) {
-              final tab = tabItems[index];
-              final isSelected = index == _selectedIndex;
-              return GestureDetector(
-                onTap: () => _onItemTapped(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColor.PrimaryColor.withOpacity(0.1)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(tab.icon,
-                          size: 24,
-                          color: isSelected
-                              ? AppColor.PrimaryColor
-                              : Colors.grey[600]),
-                      const SizedBox(height: 4),
-                      Text(
-                        tab.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w400,
-                          color: isSelected
-                              ? AppColor.PrimaryColor
-                              : Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
+  Future forgroundMessage() async {
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+            alert: true, badge: true, sound: true);
   }
-}
 
-class _TabItem {
-  final String label;
-  final IconData icon;
-  final Widget screen;
+  Future firebaseInit(BuildContext context) async {
+    FirebaseMessaging.onMessage.listen((message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
 
-  _TabItem({
-    required this.label,
-    required this.icon,
-    required this.screen,
-  });
+      if (notification != null) {
+        print("Notification title: ${notification.title}");
+        print("Notification body: ${notification.body}");
+      }
+
+      print("Data: ${message.data.toString()}");
+
+      if (Platform.isIOS) {
+        forgroundMessage();
+      }
+
+      if (Platform.isAndroid && notification != null) {
+        initLocalNotifications(context, message);
+        showNotification(message);
+      }
+    });
+  }
+
+  void initLocalNotifications(
+      BuildContext context, RemoteMessage message) async {
+    var androidInitSettings =
+        const AndroidInitializationSettings('ic_notification');
+    var iosInitSettings = const DarwinInitializationSettings();
+
+    var initSettings = InitializationSettings(
+        android: androidInitSettings, iOS: iosInitSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+      if (response.payload != null) {
+        print('Notification Clicked: ${response.payload}');
+        handleMesssage(context, message);
+      }
+    });
+  }
+
+  void handleMesssage(BuildContext context, RemoteMessage message) {
+    print('Handling Message...');
+    if (message.data.containsKey('type')) {
+      if (message.data['type'] == 'text') {
+      }
+    }
+  }
+
+  Future<void> showNotification(RemoteMessage message) async {
+    AndroidNotificationChannel androidNotificationChannel =
+        AndroidNotificationChannel(
+      message.notification?.android?.channelId ?? 'default_channel',
+      message.notification?.android?.channelId ?? 'default_channel',
+      importance: Importance.max,
+      showBadge: true,
+      playSound: true,
+    );
+
+    AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      androidNotificationChannel.id.toString(),
+      androidNotificationChannel.name.toString(),
+      channelDescription: 'Flutter Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      ticker: 'ticker',
+    );
+
+    const DarwinNotificationDetails darwinNotificationDetails =
+        DarwinNotificationDetails(
+            presentAlert: true, presentBadge: true, presentSound: true);
+
+    NotificationDetails notificationDetails = NotificationDetails(
+        android: androidNotificationDetails, iOS: darwinNotificationDetails);
+
+    Future.delayed(Duration.zero, () {
+      _flutterLocalNotificationsPlugin.show(
+          0,
+          message.notification?.title ?? 'No Title',
+          message.notification?.body ?? 'No Body',
+          notificationDetails);
+    });
+  }
+
+  Future<void> setupInteractMessage(BuildContext context) async {
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+
+    if (initialMessage != null) {
+      handleMesssage(context, initialMessage);
+    }
+
+    FirebaseMessaging.onMessageOpenedApp.listen((event) {
+      handleMesssage(context, event);
+    });
+  }
+
+  Future isRefreshToken() async {
+    _messaging.onTokenRefresh.listen((newToken) {
+      print('Token Refreshed: $newToken');
+    });
+  }
+
+  Future<void> setupNotificationInteraction(BuildContext context) async {
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(context, initialMessage);
+    }
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNotificationTap(context, message);
+    });
+  }
 }
