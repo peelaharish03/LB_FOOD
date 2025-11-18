@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:local_basket/core/constants/global_rating_listener.dart';
 import 'package:local_basket/core/network/network_cubit.dart';
+import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/firebase_options.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
@@ -43,9 +44,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/injection.dart' as di;
 import 'core/constants/app_navigator.dart';
 
+
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Handling a background message: ${message.messageId}");
+  print("Background Message → ${message.messageId}");
 }
 
 void main() async {
@@ -55,22 +57,25 @@ void main() async {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
+
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print("Firebase initialized successfully");
+    print("Firebase Initialized");
+
+    // Background handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
-    print("Firebase initialization error: $e");
+    print("Firebase init error → $e");
   }
 
   di.init();
 
-  final connectivityResult = await Connectivity().checkConnectivity();
-  if (connectivityResult == ConnectivityResult.none) {
-    print("No Internet Connection");
+  final connectivity = await Connectivity().checkConnectivity();
+  if (connectivity == ConnectivityResult.none) {
+    print("No Internet");
   } else {
-    print("Connected to the Internet");
+    print("Internet Connected");
   }
 
   runApp(const MyApp());
@@ -84,6 +89,21 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final NotificationServices _notificationServices = NotificationServices();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔥 Initialize Firebase Notification Services
+    _notificationServices.requestNotificationPermissions();
+    _notificationServices.enableForegroundNotifications();
+    _notificationServices.initializeFirebaseMessaging(context);
+    _notificationServices.setupNotificationInteraction(context);
+    _notificationServices.listenForTokenRefresh();
+    _notificationServices.getDeviceToken();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -132,7 +152,7 @@ class _MyAppState extends State<MyApp> {
           useMaterial3: true,
         ),
         builder: (context, child) =>
-            GlobalRatingListener(child: child ?? SizedBox()),
+            GlobalRatingListener(child: child ?? const SizedBox()),
         home: SplashScreen(),
       ),
     );

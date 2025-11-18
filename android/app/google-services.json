@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "351201490110",
+    "project_id": "localbasket-fe25e",
+    "storage_bucket": "localbasket-fe25e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351201490110:android:92d106832416d4498e9aef",
+        "android_client_info": {
+          "package_name": "com.localbaskethd"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC__hdOF5Z-piCmVfqL-sRWlkQ_44Nv3FI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
