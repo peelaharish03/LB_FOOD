@@ -106,7 +106,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             onPressed: () async {
               Navigator.of(ctx).pop();
 
-              // Clear existing selection and switch to the new item
               cart.clear();
               selectedItems.clear();
               totalItems = 0;
@@ -202,7 +201,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (_isOfferFlow) {
       if (_couponSelectedItem != null && _couponSelectedItem!.id != item.id) {}
 
-      // If any cart exists, clear it first to enforce fresh single-item cart for offer flow
       final existingState = context.read<GetCartCubit>().state;
       if (existingState is GetCartLoaded &&
           (existingState.cart.totalCount ?? 0) > 0) {
