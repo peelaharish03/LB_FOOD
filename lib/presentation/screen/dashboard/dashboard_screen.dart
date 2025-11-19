@@ -33,7 +33,7 @@ import 'dart:math' as math;
 // Constants for service area
 const double ANAKAPALLI_LATITUDE = 17.6869;
 const double ANAKAPALLI_LONGITUDE = 82.8580;
-const double SERVICE_RADIUS_KM = 16.0;
+const double SERVICE_RADIUS_KM = 40.0;
 
 class LocationValidator {
   /// Calculate distance between two points using Haversine formula
