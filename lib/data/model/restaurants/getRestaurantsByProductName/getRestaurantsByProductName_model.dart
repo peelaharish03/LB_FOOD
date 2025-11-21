@@ -46,68 +46,48 @@ class GetRestaurantsByProductNameModel {
       empty: json["empty"],
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        "content": content.map((x) => x.toJson()).toList(),
-        "pageable": pageable?.toJson(),
-        "totalPages": totalPages,
-        "totalElements": totalElements,
-        "last": last,
-        "size": size,
-        "number": number,
-        "sort": sort.map((x) => x).toList(),
-        "numberOfElements": numberOfElements,
-        "first": first,
-        "empty": empty,
-      };
 }
 
 class Content {
   Content({
     required this.id,
-    required this.name,
-    required this.category,
-    required this.createdAt,
-    required this.attributes,
-    required this.products,
+    required this.businessName,
     required this.approved,
+    required this.categoryName,
+    required this.creationDate,
+    required this.userDto,
+    required this.attributes,
+    required this.mediaList,
   });
 
   final int? id;
-  final String? name;
-  final String? category;
-  final DateTime? createdAt;
-  final List<Attribute> attributes;
-  final List<Product> products;
+  final String? businessName;
   final bool? approved;
+  final String? categoryName;
+  final DateTime? creationDate;
+  final UserDto? userDto;
+  final List<Attribute> attributes;
+  final List<MediaList> mediaList;
 
   factory Content.fromJson(Map<String, dynamic> json) {
     return Content(
       id: json["id"],
-      name: json["name"],
-      category: json["category"],
-      createdAt: DateTime.tryParse(json["createdAt"] ?? ""),
+      businessName: json["businessName"],
+      approved: json["approved"],
+      categoryName: json["categoryName"],
+      creationDate: DateTime.tryParse(json["creationDate"] ?? ""),
+      userDto:
+          json["userDTO"] == null ? null : UserDto.fromJson(json["userDTO"]),
       attributes: json["attributes"] == null
           ? []
           : List<Attribute>.from(
               json["attributes"]!.map((x) => Attribute.fromJson(x))),
-      products: json["products"] == null
+      mediaList: json["mediaList"] == null
           ? []
-          : List<Product>.from(
-              json["products"]!.map((x) => Product.fromJson(x))),
-      approved: json["approved"],
+          : List<MediaList>.from(
+              json["mediaList"]!.map((x) => MediaList.fromJson(x))),
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        "id": id,
-        "name": name,
-        "category": category,
-        "createdAt": createdAt?.toIso8601String(),
-        "attributes": attributes.map((x) => x.toJson()).toList(),
-        "products": products.map((x) => x.toJson()).toList(),
-        "approved": approved,
-      };
 }
 
 class Attribute {
@@ -128,91 +108,10 @@ class Attribute {
       attributeValue: json["attributeValue"],
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        "id": id,
-        "attributeName": attributeName,
-        "attributeValue": attributeValue,
-      };
 }
 
-class Product {
-  Product({
-    required this.id,
-    required this.name,
-    required this.shortCode,
-    required this.ignoreTax,
-    required this.discount,
-    required this.description,
-    required this.price,
-    required this.available,
-    required this.businessId,
-    required this.businessName,
-    required this.categoryId,
-    required this.categoryName,
-    required this.media,
-    required this.attributes,
-  });
-
-  final int? id;
-  final String? name;
-  final String? shortCode;
-  final bool? ignoreTax;
-  final bool? discount;
-  final String? description;
-  final double? price;
-  final bool? available;
-  final int? businessId;
-  final String? businessName;
-  final int? categoryId;
-  final String? categoryName;
-  final List<Media> media;
-  final List<Attribute> attributes;
-
-  factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(
-      id: json["id"],
-      name: json["name"],
-      shortCode: json["shortCode"],
-      ignoreTax: json["ignoreTax"],
-      discount: json["discount"],
-      description: json["description"],
-      price: json["price"],
-      available: json["available"],
-      businessId: json["businessId"],
-      businessName: json["businessName"],
-      categoryId: json["categoryId"],
-      categoryName: json["categoryName"],
-      media: json["media"] == null
-          ? []
-          : List<Media>.from(json["media"]!.map((x) => Media.fromJson(x))),
-      attributes: json["attributes"] == null
-          ? []
-          : List<Attribute>.from(
-              json["attributes"]!.map((x) => Attribute.fromJson(x))),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        "id": id,
-        "name": name,
-        "shortCode": shortCode,
-        "ignoreTax": ignoreTax,
-        "discount": discount,
-        "description": description,
-        "price": price,
-        "available": available,
-        "businessId": businessId,
-        "businessName": businessName,
-        "categoryId": categoryId,
-        "categoryName": categoryName,
-        "media": media.map((x) => x.toJson()).toList(),
-        "attributes": attributes.map((x) => x.toJson()).toList(),
-      };
-}
-
-class Media {
-  Media({
+class MediaList {
+  MediaList({
     required this.mediaType,
     required this.url,
   });
@@ -220,17 +119,40 @@ class Media {
   final String? mediaType;
   final String? url;
 
-  factory Media.fromJson(Map<String, dynamic> json) {
-    return Media(
+  factory MediaList.fromJson(Map<String, dynamic> json) {
+    return MediaList(
       mediaType: json["mediaType"],
       url: json["url"],
     );
   }
+}
 
-  Map<String, dynamic> toJson() => {
-        "mediaType": mediaType,
-        "url": url,
-      };
+class UserDto {
+  UserDto({
+    required this.id,
+    required this.primaryContact,
+    required this.lastLogOutDate,
+    required this.recentActivityDate,
+    required this.roles,
+  });
+
+  final int? id;
+  final String? primaryContact;
+  final DateTime? lastLogOutDate;
+  final DateTime? recentActivityDate;
+  final List<String> roles;
+
+  factory UserDto.fromJson(Map<String, dynamic> json) {
+    return UserDto(
+      id: json["id"],
+      primaryContact: json["primaryContact"],
+      lastLogOutDate: DateTime.tryParse(json["lastLogOutDate"] ?? ""),
+      recentActivityDate: DateTime.tryParse(json["recentActivityDate"] ?? ""),
+      roles: json["roles"] == null
+          ? []
+          : List<String>.from(json["roles"]!.map((x) => x)),
+    );
+  }
 }
 
 class Pageable {
@@ -262,13 +184,4 @@ class Pageable {
       unpaged: json["unpaged"],
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        "sort": sort.map((x) => x).toList(),
-        "pageNumber": pageNumber,
-        "pageSize": pageSize,
-        "offset": offset,
-        "paged": paged,
-        "unpaged": unpaged,
-      };
 }

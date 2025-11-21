@@ -33,7 +33,7 @@ import 'dart:math' as math;
 // Constants for service area
 const double ANAKAPALLI_LATITUDE = 17.6869;
 const double ANAKAPALLI_LONGITUDE = 82.8580;
-const double SERVICE_RADIUS_KM = 16.0;
+const double SERVICE_RADIUS_KM = 40.0;
 
 class LocationValidator {
   /// Calculate distance between two points using Haversine formula
@@ -462,14 +462,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return const Center(child: Text("No restaurants found"));
             }
 
-            final allProducts = contentList.expand((c) => c.products).toList();
+            // contentList already contains restaurant-like objects; use it directly.
+            final allProducts = contentList;
 
             return _buildRestaurantList(
               restaurants: allProducts,
               getName: (p) => p.businessName ?? "Unknown",
               getCategory: (p) => p.categoryName ?? "",
-              getId: (p) => (p.businessId ?? "").toString(),
-              getMediaList: (p) => p.media.map((e) => e.url ?? '').toList(),
+              getId: (p) => (p.id ?? "").toString(),
+              getMediaList: (p) => p.mediaList.map((e) => e.url ?? '').toList(),
             );
           } else {
             return const SizedBox();

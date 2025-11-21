@@ -366,7 +366,7 @@ class _MyOrdersState extends State<MyOrders> {
           .replaceFirst(s[0].toLowerCase(), s[0]);
     }
 
-    Color _softColor(String s) {
+    Color softColor(String s) {
       switch (s) {
         case "PLACED":
           return Colors.blue.shade200;
@@ -403,7 +403,7 @@ class _MyOrdersState extends State<MyOrders> {
                   : (MediaQuery.of(context).size.width *
                       ((currentIndex + 1) / stages.length)),
               decoration: BoxDecoration(
-                color: _softColor(normalized).withOpacity(0.8),
+                color: softColor(normalized).withOpacity(0.8),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -426,11 +426,11 @@ class _MyOrdersState extends State<MyOrders> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color:
-                        active ? _softColor(stages[i]) : Colors.grey.shade300,
+                        active ? softColor(stages[i]) : Colors.grey.shade300,
                     boxShadow: active
                         ? [
                             BoxShadow(
-                              color: _softColor(stages[i]).withOpacity(0.5),
+                              color: softColor(stages[i]).withOpacity(0.5),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             )

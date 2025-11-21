@@ -228,8 +228,9 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                           if (loadingProgress == null) {
                             if (!_imageLoaded) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted)
+                                if (mounted) {
                                   setState(() => _imageLoaded = true);
+                                }
                               });
                             }
                             return child;

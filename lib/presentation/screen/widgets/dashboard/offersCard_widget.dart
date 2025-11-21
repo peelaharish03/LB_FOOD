@@ -161,7 +161,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
   void _updateCountdown() {
     final now = DateTime.now();
     final ms = now.millisecondsSinceEpoch;
-    final windowMs = 10 * 60 * 1000; // 10 minutes
+    final windowMs = 10 * 60 * 1000;
     final nextBoundary = ((ms / windowMs).floor() + 1) * windowMs;
     _secondsLeft = ((nextBoundary - ms) / 1000).ceil();
     if (_secondsLeft < 0) _secondsLeft = 0;
@@ -190,13 +190,11 @@ class _OffersCarouselState extends State<OffersCarousel> {
     );
   }
 
-  /// Placeholder carousel when offers are unavailable or user is guest
-  /// Placeholder carousel when offers are unavailable or user is guest
   Widget _buildComingSoonCarousel() {
     final List<String> images = [
-      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80',
+      'assets/images/jpg/lb_welcome.jpeg',
+      // 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
+      // 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80',
     ];
 
     return SizedBox(
@@ -209,6 +207,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
               ? 1 - (_currentPage - index).abs() * 0.1
               : 0.9;
 
+          final bool isNetwork = image.startsWith("http");
+
           return Transform.scale(
             scale: scale,
             child: Container(
@@ -216,7 +216,9 @@ class _OffersCarouselState extends State<OffersCarousel> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 image: DecorationImage(
-                  image: NetworkImage(image),
+                  image: isNetwork
+                      ? NetworkImage(image)
+                      : AssetImage(image) as ImageProvider,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -225,32 +227,36 @@ class _OffersCarouselState extends State<OffersCarousel> {
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
                     colors: [
-                      Colors.black.withOpacity(0.4),
-                      Colors.black.withOpacity(0.2),
+                      Colors.black.withOpacity(isNetwork ? 0.4 : 0.0),
+                      Colors.black.withOpacity(isNetwork ? 0.2 : 0.0),
                     ],
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                   ),
                 ),
-                child: const Center(
-                  child: Text(
-                    "Local Basket Coming Soon",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 4,
-                          color: Colors.black54,
-                          offset: Offset(1, 2),
+
+                // Show message only for network images
+                child: isNetwork
+                    ? const Center(
+                        child: Text(
+                          "Local Basket Coming Soon",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 4,
+                                color: Colors.black54,
+                                offset: Offset(1, 2),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      )
+                    : const SizedBox(),
               ),
             ),
           );
@@ -260,7 +266,6 @@ class _OffersCarouselState extends State<OffersCarousel> {
   }
 
 
-  /// Helper to map offer type → gradient
   List<Color> _getGradientColors(String? offerType) {
     switch (offerType) {
       case "DISCOUNT":

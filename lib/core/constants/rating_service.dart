@@ -28,7 +28,7 @@ class RatingService {
 
         final eligible = deliveryTime == null
             ? true
-            : now.difference(deliveryTime).inSeconds >= 60;
+            : now.difference(deliveryTime).inMinutes >= 20;
 
         if (eligible) {
           final orderId = order.orderNumber ?? '';
