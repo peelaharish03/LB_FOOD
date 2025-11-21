@@ -14,7 +14,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
   final int totalItems;
 
   const SwiggyStyleAppBar({
-    Key? key,
+    super.key,
     required this.restaurantName,
     required this.location,
     required this.deliveryTime,
@@ -25,7 +25,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
     required this.selectedItems,
     required this.cart,
     required this.totalItems,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -702,8 +702,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             return matchesSearch && matchesFilter;
           }).toList();
 
-          if (filteredItems.isEmpty)
+          if (filteredItems.isEmpty) {
             return const Center(child: Text("No menu items available"));
+          }
 
           return Column(
             children: filteredItems.map((item) {
@@ -766,8 +767,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             return matchesSearch && matchesFilter;
           }).toList();
 
-          if (filteredItems.isEmpty)
+          if (filteredItems.isEmpty) {
             return const Center(child: Text("No menu items available"));
+          }
 
           return Column(
             children: filteredItems.map((item) {

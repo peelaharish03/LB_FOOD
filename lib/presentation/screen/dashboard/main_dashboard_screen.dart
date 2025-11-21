@@ -112,23 +112,22 @@ class MainDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          /// 🌟 Special Zone Banner (NEW)
-          // _BannerCard(
-          //   title: "Grocery",
-          //   subtitle: "The most coveted grocery brands",
-          //   imageUrl:
-          //       "https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg",
-          //   gradient: [Color(0xFF9C27B0), Color(0xFF673AB7)],
-          //   onTap: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (_) =>
-          //             const _UnderDevelopmentScreen(title: "Grocery"),
-          //       ),
-          //     );
-          //   },
-          // ),
+          _BannerCard(
+            title: "Grocery",
+            subtitle: "The most coveted grocery brands",
+            imageUrl:
+                "https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg",
+            gradient: [Color(0xFF9C27B0), Color(0xFF673AB7)],
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const _UnderDevelopmentScreen(title: "Grocery"),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 16),
         ],
       ),

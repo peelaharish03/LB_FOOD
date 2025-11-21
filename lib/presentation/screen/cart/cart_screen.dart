@@ -483,8 +483,9 @@ class _CartScreenState extends State<CartScreen> {
                 () async {
                   final prefs = await SharedPreferences.getInstance();
                   final sticky = prefs.getBool('offer_applied') ?? false;
-                  if (sticky && mounted)
+                  if (sticky && mounted) {
                     setState(() => _isCouponApplied = true);
+                  }
                 }();
               }
             }
