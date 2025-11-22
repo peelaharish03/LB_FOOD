@@ -192,7 +192,9 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   Widget _buildComingSoonCarousel() {
     final List<String> images = [
-      'assets/images/jpg/lb_welcome.jpeg',
+      // 'assets/images/jpg/lb_welcome.jpeg',
+      'assets/images/jpg/COMING SOON.jpeg',
+      'assets/images/jpg/PROMOTION.jpeg',
       // 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
       // 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80',
     ];

@@ -105,7 +105,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> initNotifications() async {
-    await _notificationServices.requestNotificationPermissions();
     await _notificationServices.forgroundMessage();
 
     if (!mounted) return;
