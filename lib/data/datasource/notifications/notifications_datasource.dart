@@ -38,6 +38,7 @@ class GetNotificationsRemoteDataSourceImpl
     }
   }
 
+  @override
   Future<ClearNotificationsModel> clearNotifications() async {
     try {
       final response = await client.request(

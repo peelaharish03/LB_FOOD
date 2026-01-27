@@ -16,6 +16,8 @@ class GlobalRatingListener extends StatefulWidget {
 class _GlobalRatingListenerState extends State<GlobalRatingListener>
     with WidgetsBindingObserver {
   Timer? _timer;
+  DateTime? _lastOrderCheckAt;
+  static const Duration _minCheckInterval = Duration(seconds: 10);
 
   @override
   void initState() {
@@ -31,6 +33,13 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
   }
 
   void _checkOrders() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final last = _lastOrderCheckAt;
+    if (last != null && now.difference(last) < _minCheckInterval) {
+      return;
+    }
+    _lastOrderCheckAt = now;
     debugPrint('[GlobalRatingListener] Triggering order check');
     final cubit = context.read<OrderHistoryCubit>();
     cubit.fetchCart(0, 20, '', context);

@@ -6,43 +6,43 @@
 // @dart = 3.5
 
 import 'dart:io'; // flutter_ignore: dart_io_import.
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geocoding_android/geocoding_android.dart';
-import 'package:geolocator_android/geolocator_android.dart';
-import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
-import 'package:path_provider_android/path_provider_android.dart';
-import 'package:shared_preferences_android/shared_preferences_android.dart';
-import 'package:sqflite_android/sqflite_android.dart';
-import 'package:video_player_android/video_player_android.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geocoding_ios/geocoding_ios.dart';
-import 'package:geolocator_apple/geolocator_apple.dart';
-import 'package:google_maps_flutter_ios/google_maps_flutter_ios.dart';
-import 'package:path_provider_foundation/path_provider_foundation.dart';
-import 'package:shared_preferences_foundation/shared_preferences_foundation.dart';
-import 'package:sqflite_darwin/sqflite_darwin.dart';
-import 'package:video_player_avfoundation/video_player_avfoundation.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart';
-import 'package:path_provider_linux/path_provider_linux.dart';
-import 'package:shared_preferences_linux/shared_preferences_linux.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geolocator_apple/geolocator_apple.dart';
-import 'package:path_provider_foundation/path_provider_foundation.dart';
-import 'package:shared_preferences_foundation/shared_preferences_foundation.dart';
-import 'package:sqflite_darwin/sqflite_darwin.dart';
-import 'package:video_player_avfoundation/video_player_avfoundation.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter_secure_storage_windows/flutter_secure_storage_windows.dart';
-import 'package:path_provider_windows/path_provider_windows.dart';
-import 'package:shared_preferences_windows/shared_preferences_windows.dart';
-import 'package:speech_to_text_windows/speech_to_text_windows.dart';
+import 'package:file_picker/file_picker.dart' as file_picker;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart' as flutter_local_notifications;
+import 'package:geocoding_android/geocoding_android.dart' as geocoding_android;
+import 'package:geolocator_android/geolocator_android.dart' as geolocator_android;
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart' as google_maps_flutter_android;
+import 'package:path_provider_android/path_provider_android.dart' as path_provider_android;
+import 'package:shared_preferences_android/shared_preferences_android.dart' as shared_preferences_android;
+import 'package:sqflite_android/sqflite_android.dart' as sqflite_android;
+import 'package:video_player_android/video_player_android.dart' as video_player_android;
+import 'package:file_picker/file_picker.dart' as file_picker;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart' as flutter_local_notifications;
+import 'package:geocoding_ios/geocoding_ios.dart' as geocoding_ios;
+import 'package:geolocator_apple/geolocator_apple.dart' as geolocator_apple;
+import 'package:google_maps_flutter_ios/google_maps_flutter_ios.dart' as google_maps_flutter_ios;
+import 'package:path_provider_foundation/path_provider_foundation.dart' as path_provider_foundation;
+import 'package:shared_preferences_foundation/shared_preferences_foundation.dart' as shared_preferences_foundation;
+import 'package:sqflite_darwin/sqflite_darwin.dart' as sqflite_darwin;
+import 'package:video_player_avfoundation/video_player_avfoundation.dart' as video_player_avfoundation;
+import 'package:connectivity_plus/connectivity_plus.dart' as connectivity_plus;
+import 'package:device_info_plus/device_info_plus.dart' as device_info_plus;
+import 'package:file_picker/file_picker.dart' as file_picker;
+import 'package:flutter_local_notifications_linux/flutter_local_notifications_linux.dart' as flutter_local_notifications_linux;
+import 'package:path_provider_linux/path_provider_linux.dart' as path_provider_linux;
+import 'package:shared_preferences_linux/shared_preferences_linux.dart' as shared_preferences_linux;
+import 'package:file_picker/file_picker.dart' as file_picker;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart' as flutter_local_notifications;
+import 'package:geolocator_apple/geolocator_apple.dart' as geolocator_apple;
+import 'package:path_provider_foundation/path_provider_foundation.dart' as path_provider_foundation;
+import 'package:shared_preferences_foundation/shared_preferences_foundation.dart' as shared_preferences_foundation;
+import 'package:sqflite_darwin/sqflite_darwin.dart' as sqflite_darwin;
+import 'package:video_player_avfoundation/video_player_avfoundation.dart' as video_player_avfoundation;
+import 'package:device_info_plus/device_info_plus.dart' as device_info_plus;
+import 'package:file_picker/file_picker.dart' as file_picker;
+import 'package:flutter_secure_storage_windows/flutter_secure_storage_windows.dart' as flutter_secure_storage_windows;
+import 'package:path_provider_windows/path_provider_windows.dart' as path_provider_windows;
+import 'package:shared_preferences_windows/shared_preferences_windows.dart' as shared_preferences_windows;
+import 'package:speech_to_text_windows/speech_to_text_windows.dart' as speech_to_text_windows;
 
 @pragma('vm:entry-point')
 class _PluginRegistrant {
@@ -51,7 +51,7 @@ class _PluginRegistrant {
   static void register() {
     if (Platform.isAndroid) {
       try {
-        FilePickerIO.registerWith();
+        file_picker.FilePickerIO.registerWith();
       } catch (err) {
         print(
           '`file_picker` threw an error: $err. '
@@ -60,7 +60,7 @@ class _PluginRegistrant {
       }
 
       try {
-        AndroidFlutterLocalNotificationsPlugin.registerWith();
+        flutter_local_notifications.AndroidFlutterLocalNotificationsPlugin.registerWith();
       } catch (err) {
         print(
           '`flutter_local_notifications` threw an error: $err. '
@@ -69,7 +69,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GeocodingAndroid.registerWith();
+        geocoding_android.GeocodingAndroid.registerWith();
       } catch (err) {
         print(
           '`geocoding_android` threw an error: $err. '
@@ -78,7 +78,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GeolocatorAndroid.registerWith();
+        geolocator_android.GeolocatorAndroid.registerWith();
       } catch (err) {
         print(
           '`geolocator_android` threw an error: $err. '
@@ -87,7 +87,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GoogleMapsFlutterAndroid.registerWith();
+        google_maps_flutter_android.GoogleMapsFlutterAndroid.registerWith();
       } catch (err) {
         print(
           '`google_maps_flutter_android` threw an error: $err. '
@@ -96,7 +96,7 @@ class _PluginRegistrant {
       }
 
       try {
-        PathProviderAndroid.registerWith();
+        path_provider_android.PathProviderAndroid.registerWith();
       } catch (err) {
         print(
           '`path_provider_android` threw an error: $err. '
@@ -105,7 +105,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SharedPreferencesAndroid.registerWith();
+        shared_preferences_android.SharedPreferencesAndroid.registerWith();
       } catch (err) {
         print(
           '`shared_preferences_android` threw an error: $err. '
@@ -114,7 +114,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SqfliteAndroid.registerWith();
+        sqflite_android.SqfliteAndroid.registerWith();
       } catch (err) {
         print(
           '`sqflite_android` threw an error: $err. '
@@ -123,7 +123,7 @@ class _PluginRegistrant {
       }
 
       try {
-        AndroidVideoPlayer.registerWith();
+        video_player_android.AndroidVideoPlayer.registerWith();
       } catch (err) {
         print(
           '`video_player_android` threw an error: $err. '
@@ -133,7 +133,7 @@ class _PluginRegistrant {
 
     } else if (Platform.isIOS) {
       try {
-        FilePickerIO.registerWith();
+        file_picker.FilePickerIO.registerWith();
       } catch (err) {
         print(
           '`file_picker` threw an error: $err. '
@@ -142,7 +142,7 @@ class _PluginRegistrant {
       }
 
       try {
-        IOSFlutterLocalNotificationsPlugin.registerWith();
+        flutter_local_notifications.IOSFlutterLocalNotificationsPlugin.registerWith();
       } catch (err) {
         print(
           '`flutter_local_notifications` threw an error: $err. '
@@ -151,7 +151,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GeocodingIOS.registerWith();
+        geocoding_ios.GeocodingIOS.registerWith();
       } catch (err) {
         print(
           '`geocoding_ios` threw an error: $err. '
@@ -160,7 +160,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GeolocatorApple.registerWith();
+        geolocator_apple.GeolocatorApple.registerWith();
       } catch (err) {
         print(
           '`geolocator_apple` threw an error: $err. '
@@ -169,7 +169,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GoogleMapsFlutterIOS.registerWith();
+        google_maps_flutter_ios.GoogleMapsFlutterIOS.registerWith();
       } catch (err) {
         print(
           '`google_maps_flutter_ios` threw an error: $err. '
@@ -178,7 +178,7 @@ class _PluginRegistrant {
       }
 
       try {
-        PathProviderFoundation.registerWith();
+        path_provider_foundation.PathProviderFoundation.registerWith();
       } catch (err) {
         print(
           '`path_provider_foundation` threw an error: $err. '
@@ -187,7 +187,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SharedPreferencesFoundation.registerWith();
+        shared_preferences_foundation.SharedPreferencesFoundation.registerWith();
       } catch (err) {
         print(
           '`shared_preferences_foundation` threw an error: $err. '
@@ -196,7 +196,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SqfliteDarwin.registerWith();
+        sqflite_darwin.SqfliteDarwin.registerWith();
       } catch (err) {
         print(
           '`sqflite_darwin` threw an error: $err. '
@@ -205,7 +205,7 @@ class _PluginRegistrant {
       }
 
       try {
-        AVFoundationVideoPlayer.registerWith();
+        video_player_avfoundation.AVFoundationVideoPlayer.registerWith();
       } catch (err) {
         print(
           '`video_player_avfoundation` threw an error: $err. '
@@ -215,7 +215,7 @@ class _PluginRegistrant {
 
     } else if (Platform.isLinux) {
       try {
-        ConnectivityPlusLinuxPlugin.registerWith();
+        connectivity_plus.ConnectivityPlusLinuxPlugin.registerWith();
       } catch (err) {
         print(
           '`connectivity_plus` threw an error: $err. '
@@ -224,7 +224,7 @@ class _PluginRegistrant {
       }
 
       try {
-        DeviceInfoPlusLinuxPlugin.registerWith();
+        device_info_plus.DeviceInfoPlusLinuxPlugin.registerWith();
       } catch (err) {
         print(
           '`device_info_plus` threw an error: $err. '
@@ -233,7 +233,7 @@ class _PluginRegistrant {
       }
 
       try {
-        FilePickerLinux.registerWith();
+        file_picker.FilePickerLinux.registerWith();
       } catch (err) {
         print(
           '`file_picker` threw an error: $err. '
@@ -242,7 +242,7 @@ class _PluginRegistrant {
       }
 
       try {
-        LinuxFlutterLocalNotificationsPlugin.registerWith();
+        flutter_local_notifications_linux.LinuxFlutterLocalNotificationsPlugin.registerWith();
       } catch (err) {
         print(
           '`flutter_local_notifications_linux` threw an error: $err. '
@@ -251,7 +251,7 @@ class _PluginRegistrant {
       }
 
       try {
-        PathProviderLinux.registerWith();
+        path_provider_linux.PathProviderLinux.registerWith();
       } catch (err) {
         print(
           '`path_provider_linux` threw an error: $err. '
@@ -260,7 +260,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SharedPreferencesLinux.registerWith();
+        shared_preferences_linux.SharedPreferencesLinux.registerWith();
       } catch (err) {
         print(
           '`shared_preferences_linux` threw an error: $err. '
@@ -270,7 +270,7 @@ class _PluginRegistrant {
 
     } else if (Platform.isMacOS) {
       try {
-        FilePickerMacOS.registerWith();
+        file_picker.FilePickerMacOS.registerWith();
       } catch (err) {
         print(
           '`file_picker` threw an error: $err. '
@@ -279,7 +279,7 @@ class _PluginRegistrant {
       }
 
       try {
-        MacOSFlutterLocalNotificationsPlugin.registerWith();
+        flutter_local_notifications.MacOSFlutterLocalNotificationsPlugin.registerWith();
       } catch (err) {
         print(
           '`flutter_local_notifications` threw an error: $err. '
@@ -288,7 +288,7 @@ class _PluginRegistrant {
       }
 
       try {
-        GeolocatorApple.registerWith();
+        geolocator_apple.GeolocatorApple.registerWith();
       } catch (err) {
         print(
           '`geolocator_apple` threw an error: $err. '
@@ -297,7 +297,7 @@ class _PluginRegistrant {
       }
 
       try {
-        PathProviderFoundation.registerWith();
+        path_provider_foundation.PathProviderFoundation.registerWith();
       } catch (err) {
         print(
           '`path_provider_foundation` threw an error: $err. '
@@ -306,7 +306,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SharedPreferencesFoundation.registerWith();
+        shared_preferences_foundation.SharedPreferencesFoundation.registerWith();
       } catch (err) {
         print(
           '`shared_preferences_foundation` threw an error: $err. '
@@ -315,7 +315,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SqfliteDarwin.registerWith();
+        sqflite_darwin.SqfliteDarwin.registerWith();
       } catch (err) {
         print(
           '`sqflite_darwin` threw an error: $err. '
@@ -324,7 +324,7 @@ class _PluginRegistrant {
       }
 
       try {
-        AVFoundationVideoPlayer.registerWith();
+        video_player_avfoundation.AVFoundationVideoPlayer.registerWith();
       } catch (err) {
         print(
           '`video_player_avfoundation` threw an error: $err. '
@@ -334,7 +334,7 @@ class _PluginRegistrant {
 
     } else if (Platform.isWindows) {
       try {
-        DeviceInfoPlusWindowsPlugin.registerWith();
+        device_info_plus.DeviceInfoPlusWindowsPlugin.registerWith();
       } catch (err) {
         print(
           '`device_info_plus` threw an error: $err. '
@@ -343,7 +343,7 @@ class _PluginRegistrant {
       }
 
       try {
-        FilePickerWindows.registerWith();
+        file_picker.FilePickerWindows.registerWith();
       } catch (err) {
         print(
           '`file_picker` threw an error: $err. '
@@ -352,7 +352,7 @@ class _PluginRegistrant {
       }
 
       try {
-        FlutterSecureStorageWindows.registerWith();
+        flutter_secure_storage_windows.FlutterSecureStorageWindows.registerWith();
       } catch (err) {
         print(
           '`flutter_secure_storage_windows` threw an error: $err. '
@@ -361,7 +361,7 @@ class _PluginRegistrant {
       }
 
       try {
-        PathProviderWindows.registerWith();
+        path_provider_windows.PathProviderWindows.registerWith();
       } catch (err) {
         print(
           '`path_provider_windows` threw an error: $err. '
@@ -370,7 +370,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SharedPreferencesWindows.registerWith();
+        shared_preferences_windows.SharedPreferencesWindows.registerWith();
       } catch (err) {
         print(
           '`shared_preferences_windows` threw an error: $err. '
@@ -379,7 +379,7 @@ class _PluginRegistrant {
       }
 
       try {
-        SpeechToTextWindows.registerWith();
+        speech_to_text_windows.SpeechToTextWindows.registerWith();
       } catch (err) {
         print(
           '`speech_to_text_windows` threw an error: $err. '

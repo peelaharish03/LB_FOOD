@@ -40,6 +40,7 @@ String getMenuByRestaurantIdUrl(
     String restaurantId, String search, int page, int size) {
   return 'product/api/products/filter?businessId=$restaurantId&attributeValue=Online&attributeValue=DineIN%26Online%26TakeAway&keyword=$search&page=$page&size=$size';
 }
+
 String guestMenuByRestaurantIdUrl(int restaurantId) {
   return 'product/api/public/restaurant/$restaurantId';
 }

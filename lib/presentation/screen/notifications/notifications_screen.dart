@@ -5,7 +5,6 @@ import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/injection.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_state.dart';
-import 'package:local_basket/data/model/notifications/notifications_model.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -40,9 +39,9 @@ class _NotificationsViewState extends State<_NotificationsView> {
           BlocBuilder<NotificationsCubit, NotificationsState>(
             builder: (_, state) {
               final isLoading = state is ClearNotificationsLoading;
-              final hasItems =
-                  state is NotificationsLoaded && state.notifications.data.isNotEmpty;
-                  
+              final hasItems = state is NotificationsLoaded &&
+                      state.notifications.data!.content.isNotEmpty ??
+                  false;
 
               return TextButton.icon(
                 onPressed: (!hasItems || isLoading)
@@ -57,10 +56,12 @@ class _NotificationsViewState extends State<_NotificationsView> {
                           valueColor: AlwaysStoppedAnimation(Colors.white),
                         ),
                       )
-                    : const Icon(Icons.delete_sweep_rounded, color: Colors.white),
+                    : const Icon(Icons.delete_sweep_rounded,
+                        color: Colors.white),
                 label: const Text(
                   'Clear All',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600),
                 ),
               );
             },
@@ -78,7 +79,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
           }
 
           if (state is NotificationsLoaded) {
-            final List<Datum> items = state.notifications.data;
+            final List<dynamic> items = state.notifications.data?.content ?? [];
 
             if (items.isEmpty) return _emptyView();
 
@@ -96,7 +97,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
   // --------------------------------------------------------
 
   /// 🔹 List UI
-  Widget _notificationsList(List<Datum> items, NotificationsCubit cubit) {
+  Widget _notificationsList(List<dynamic> items, NotificationsCubit cubit) {
     return RefreshIndicator(
       onRefresh: () async => cubit.fetchNotifications(),
       child: ListView.separated(
@@ -112,7 +113,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
   }
 
   /// 🔹 Clean modern card
-  Widget _notificationCard(Datum n) {
+  Widget _notificationCard(dynamic n) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -152,9 +153,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
                     color: Colors.black87,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
                 if ((n.type ?? "").isNotEmpty)
                   Text(
                     n.type!,
@@ -164,9 +163,7 @@ class _NotificationsViewState extends State<_NotificationsView> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-
                 const SizedBox(height: 6),
-
                 Row(
                   children: [
                     Icon(Icons.access_time_rounded,
@@ -253,7 +250,9 @@ class _NotificationsViewState extends State<_NotificationsView> {
     final t = type.toLowerCase();
 
     if (t.contains('order')) return Icons.receipt_long_rounded;
-    if (t.contains('offer') || t.contains('promo')) return Icons.local_offer_rounded;
+    if (t.contains('offer') || t.contains('promo')) {
+      return Icons.local_offer_rounded;
+    }
     if (t.contains('payment')) return Icons.payments_rounded;
 
     return Icons.notifications_rounded;
