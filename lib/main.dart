@@ -22,6 +22,7 @@ import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsA
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
+import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
@@ -43,7 +44,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/injection.dart' as di;
 import 'core/constants/app_navigator.dart';
-
 
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -95,7 +95,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    // 🔥 Initialize Firebase Notification Services
     _notificationServices.requestNotificationPermissions();
     _notificationServices.enableForegroundNotifications();
     _notificationServices.initializeFirebaseMessaging(context);
@@ -141,6 +140,7 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),
         BlocProvider(create: (_) => di.sl<CreateComplaintCubit>()),
         BlocProvider(create: (_) => di.sl<CheckoutCubit>()),
+        BlocProvider(create: (_) => di.sl<NotificationsCubit>()),
       ],
       child: MaterialApp(
         title: 'local basket',

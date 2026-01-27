@@ -18,6 +18,8 @@ import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
+import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_state.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
@@ -44,8 +46,8 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   late Razorpay _razorpay;
-  static const razorPayKey = 'rzp_test_aa2AmRQV2HpRyT';
-  static const razorPaySecret = 'UMfObdnXjWv3opzzTwHwAiv8';
+  static const razorPayKey = 'rzp_test_RsEtePJVg5vbk9';
+  static const razorPaySecret = 'U7RLFFnNceIHKyMtuYJSlkQ5';
   final TextEditingController notesController = TextEditingController();
 
   final TextEditingController couponController = TextEditingController();
@@ -60,6 +62,8 @@ class _CartScreenState extends State<CartScreen> {
   bool loading = false;
   String selectedAddress = "Add Address";
   bool selfOrder = false;
+
+  bool? _hasAnySavedAddress;
 
   double _subtotal = 0.0;
   double _gstAmount = 0.0;
@@ -77,6 +81,7 @@ class _CartScreenState extends State<CartScreen> {
 
     context.read<GetCartCubit>().fetchCart(context);
     _loadSavedAddress();
+    context.read<GetAddressCubit>().fetchAddress(context);
     _initCartItems();
     Future.delayed(const Duration(milliseconds: 300), () {
       _maybeAutoValidateOffer();
@@ -93,6 +98,8 @@ class _CartScreenState extends State<CartScreen> {
 
   // Refresh checkout from API
   void _refreshCheckout() {
+    if (_hasAnySavedAddress == false) return;
+    if (selectedAddress == "Add Address") return;
     if (selectedItems.isNotEmpty) {
       context.read<CheckoutCubit>().fetchCheckout();
     }
@@ -132,6 +139,13 @@ class _CartScreenState extends State<CartScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() =>
         selectedAddress = prefs.getString('delivery_address') ?? "Add Address");
+  }
+
+  Future<void> _clearSavedAddress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('delivery_address');
+    if (!mounted) return;
+    setState(() => selectedAddress = "Add Address");
   }
 
   Future<void> _maybeAutoValidateOffer() async {
@@ -237,12 +251,12 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // ListTile(
-                //   leading: const Icon(Icons.account_balance_wallet_outlined,
-                //       color: Colors.green),
-                //   title: const Text("Pay Online (Razorpay)"),
-                //   onTap: () => Navigator.pop(context, "ONLINE"),
-                // ),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined,
+                      color: Colors.green),
+                  title: const Text("Pay Online (Razorpay)"),
+                  onTap: () => Navigator.pop(context, "ONLINE"),
+                ),
                 ListTile(
                   leading: const Icon(Icons.money, color: Colors.brown),
                   title: const Text("Cash on Delivery (COD)"),
@@ -491,6 +505,22 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
+        BlocListener<GetAddressCubit, GetAddressState>(
+          listener: (context, state) {
+            if (state is GetAddressSuccess) {
+              final addresses = state.addressModel.data?.content ?? [];
+              final hasAny = addresses.isNotEmpty;
+              _hasAnySavedAddress = hasAny;
+              if (!hasAny) {
+                _clearSavedAddress();
+                return;
+              }
+              _refreshCheckout();
+            } else if (state is GetAddressFailure) {
+              _hasAnySavedAddress = null;
+            }
+          },
+        ),
         BlocListener<CheckoutCubit, CheckoutState>(
           listener: (context, state) {
             if (state is CheckoutLoading) {
@@ -699,49 +729,49 @@ class _CartScreenState extends State<CartScreen> {
                   }
                 },
               ),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: selfOrder,
-                      activeColor: AppColor.PrimaryColor,
-                      onChanged: (val) {
-                        setState(() => selfOrder = val ?? true);
+              // Padding(
+              //   padding:
+              //       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              //   child: Row(
+              //     children: [
+              //       Checkbox(
+              //         value: selfOrder,
+              //         activeColor: AppColor.PrimaryColor,
+              //         onChanged: (val) {
+              //           setState(() => selfOrder = val ?? true);
 
-                        final itemsPayload = selectedItems.map((item) {
-                          final name = item['name'];
-                          final quantity = cart[name] ?? 1;
-                          return {
-                            "productId": item['productId'] ?? item['id'],
-                            "quantity": quantity,
-                            "price": item['price'] ?? 0,
-                          };
-                        }).toList();
+              //           final itemsPayload = selectedItems.map((item) {
+              //             final name = item['name'];
+              //             final quantity = cart[name] ?? 1;
+              //             return {
+              //               "productId": item['productId'] ?? item['id'],
+              //               "quantity": quantity,
+              //               "price": item['price'] ?? 0,
+              //             };
+              //           }).toList();
 
-                        final payload = {
-                          "notes": notesController.text.trim(),
-                          "selfOrder": selfOrder,
-                          "items": itemsPayload,
-                        };
+              //           final payload = {
+              //             "notes": notesController.text.trim(),
+              //             "selfOrder": selfOrder,
+              //             "items": itemsPayload,
+              //           };
 
-                        context
-                            .read<ProductsAddToCartCubit>()
-                            .addToCart(payload);
+              //           context
+              //               .read<ProductsAddToCartCubit>()
+              //               .addToCart(payload);
 
-                        // _refreshCheckout();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Self Order (I'll pick it myself)",
-                      style:
-                          TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
+              //           // _refreshCheckout();
+              //         },
+              //       ),
+              //       const SizedBox(width: 8),
+              //       const Text(
+              //         "Self Order (I'll pick it myself)",
+              //         style:
+              //             TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -814,7 +844,7 @@ class _CartScreenState extends State<CartScreen> {
                         Expanded(
                           child: Text(
                             notesController.text.isEmpty
-                                ? "Add delivery notes"
+                                ? "Add notes"
                                 : notesController.text,
                             style: TextStyle(
                               color: notesController.text.isEmpty
@@ -832,42 +862,42 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
               ),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: couponController,
-                        decoration: InputDecoration(
-                          hintText: "Enter coupon code",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        _maybeAutoValidateOffer();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColor.PrimaryColor,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text("Apply"),
-                    ),
-                  ],
-                ),
-              ),
+              // Padding(
+              //   padding:
+              //       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              //   child: Row(
+              //     children: [
+              //       Expanded(
+              //         child: TextField(
+              //           controller: couponController,
+              //           decoration: InputDecoration(
+              //             hintText: "Enter coupon code",
+              //             border: OutlineInputBorder(
+              //               borderRadius: BorderRadius.circular(12),
+              //             ),
+              //             contentPadding:
+              //                 const EdgeInsets.symmetric(horizontal: 12),
+              //           ),
+              //         ),
+              //       ),
+              //       const SizedBox(width: 8),
+              //       ElevatedButton(
+              //         onPressed: () {
+              //           _maybeAutoValidateOffer();
+              //         },
+              //         style: ElevatedButton.styleFrom(
+              //           backgroundColor: AppColor.PrimaryColor,
+              //           padding: const EdgeInsets.symmetric(
+              //               horizontal: 16, vertical: 12),
+              //           shape: RoundedRectangleBorder(
+              //             borderRadius: BorderRadius.circular(12),
+              //           ),
+              //         ),
+              //         child: const Text("Apply"),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               Expanded(
                 child: selectedItems.isEmpty
                     ? Center(

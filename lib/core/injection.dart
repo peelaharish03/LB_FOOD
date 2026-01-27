@@ -21,6 +21,7 @@ import 'package:local_basket/data/datasource/cart/productsAddToCart/productsAddt
 import 'package:local_basket/data/datasource/cart/updateCartItems/updateCartItems_dataSource.dart';
 import 'package:local_basket/data/datasource/complaints/create_complaints_datasource.dart';
 import 'package:local_basket/data/datasource/location/location_remotedatasource.dart';
+import 'package:local_basket/data/datasource/notifications/notifications_datasource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/restaurant_offers_dataSource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/validate_offer_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/createOrder/createOrder_dataSource.dart';
@@ -53,6 +54,7 @@ import 'package:local_basket/data/repositoryImpl/cart/productsAddToCart/products
 import 'package:local_basket/data/repositoryImpl/cart/updateCartItems/updateCartItems_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/complaints/create_complaints_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/location/location_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/notifications/notifications_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/restaurant_offers_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/validate_offer_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_repoImpl.dart';
@@ -85,6 +87,7 @@ import 'package:local_basket/domain/repository/cart/productsAddToCart/productsAd
 import 'package:local_basket/domain/repository/cart/updateCartItems/updateCartItems_repository.dart';
 import 'package:local_basket/domain/repository/complaints/create_complaints_repository.dart';
 import 'package:local_basket/domain/repository/location/location_repo.dart';
+import 'package:local_basket/domain/repository/notifications/notifications_repository.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/restaurant_offers_repository.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/validate_offer_repository.dart';
 import 'package:local_basket/domain/repository/orders/createOrder/createOrder_repository.dart';
@@ -117,6 +120,7 @@ import 'package:local_basket/domain/usecase/cart/productsAddToCart/productsAddto
 import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems_usecase.dart';
 import 'package:local_basket/domain/usecase/complaints/create_complaints_usecase.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
+import 'package:local_basket/domain/usecase/notifications/notifications_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/restaurant_offers_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_offer_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
@@ -149,6 +153,7 @@ import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsA
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
+import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
@@ -697,4 +702,23 @@ void init() {
   sl.registerFactory(() => CheckoutCubit(
         useCase: sl<CheckoutUseCase>(),
       ));
+
+      //Notifications
+      sl.registerLazySingleton<GetNotificationsRemoteDataSource>(
+        () => GetNotificationsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+      );
+      sl.registerLazySingleton<NotificationsRepository>(
+        () => NotificationsRepositoryImpl(
+            remoteDataSource: sl<GetNotificationsRemoteDataSource>()),
+      );
+      sl.registerLazySingleton(
+        () => GetNotificationsUseCase(repository: sl<NotificationsRepository>()),
+      );
+      sl.registerLazySingleton(
+        () => ClearNotificationsUseCase(repository: sl<NotificationsRepository>()),
+      );
+      sl.registerFactory(() => NotificationsCubit(
+            getNotificationsUseCase: sl<GetNotificationsUseCase>(),
+            clearNotificationsUseCase: sl<ClearNotificationsUseCase>(),
+          ));
 }

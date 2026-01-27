@@ -1,24 +1,13 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.localbaskethd"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-        isCoreLibraryDesugaringEnabled = true // ✅ Enable desugaring (for flutter_local_notifications)
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.localbaskethd"
@@ -26,25 +15,61 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        multiDexEnabled = true
+
+        ndk {
+            abiFilters.clear()
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
+    androidResources {
+        noCompress += listOf("so")
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     buildTypes {
         getByName("release") {
-            // ✅ Enable R8 + Add custom ProGuard rules to fix Razorpay errors
             isMinifyEnabled = true
+            isShrinkResources = true      // ⭐ FIXED HERE
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
 
-            // TODO: Replace with your real release signing config before uploading to Play Store
             signingConfig = signingConfigs.getByName("debug")
+
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
 
         getByName("debug") {
             isMinifyEnabled = false
+
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
+
 }
 
 flutter {
@@ -52,6 +77,6 @@ flutter {
 }
 
 dependencies {
-    // ✅ Required for Java 8+ API desugaring (used by flutter_local_notifications)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
+

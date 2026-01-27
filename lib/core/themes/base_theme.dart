@@ -6,7 +6,7 @@ final ThemeData lightTheme = ThemeData(
   hintColor: Colors.amber,
   scaffoldBackgroundColor: Colors.white,
   appBarTheme: const AppBarTheme(
-    color: Colors.blue,
+    backgroundColor: Colors.blue,
   ),
   buttonTheme: const ButtonThemeData(
     buttonColor: Colors.blue,
@@ -24,7 +24,7 @@ final ThemeData darkTheme = ThemeData(
   hintColor: Colors.redAccent,
   scaffoldBackgroundColor: Colors.black,
   appBarTheme: const AppBarTheme(
-    color: Colors.blueGrey,
+    backgroundColor: Colors.blueGrey,
   ),
   buttonTheme: const ButtonThemeData(
     buttonColor: Colors.blueGrey,

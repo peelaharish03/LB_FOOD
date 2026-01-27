@@ -1,14 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/presentation/screen/notifications/notifications_screen.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
 import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
 import 'dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:local_basket/core/utils/push_notication_services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 
-class MainDashboard extends StatelessWidget {
+class MainDashboard extends StatefulWidget {
   final bool isGuest;
   const MainDashboard({super.key, this.isGuest = false});
+
+  @override
+  State<MainDashboard> createState() => _MainDashboardState();
+}
+
+
+class _MainDashboardState extends State<MainDashboard> {
+  final NotificationServices _notificationServices = NotificationServices();
+
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    await _notificationServices.forgroundMessage();
+
+    if (!mounted) return;
+    await _notificationServices.firebaseInit(context);
+
+    if (!mounted) return;
+    await _notificationServices.setupInteractMessage(context);
+
+    if (!mounted) return;
+    await _notificationServices.isRefreshToken();
+
+    _notificationServices.getDeviceToken().then((fcmToken) async {
+      if (!mounted) return;
+      if (fcmToken != null && !widget.isGuest) {
+        final prefs = await SharedPreferences.getInstance();
+        final savedAuthToken = prefs.getString('TOKEN');
+        if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
+          print('Updating customer with FCM token: $fcmToken');
+          final payload = {
+            'fullName': '',
+            'email': '',
+            'local_basket': true,
+            'fcmToken': fcmToken,
+          };
+          if (!mounted) return;
+          context
+              .read<UpdateCurrentCustomerCubit>()
+              .updateCustomer(payload, context);
+        }
+      }
+    });
+  }
 
   void showLoginPromptSheet(BuildContext context) {
     showModalBottomSheet(
@@ -31,15 +85,30 @@ class MainDashboard extends StatelessWidget {
         showBackButton: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
+            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
             onPressed: () {
-              if (isGuest) {
+              if (widget.isGuest) {
                 showLoginPromptSheet(context);
               } else {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ProfileScreen(isGuest: isGuest),
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: () {
+              if (widget.isGuest) {
+                showLoginPromptSheet(context);
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfileScreen(isGuest: widget.isGuest),
                   ),
                 );
               }
@@ -51,7 +120,7 @@ class MainDashboard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           /// 🔥 Offers Carousel
-          OffersCarousel(isGuest: isGuest),
+          OffersCarousel(isGuest: widget.isGuest),
 
           const SizedBox(height: 24),
 
@@ -66,7 +135,7 @@ class MainDashboard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => DashboardScreen(isGuest: isGuest),
+                  builder: (_) => DashboardScreen(isGuest: widget.isGuest),
                 ),
               );
             },
@@ -207,12 +276,55 @@ class _BannerCard extends StatelessWidget {
 }
 
 /// 🚧 Under Development Screen
-class _UnderDevelopmentScreen extends StatelessWidget {
+class _UnderDevelopmentScreen extends StatefulWidget {
   final String title;
   const _UnderDevelopmentScreen({required this.title});
 
+  @override
+  State<_UnderDevelopmentScreen> createState() =>
+      _UnderDevelopmentScreenState();
+}
+
+class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
+  final _notificationServices = NotificationServices();
+
+  Future<void> _initFcmAndUpdate() async {
+    await _notificationServices.requestNotificationPermissions();
+    await _notificationServices.enableForegroundNotifications();
+    _notificationServices.initializeFirebaseMessaging(context);
+    await _notificationServices.setupNotificationInteraction(context);
+
+    final token = await _notificationServices.getDeviceToken();
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedAuthToken = prefs.getString('TOKEN');
+
+    if (token != null && savedAuthToken != null && savedAuthToken.isNotEmpty) {
+      _updateFcmToken(token);
+    }
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      final prefs = await SharedPreferences.getInstance();
+      final savedAuthToken = prefs.getString('TOKEN');
+      if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
+        _updateFcmToken(newToken);
+      }
+    });
+  }
+
+  void _updateFcmToken(String token) {
+    // implement your logic to update FCM token
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initFcmAndUpdate();
+  }
+
   IconData _getIcon() {
-    switch (title.toLowerCase()) {
+    switch (widget.title.toLowerCase()) {
       case "special zone":
         return Icons.star;
 
@@ -229,7 +341,7 @@ class _UnderDevelopmentScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColor.White,
-      appBar: CustomAppBar(title: title),
+      appBar: CustomAppBar(title: widget.title),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -243,7 +355,7 @@ class _UnderDevelopmentScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                "$title\nComing Soon!",
+                "${widget.title}\nComing Soon!",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 24,
@@ -253,7 +365,7 @@ class _UnderDevelopmentScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                "We’re working hard to bring you\npremium $title experience.",
+                "We’re working hard to bring you\npremium ${widget.title} experience.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,

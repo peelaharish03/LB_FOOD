@@ -13,6 +13,7 @@ class RatingReviewRemoteDataSourceImpl implements RatingReviewRemoteDataSource {
 
   @override
   Future<RatingReviewModel> ratingReview(Map<String, dynamic> payload) async {
+    print(payload);
     try {
       final response = await client.post(
         '$baseUrl$ratingReviewUrl',

@@ -39,8 +39,15 @@ class DioClient {
       onError: (DioException error, handler) async {
         final statusCode = error.response?.statusCode;
         print(statusCode);
-        final errorMessage =
-            error.response?.data['message'] ?? 'Unknown error occurred';
+        final data = error.response?.data;
+        String errorMessage = 'Unknown error occurred';
+        if (data is Map && data['message'] != null) {
+          errorMessage = data['message'].toString();
+        } else if (data is String) {
+          errorMessage = data;
+        } else if (data != null) {
+          errorMessage = data.toString();
+        }
 
         log('ERROR[$statusCode] => MESSAGE: $errorMessage');
 

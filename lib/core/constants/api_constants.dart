@@ -4,7 +4,7 @@
 //prod//
 const baseUrl2 = 'https://kovela.app/usermgmt/';
 
-const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=false';
+const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=true';
 const SigninUrl = 'auth/login';
 const SignupUrl = 'auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = 'user/userDetails';
@@ -29,10 +29,18 @@ const addressSave = 'api/addresses/save';
 //local_basket prod
 const baseUrl = 'https://kovela.app/';
 
+// notifications
+String getNotificationsUrl(int pageNo, int pageSize) {
+  return 'order/usernotification/user/list?pageNo=$pageNo&pageSize=$pageSize';
+}
+
+const clearAllNotificationsUrl = 'order/usernotification/clear-all';
+
 String getMenuByRestaurantIdUrl(
     String restaurantId, String search, int page, int size) {
   return 'product/api/products/filter?businessId=$restaurantId&attributeValue=Online&attributeValue=DineIN%26Online%26TakeAway&keyword=$search&page=$page&size=$size';
 }
+
 String guestMenuByRestaurantIdUrl(int restaurantId) {
   return 'product/api/public/restaurant/$restaurantId';
 }
