@@ -1,11 +1,10 @@
-const appLogo = 'assets/images/png/ic_launcher.png';
+const appLogo = 'aassets/images/jpg/3.jpg';
 //homepage 1st
 const dish = 'assets/images/jpg/dish.jpg';
 const strawberry = 'local_basket/assets/images/jpg/strawberry.jpg';
 
 //createPoolSvg
 const BackArrowSvg = 'assets/images/svg/backarrowsvg.svg';
-
 
 //png
 const vegLogo = 'local_basket/assets/images/png/vegLogo.png';
