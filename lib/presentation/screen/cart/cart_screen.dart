@@ -257,11 +257,11 @@ class _CartScreenState extends State<CartScreen> {
                   title: const Text("Pay Online (Razorpay)"),
                   onTap: () => Navigator.pop(context, "ONLINE"),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.money, color: Colors.brown),
-                  title: const Text("Cash on Delivery (COD)"),
-                  onTap: () => Navigator.pop(context, "COD"),
-                ),
+                // ListTile(
+                //   leading: const Icon(Icons.money, color: Colors.brown),
+                //   title: const Text("Cash on Delivery (COD)"),
+                //   onTap: () => Navigator.pop(context, "COD"),
+                // ),
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: () => Navigator.pop(context, null),
