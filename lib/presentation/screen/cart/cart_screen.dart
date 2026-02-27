@@ -46,6 +46,10 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   late Razorpay _razorpay;
+  //juvarya keys //
+  // static const razorPayKey = 'rzp_test_aa2AmRQV2HpRyT';
+  // static const razorPaySecret = 'UMfObdnXjWv3opzzTwHwAiv8';
+  //local basket //
   static const razorPayKey = 'rzp_test_RsEtePJVg5vbk9';
   static const razorPaySecret = 'U7RLFFnNceIHKyMtuYJSlkQ5';
   final TextEditingController notesController = TextEditingController();
@@ -254,7 +258,7 @@ class _CartScreenState extends State<CartScreen> {
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet_outlined,
                       color: Colors.green),
-                  title: const Text("Pay Online (Razorpay)"),
+                  title: const Text("Pay Online"),
                   onTap: () => Navigator.pop(context, "ONLINE"),
                 ),
                 ListTile(
