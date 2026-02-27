@@ -257,11 +257,11 @@ class _CartScreenState extends State<CartScreen> {
                   title: const Text("Pay Online (Razorpay)"),
                   onTap: () => Navigator.pop(context, "ONLINE"),
                 ),
-                // ListTile(
-                //   leading: const Icon(Icons.money, color: Colors.brown),
-                //   title: const Text("Cash on Delivery (COD)"),
-                //   onTap: () => Navigator.pop(context, "COD"),
-                // ),
+                ListTile(
+                  leading: const Icon(Icons.money, color: Colors.brown),
+                  title: const Text("Cash on Delivery (COD)"),
+                  onTap: () => Navigator.pop(context, "COD"),
+                ),
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: () => Navigator.pop(context, null),
@@ -444,15 +444,49 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    _razorpay.open({
-      'key': razorPayKey,
-      'amount': amountInPaise,
-      'name': 'Local Basket',
-      'order_id': orderResp['body']['id'],
-      'description': 'Cart Payment',
-      'prefill': {'contact': '9705047662', 'email': 'harishpeela03@gmail.com'},
-      'theme': {'color': '#081724'}
-    });
+    final orderId = orderResp['body']?['id']?.toString();
+    if (orderId == null || orderId.isEmpty) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: 'ERROR',
+        message: 'Invalid order id',
+      );
+      return;
+    }
+
+    try {
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _razorpay.open({
+            'key': razorPayKey,
+            'amount': amountInPaise,
+            'name': 'Local Basket',
+            'order_id': orderId,
+            'description': 'Cart Payment',
+            'prefill': {
+              'contact': '9705047662',
+              'email': 'harishpeela03@gmail.com'
+            },
+            'theme': {'color': '#081724'}
+          });
+        } catch (e) {
+          if (!mounted) return;
+          CustomSnackbars.showErrorSnack(
+            context: context,
+            title: 'ERROR',
+            message: e.toString(),
+          );
+        }
+      });
+    } catch (e) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: 'ERROR',
+        message: e.toString(),
+      );
+    }
   }
 
   @override

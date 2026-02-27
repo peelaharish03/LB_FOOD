@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'localbasket-fe25e.firebasestorage.app',
     measurementId: 'G-DWL8GT8XJ5',
   );
+
 }

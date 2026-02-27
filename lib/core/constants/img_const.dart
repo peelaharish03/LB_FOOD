@@ -1,4 +1,4 @@
-const appLogo = 'aassets/images/jpg/3.jpg';
+const appLogo = 'assets/images/jpg/3.jpg';
 //homepage 1st
 const dish = 'assets/images/jpg/dish.jpg';
 const strawberry = 'local_basket/assets/images/jpg/strawberry.jpg';

@@ -31,7 +31,8 @@ class CreateCartRemoteDataSourceImpl implements CreateCartRemoteDataSource {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return CreateCartModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to create cart. Status code: ${response.statusCode}');
+        throw Exception(
+            'Failed to create cart. Status code: ${response.statusCode}');
       }
     } catch (e) {
       print('CreateCart Error: $e');

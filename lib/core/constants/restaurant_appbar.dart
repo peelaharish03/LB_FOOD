@@ -12,6 +12,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
   final List<dynamic> selectedItems;
   final Map<String, int> cart;
   final int totalItems;
+  final bool showBackButton;
 
   const SwiggyStyleAppBar({
     super.key,
@@ -25,6 +26,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
     required this.selectedItems,
     required this.cart,
     required this.totalItems,
+    this.showBackButton = true,
   });
 
   @override
@@ -39,11 +41,11 @@ class SwiggyStyleAppBar extends StatelessWidget {
           height: 150 + topPadding,
           width: double.infinity,
           decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColor.PrimaryColor.withValues(alpha: 0.95),
-              AppColor.PrimaryColor.withValues(alpha: 0.65),
-            ],
+            gradient: LinearGradient(
+              colors: [
+                AppColor.PrimaryColor.withValues(alpha: 0.95),
+                AppColor.PrimaryColor.withValues(alpha: 0.65),
+              ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -55,44 +57,45 @@ class SwiggyStyleAppBar extends StatelessWidget {
         ),
 
         // ◀️ Back Button floating above card
-        Positioned(
-          top: topPadding + 8,
-          left: 16,
-          child: GestureDetector(
-            onTap: () async {
-              if (isBottomSheetVisible && bottomSheetController != null) {
-                bottomSheetController?.close();
-                await Future.delayed(const Duration(milliseconds: 300));
-              }
+        if (showBackButton)
+          Positioned(
+            top: topPadding + 8,
+            left: 16,
+            child: GestureDetector(
+              onTap: () async {
+                if (isBottomSheetVisible && bottomSheetController != null) {
+                  bottomSheetController?.close();
+                  await Future.delayed(const Duration(milliseconds: 300));
+                }
 
-              final updatedCart = <int, int>{};
-              for (var item in selectedItems) {
-                final productId = item.id;
-                final qty = cart[item.name] ?? 0;
-                if (qty > 0) updatedCart[productId ?? 0] = qty;
-              }
+                final updatedCart = <int, int>{};
+                for (var item in selectedItems) {
+                  final productId = item.id;
+                  final qty = cart[item.name] ?? 0;
+                  if (qty > 0) updatedCart[productId ?? 0] = qty;
+                }
 
-              if (context.mounted) {
-                Navigator.pop(context, {
-                  'updatedCart': updatedCart,
-                  'cartItemsLength': totalItems,
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 22,
+                if (context.mounted) {
+                  Navigator.pop(context, {
+                    'updatedCart': updatedCart,
+                    'cartItemsLength': totalItems,
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ),
           ),
-        ),
 
         // 🍽️ Floating Restaurant Info Card
         Positioned(

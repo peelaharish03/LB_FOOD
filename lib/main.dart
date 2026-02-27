@@ -100,7 +100,9 @@ class _MyAppState extends State<MyApp> {
     _notificationServices.initializeFirebaseMessaging(context);
     _notificationServices.setupNotificationInteraction(context);
     _notificationServices.listenForTokenRefresh();
-    _notificationServices.getDeviceToken();
+    _notificationServices.getDeviceToken().then((token) {
+      print('MyApp initState() → getDeviceToken() returned: $token');
+    });
   }
 
   @override
