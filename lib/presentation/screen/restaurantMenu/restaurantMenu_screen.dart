@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:local_basket/core/constants/restaurant_appbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
@@ -11,6 +10,7 @@ import 'package:local_basket/presentation/screen/widgets/restaurantMenu/bottomSh
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/menu.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
@@ -41,16 +41,20 @@ class RestaurantMenuScreen extends StatefulWidget {
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, int> cart = {};
-  int totalItems = 0, page = 0, size = 300;
+  int totalItems = 0, page = 0, size = 20;
   PersistentBottomSheetController? _bottomSheetController;
   bool _isOfferFlow = false;
   bool isBottomSheetVisible = false;
+  bool _showBackButton = true;
   String searchText = '', filterType = 'All';
   List<Content> selectedItems = [], menuItems = [];
   Timer? _debounce;
   bool _isMenuLoaded = false;
   bool _isCartLoaded = false;
   Content? _couponSelectedItem;
+  bool _isLoadingMore = false;
+  bool _isLastMenuPage = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -64,6 +68,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         final isOffer = prefs.getBool('is_offer_flow') ?? false;
         if (mounted) setState(() => _isOfferFlow = isOffer);
       }();
+
+      if (!widget.isGuest) {
+        _scrollController.addListener(() {
+          final direction = _scrollController.position.userScrollDirection;
+          if (direction == ScrollDirection.reverse) {
+            if (_showBackButton) {
+              setState(() => _showBackButton = false);
+            }
+          } else if (direction == ScrollDirection.forward) {
+            if (!_showBackButton) {
+              setState(() => _showBackButton = true);
+            }
+          }
+          if (_scrollController.position.extentAfter < 300) {
+            _loadMoreMenu();
+          }
+        });
+      }
       if (widget.isGuest) {
         context
             .read<GuestMenuByRestaurantIdCubit>()
@@ -189,6 +211,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   Future<void> _loadMenu() async {
     print('Loading menu with search: "$searchText", filterType: "$filterType"');
+    page = 0;
+    _isLastMenuPage = false;
+    _isLoadingMore = false;
+    menuItems = [];
+    await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
+      'restaurantId': widget.restaurantId,
+      'search': searchText,
+      'page': page,
+      'size': size,
+    });
+  }
+
+  Future<void> _loadMoreMenu() async {
+    if (widget.isGuest) return;
+    if (_isLastMenuPage) return;
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    page = page + 1;
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
       'restaurantId': widget.restaurantId,
       'search': searchText,
@@ -200,6 +240,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Future<void> update_Cart(Content item, int qty) async {
     if (_isOfferFlow) {
       if (_couponSelectedItem != null && _couponSelectedItem!.id != item.id) {}
+
+      if (qty == 0) {
+        await context.read<ClearCartCubit>().clearCart(context);
+        await context.read<GetCartCubit>().fetchCart(context);
+        if (!mounted) return;
+        setState(() {
+          cart.clear();
+          selectedItems.clear();
+          totalItems = 0;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (isBottomSheetVisible) {
+            _bottomSheetController?.close();
+            _onBottomSheetVisibilityChanged(false);
+          }
+        });
+        return;
+      }
 
       final existingState = context.read<GetCartCubit>().state;
       if (existingState is GetCartLoaded &&
@@ -533,6 +591,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   void dispose() {
     _debounce?.cancel();
     _bottomSheetController?.close();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -550,14 +609,116 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.grey[100],
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.only(
-              bottom: 100), // space for floating buttons/cart
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // AppBar
-              SwiggyStyleAppBar(
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(
+                top: 300,
+                bottom: 100,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: HomeSearchBar(
+                      hintText: "menu",
+                      onChanged: _onSearchChanged,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Filter Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      children: ['All', 'Veg', 'NonVeg'].map((filter) {
+                        final isSelected = filter == filterType;
+                        Widget? icon;
+                        if (filter == 'Veg') icon = vegNonVegIcon(true);
+                        if (filter == 'NonVeg') icon = vegNonVegIcon(false);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                filterType = filter;
+                              });
+                              if (!widget.isGuest) _loadMenu();
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColor.PrimaryColor
+                                    : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColor.PrimaryColor
+                                      : Colors.grey.shade300,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color:
+                                              AppColor.PrimaryColor.withAlpha(
+                                                  50),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        )
+                                      ]
+                                    : [],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (icon != null) ...[
+                                    icon,
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    filter,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Menu Items
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: widget.isGuest
+                        ? _buildGuestMenuItems()
+                        : _buildUserMenuItems(),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SwiggyStyleAppBar(
                 restaurantName: widget.restaurantName,
                 location: "Anakapalle",
                 deliveryTime: "20–25 mins",
@@ -568,104 +729,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 selectedItems: selectedItems,
                 cart: cart,
                 totalItems: totalItems,
+                showBackButton: _showBackButton,
               ),
-
-              SizedBox(
-                height: Platform.isIOS ? 80 : 100,
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: HomeSearchBar(
-                  hintText: "menu",
-                  onChanged: _onSearchChanged,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Filter Row
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: ['All', 'Veg', 'NonVeg'].map((filter) {
-                    final isSelected = filter == filterType;
-                    Widget? icon;
-                    if (filter == 'Veg') icon = vegNonVegIcon(true);
-                    if (filter == 'NonVeg') icon = vegNonVegIcon(false);
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          setState(() {
-                            filterType = filter;
-                          });
-                          if (!widget.isGuest) _loadMenu();
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColor.PrimaryColor
-                                : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColor.PrimaryColor
-                                  : Colors.grey.shade300,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color:
-                                          AppColor.PrimaryColor.withAlpha(50),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    )
-                                  ]
-                                : [],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (icon != null) ...[
-                                icon,
-                                const SizedBox(width: 6),
-                              ],
-                              Text(
-                                filter,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Menu Items
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: widget.isGuest
-                    ? _buildGuestMenuItems()
-                    : _buildUserMenuItems(),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -734,22 +801,26 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       listener: (context, state) {
         if (state is GetMenuByRestaurantIdLoaded) {
           setState(() {
-            menuItems = state.model.content;
+            if (page == 0) {
+              menuItems = state.model.content;
+            } else {
+              final existingIds = menuItems.map((e) => e.id).toSet();
+              menuItems.addAll(
+                state.model.content.where((e) => !existingIds.contains(e.id)),
+              );
+            }
             _isMenuLoaded = true;
+            _isLastMenuPage = state.model.last ?? false;
+            _isLoadingMore = false;
           });
           if (!_isCartLoaded) _loadCart();
         }
       },
       builder: (context, state) {
-        if (state is GetMenuByRestaurantIdLoading) {
+        if (state is GetMenuByRestaurantIdLoading && menuItems.isEmpty) {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is GetMenuByRestaurantIdLoaded) {
           final filteredItems = menuItems.where((item) {
-            if (_isOfferFlow) {
-              final name = (item.name ?? '').toLowerCase();
-              final isBiryani = name.contains('biryani');
-              if (!isBiryani) return false;
-            }
             final matchesSearch = (item.name ?? "")
                 .toLowerCase()
                 .contains(searchText.toLowerCase());
@@ -770,34 +841,74 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           if (filteredItems.isEmpty) {
             return const Center(child: Text("No menu items available"));
           }
-
           return Column(
-            children: filteredItems.map((item) {
-              final qty = cart[item.name ?? ""] ?? 0;
-              return MenuItemWidget(
-                item: item,
-                quantity: qty,
-                restaurantId: widget.restaurantId,
-                restaurantName: widget.restaurantName,
-                isCouponFlow: _isOfferFlow,
-                onQuantityChanged: (newQty) async {
-                  if (_isOfferFlow) {
-                    final alreadySelected = cart.entries.any((entry) =>
-                        entry.value > 0 && entry.key != (item.name ?? ""));
-                    if (alreadySelected && newQty == 1 && qty == 0) {
-                      _showReplaceItemDialog(item);
+            children: [
+              ...filteredItems.map((item) {
+                final qty = cart[item.name ?? ""] ?? 0;
+                return MenuItemWidget(
+                  item: item,
+                  quantity: qty,
+                  restaurantId: widget.restaurantId,
+                  restaurantName: widget.restaurantName,
+                  isCouponFlow: _isOfferFlow,
+                  onQuantityChanged: (newQty) async {
+                    if (_isOfferFlow) {
+                      final alreadySelected = cart.entries.any((entry) =>
+                          entry.value > 0 && entry.key != (item.name ?? ""));
+                      if (alreadySelected && newQty == 1 && qty == 0) {
+                        _showReplaceItemDialog(item);
+                      } else {
+                        await update_Cart(item, newQty);
+                      }
                     } else {
-                      await update_Cart(item, 1);
+                      await update_Cart(item, newQty);
                     }
-                  } else {
-                    await update_Cart(item, newQty);
-                  }
-                },
-              );
-            }).toList(),
+                  },
+                );
+              }).toList(),
+              if (_isLoadingMore) const CupertinoActivityIndicator(),
+              if (!_isLastMenuPage && !_isLoadingMore)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton(
+                    onPressed: _loadMoreMenu,
+                    child: const Text('Load more'),
+                  ),
+                ),
+            ],
           );
         } else if (state is GetMenuByRestaurantIdError) {
           return const Center(child: Text("Error loading menu"));
+        }
+        if (menuItems.isNotEmpty) {
+          return Column(
+            children: [
+              ...menuItems.map((item) {
+                final qty = cart[item.name ?? ""] ?? 0;
+                return MenuItemWidget(
+                  item: item,
+                  quantity: qty,
+                  restaurantId: widget.restaurantId,
+                  restaurantName: widget.restaurantName,
+                  isCouponFlow: _isOfferFlow,
+                  onQuantityChanged: (newQty) async {
+                    if (_isOfferFlow) {
+                      final alreadySelected = cart.entries.any((entry) =>
+                          entry.value > 0 && entry.key != (item.name ?? ""));
+                      if (alreadySelected && newQty == 1 && qty == 0) {
+                        _showReplaceItemDialog(item);
+                      } else {
+                        await update_Cart(item, newQty);
+                      }
+                    } else {
+                      await update_Cart(item, newQty);
+                    }
+                  },
+                );
+              }).toList(),
+              if (_isLoadingMore) const CupertinoActivityIndicator(),
+            ],
+          );
         }
         return const Center(child: Text("Loading..."));
       },

@@ -10,29 +10,63 @@ class NotificationServices {
       FlutterLocalNotificationsPlugin();
 
   Future<String?> getDeviceToken() async {
-    if (Platform.isIOS) {
-      await FirebaseMessaging.instance.requestPermission();
+    try {
+      print('getDeviceToken() start → platform: ${Platform.operatingSystem}');
 
-      String? apnsToken;
-      int retries = 5;
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+      print('Notification permission → ${settings.authorizationStatus}');
+
+      if (Platform.isIOS) {
+        String? apnsToken;
+        try {
+          apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        } catch (e) {
+          print('getAPNSToken() error → $e');
+        }
+
+        print('iOS APNS Token: $apnsToken');
+        if (apnsToken == null) {
+          print(
+              'APNS token is null. On iOS simulator this is expected; test on a real device for APNS/FCM.');
+        }
+      }
+
+      String? token;
+      var retries = 5;
       while (retries > 0) {
-        apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-        break;
+        try {
+          token = await FirebaseMessaging.instance.getToken();
+        } catch (e) {
+          print('getToken() error → $e');
+        }
+
+        if (token != null && token.isNotEmpty) {
+          break;
+        }
+
+        print('FCM token is null/empty. Retrying... ($retries)');
+        await Future.delayed(const Duration(seconds: 2));
+        retries--;
       }
 
-      if (apnsToken == null) {
-        print("Error: APNS token is still not available.");
-        return null;
+      print('FCM Token: $token');
+      if (token == null || token.isEmpty) {
+        print(
+            'FCM token is still null/empty after retries. This usually means APNs/Push capability is not configured for the iOS app (entitlements / provisioning / APNs key in Firebase).');
       }
-
-      print("iOS APNS Token: $apnsToken");
-      String? token = await FirebaseMessaging.instance.getToken();
-      print("FCM Token: $token");
-
+      print('getDeviceToken() end');
       return token;
-    } else {
-      print("Android Token: ${await FirebaseMessaging.instance.getToken()}");
-      return await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      print('getDeviceToken() error → $e');
+      return null;
     }
   }
 

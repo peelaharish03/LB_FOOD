@@ -1,6 +1,8 @@
 //usermanagement
 //dev//
 // const baseUrl2 = 'https://skillrat.com/usermgmt/';
+//local
+// const baseUrl2 = 'http://localhost:9443/api/usermgmt/';
 //prod//
 const baseUrl2 = 'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/usermgmt/';
 
@@ -26,6 +28,8 @@ const addressSave = 'api/addresses/save';
 
 //local_basket dev
 // const baseUrl = 'https://skillrat.com/';
+//local
+// const baseUrl = 'http://localhost:9443/api/';
 //local_basket prod
 const baseUrl = 'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/';
 
