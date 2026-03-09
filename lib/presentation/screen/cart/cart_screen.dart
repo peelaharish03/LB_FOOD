@@ -852,6 +852,7 @@ class _CartScreenState extends State<CartScreen> {
                       final Map<String, dynamic> payload = {
                         "notes": notesController.text.trim(),
                         "selfOrder": selfOrder,
+                        "isOffer": _isCouponApplied,
                         "items": itemsPayload,
                       };
 

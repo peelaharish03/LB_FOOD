@@ -31,7 +31,7 @@ const addressSave = 'api/addresses/save';
 // const baseUrl = 'https://skillrat.com/';
 //local
 // const baseUrl = 'http://localhost:9443/api/';
-//local_basket prod
+//local_basket prodq
 const baseUrl =
     'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/';
 
