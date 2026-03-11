@@ -55,6 +55,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   bool _isLoadingMore = false;
   bool _isLastMenuPage = false;
   final ScrollController _scrollController = ScrollController();
+  int _offerAutoLoadAttempts = 0;
 
   @override
   void initState() {
@@ -65,8 +66,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       () async {
         final prefs = await SharedPreferences.getInstance();
-        final isOffer = prefs.getBool('is_offer_flow') ?? false;
-        if (mounted) setState(() => _isOfferFlow = isOffer);
+        final hasCoupon = (widget.couponCode?.isNotEmpty ?? false);
+        final stickyOffer = prefs.getBool('is_offer_flow') ?? false;
+
+        if (!hasCoupon && stickyOffer) {
+          await prefs.remove('is_offer_flow');
+        }
+
+        if (mounted) setState(() => _isOfferFlow = hasCoupon);
       }();
 
       if (!widget.isGuest) {
@@ -215,12 +222,33 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     _isLastMenuPage = false;
     _isLoadingMore = false;
     menuItems = [];
+    _offerAutoLoadAttempts = 0;
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
       'restaurantId': widget.restaurantId,
       'search': searchText,
       'page': page,
       'size': size,
     });
+  }
+
+  bool _matchesOfferBiryani(Content item) {
+    final name = (item.name ?? '').toLowerCase();
+    final desc = (item.description ?? '').toLowerCase();
+    final text = '$name $desc';
+    return text.contains('biryani') || text.contains('biriyani');
+  }
+
+  void _maybeAutoloadOfferPages() {
+    if (!_isOfferFlow || !(widget.couponCode?.isNotEmpty ?? false)) return;
+    if (_isLastMenuPage) return;
+    if (_isLoadingMore) return;
+    if (_offerAutoLoadAttempts >= 6) return;
+
+    final hasAnyBiryani = menuItems.any(_matchesOfferBiryani);
+    if (!hasAnyBiryani) {
+      _offerAutoLoadAttempts += 1;
+      _loadMoreMenu();
+    }
   }
 
   Future<void> _loadMoreMenu() async {
@@ -288,6 +316,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       final Map<String, dynamic> payload = {
         "notes": notes,
         "selfOrder": selfOrder,
+        "isOffer": _isOfferFlow && (widget.couponCode?.isNotEmpty ?? false),
         "items": items,
       };
       await context.read<ProductsAddToCartCubit>().addToCart(payload);
@@ -352,6 +381,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     final Map<String, dynamic> payload = {
       "notes": notes,
       "selfOrder": selfOrder,
+      "isOffer": _isOfferFlow && (widget.couponCode?.isNotEmpty ?? false),
       "items": items,
     };
 
@@ -814,6 +844,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             _isLoadingMore = false;
           });
           if (!_isCartLoaded) _loadCart();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _maybeAutoloadOfferPages();
+          });
         }
       },
       builder: (context, state) {
@@ -821,6 +855,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is GetMenuByRestaurantIdLoaded) {
           final filteredItems = menuItems.where((item) {
+            if (_isOfferFlow && (widget.couponCode?.isNotEmpty ?? false)) {
+              if (!_matchesOfferBiryani(item)) return false;
+            }
             final matchesSearch = (item.name ?? "")
                 .toLowerCase()
                 .contains(searchText.toLowerCase());
@@ -865,7 +902,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     }
                   },
                 );
-              }).toList(),
+              }),
               if (_isLoadingMore) const CupertinoActivityIndicator(),
               if (!_isLastMenuPage && !_isLoadingMore)
                 Padding(
@@ -905,7 +942,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     }
                   },
                 );
-              }).toList(),
+              }),
               if (_isLoadingMore) const CupertinoActivityIndicator(),
             ],
           );
