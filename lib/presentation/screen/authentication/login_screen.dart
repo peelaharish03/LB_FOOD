@@ -80,12 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor: Colors.white,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
-                                  child: Image.asset(appLogo),
+                                  child: Image.asset(appLogo2),
                                 ),
                               ),
                               const SizedBox(height: 18),
                               Text(
-                                "LocalBasket",
+                                "Local Basket",
                                 style: GoogleFonts.poppins(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,

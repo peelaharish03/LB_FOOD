@@ -4,8 +4,7 @@
 //local
 // const baseUrl2 = 'http://localhost:9443/api/usermgmt/';
 //prod//
-const baseUrl2 =
-    'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/usermgmt/';
+const baseUrl2 = 'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/usermgmt/';
 
 const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=false';
 const SigninUrl = 'auth/login';
