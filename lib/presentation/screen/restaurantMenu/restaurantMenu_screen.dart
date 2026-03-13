@@ -307,10 +307,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
       final cartState = context.read<GetCartCubit>().state;
       String notes = "";
-      bool selfOrder = true;
+      bool selfOrder = false;
       if (cartState is GetCartLoaded) {
         notes = cartState.cart.notes ?? "";
-        selfOrder = cartState.cart.selfOrder ?? true;
+        selfOrder = false;
       }
 
       final Map<String, dynamic> payload = {
@@ -371,11 +371,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     final cartState = context.read<GetCartCubit>().state;
     String notes = "";
-    bool selfOrder = true;
+    bool selfOrder = false;
 
     if (cartState is GetCartLoaded) {
       notes = cartState.cart.notes ?? "";
-      selfOrder = cartState.cart.selfOrder ?? true;
+      selfOrder = false;
     }
 
     final Map<String, dynamic> payload = {

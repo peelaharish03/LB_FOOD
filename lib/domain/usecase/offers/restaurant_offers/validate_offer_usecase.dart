@@ -6,7 +6,7 @@ class ValidateOfferUseCase {
 
   ValidateOfferUseCase({required this.repository});
 
-  Future<ValidateOfferModel> call() async {
-    return await repository.validateOffer();
+  Future<ValidateOfferModel> call(String offerId) async {
+    return await repository.validateOffer(offerId);
   }
 }

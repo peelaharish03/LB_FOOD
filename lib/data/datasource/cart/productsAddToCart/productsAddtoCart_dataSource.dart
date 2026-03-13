@@ -17,6 +17,8 @@ class ProductsAddToCartRemoteDataSourceImpl
   @override
   Future<List<ProductsAddToCartModel>> productsAddToCart(
       Map<String, dynamic> payload) async {
+    payload.putIfAbsent('isOffer', () => false);
+    payload.putIfAbsent('selfOrder', () => false);
     print('ProductsAddToCart Payload: $payload');
     try {
       final response = await client.post(
@@ -50,4 +52,3 @@ class ProductsAddToCartRemoteDataSourceImpl
     }
   }
 }
-

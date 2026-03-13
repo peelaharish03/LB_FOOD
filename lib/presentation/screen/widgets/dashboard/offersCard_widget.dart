@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/data/model/offers/restaurant_offers/restaurant_offers_model.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
+import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,7 +23,10 @@ class _OffersCarouselState extends State<OffersCarousel> {
   double _currentPage = 1000.0;
   Timer? _autoScrollTimer;
   Timer? _countdownTimer;
+  Timer? _offersPollTimer;
   int _secondsLeft = 0;
+  String _countdownLabel = 'Offer ends in';
+  List<Content> _offersCache = const [];
   bool _isUserInteracting = false;
 
   @override
@@ -31,6 +35,11 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
     if (!widget.isGuest) {
       context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+      _offersPollTimer?.cancel();
+      _offersPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (!mounted) return;
+        context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+      });
     }
 
     _pageController.addListener(() {
@@ -61,6 +70,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
   void dispose() {
     _autoScrollTimer?.cancel();
     _countdownTimer?.cancel();
+    _offersPollTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -77,6 +87,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
           return _buildComingSoonCarousel();
         } else if (state is RestaurantOffersLoaded) {
           final offers = state.offers.data?.content ?? [];
+          _offersCache = offers;
 
           if (offers.isEmpty) return _buildComingSoonCarousel();
 
@@ -93,7 +104,8 @@ class _OffersCarouselState extends State<OffersCarousel> {
                     itemBuilder: (context, index) {
                       final Content offer = offers[index % offers.length];
 
-                      final gradientColors = _getGradientColors(offer.offerType);
+                      final gradientColors =
+                          _getGradientColors(offer.offerType);
                       final accentColor = gradientColors.last;
 
                       final double scale = (_currentPage - index).abs() < 1.0
@@ -110,22 +122,31 @@ class _OffersCarouselState extends State<OffersCarousel> {
                             tag: offer.couponCode ?? "OFFER",
                             title: offer.name ?? "",
                             subtitle: offer.description ?? "",
-                            onPressed: () {
-                          // Flag the special offer flow globally
-                          () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setBool('is_offer_flow', true);
-                            await prefs.setString('offer_coupon', offer.couponCode ?? '');
-                            await prefs.setInt('offer_started_at', DateTime.now().millisecondsSinceEpoch);
-                          }();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DashboardScreen(
-                                couponCode: offer.couponCode,
-                              ),
-                            ),
-                          );
+                            onPressed: () async {
+                              await context
+                                  .read<ClearCartCubit>()
+                                  .clearCart(context);
+
+                              // Flag the special offer flow globally
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              await prefs.setBool('is_offer_flow', true);
+                              await prefs.setString(
+                                  'offer_id', (offer.id ?? '').toString());
+                              await prefs.setString(
+                                  'offer_coupon', offer.couponCode ?? '');
+                              await prefs.setInt('offer_started_at',
+                                  DateTime.now().millisecondsSinceEpoch);
+
+                              if (!context.mounted) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DashboardScreen(
+                                    couponCode: offer.couponCode,
+                                  ),
+                                ),
+                              );
                             },
                             gradientColors: gradientColors,
                             accentColor: accentColor,
@@ -159,12 +180,38 @@ class _OffersCarouselState extends State<OffersCarousel> {
   }
 
   void _updateCountdown() {
+    if (_offersCache.isEmpty) {
+      _secondsLeft = 0;
+      _countdownLabel = 'Offer ends in';
+      return;
+    }
+
     final now = DateTime.now();
-    final ms = now.millisecondsSinceEpoch;
-    final windowMs = 10 * 60 * 1000;
-    final nextBoundary = ((ms / windowMs).floor() + 1) * windowMs;
-    _secondsLeft = ((nextBoundary - ms) / 1000).ceil();
-    if (_secondsLeft < 0) _secondsLeft = 0;
+    final currentIndex = _currentPage.round();
+    final offer = _offersCache[currentIndex % _offersCache.length];
+
+    final slotStart = offer.slotStartTime;
+    final slotEnd = offer.slotEndTime;
+    DateTime? target;
+
+    if (slotStart != null && now.isBefore(slotStart)) {
+      _countdownLabel = 'Offer starts in';
+      target = slotStart;
+    } else if (slotEnd != null && now.isBefore(slotEnd)) {
+      _countdownLabel = 'Offer ends in';
+      target = slotEnd;
+    } else {
+      _countdownLabel = 'Offer ends in';
+      target = offer.endDate;
+    }
+
+    if (target == null) {
+      _secondsLeft = 0;
+      return;
+    }
+
+    final seconds = target.difference(now).inSeconds;
+    _secondsLeft = seconds < 0 ? 0 : seconds;
   }
 
   Widget _buildCountdownChip() {
@@ -182,7 +229,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
           const Icon(Icons.timer, size: 14, color: Colors.white),
           const SizedBox(width: 6),
           Text(
-            'Offer ends in $m:$s',
+            '$_countdownLabel $m:$s',
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
@@ -266,7 +313,6 @@ class _OffersCarouselState extends State<OffersCarousel> {
       ),
     );
   }
-
 
   List<Color> _getGradientColors(String? offerType) {
     switch (offerType) {

@@ -8,12 +8,14 @@ class CartItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final int quantity;
   final ValueChanged<int> onQuantityChanged;
+  final bool enableIncrement;
 
   const CartItemCard({
     super.key,
     required this.item,
     required this.quantity,
     required this.onQuantityChanged,
+    this.enableIncrement = true,
   });
 
   @override
@@ -102,9 +104,14 @@ class CartItemCard extends StatelessWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () => onQuantityChanged(quantity + 1),
+                          onTap: enableIncrement
+                              ? () => onQuantityChanged(quantity + 1)
+                              : null,
                           child: Icon(Icons.add,
-                              size: 18, color: AppColor.PrimaryColor),
+                              size: 18,
+                              color: enableIncrement
+                                  ? AppColor.PrimaryColor
+                                  : Colors.grey),
                         ),
                       ],
                     ),

@@ -5,13 +5,12 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validat
 class ValidateOfferCubit extends Cubit<ValidateOfferState> {
   final ValidateOfferUseCase validateOfferUseCase;
 
-  ValidateOfferCubit(this.validateOfferUseCase)
-      : super(ValidateOfferInitial());
+  ValidateOfferCubit(this.validateOfferUseCase) : super(ValidateOfferInitial());
 
-  Future<void> validateOffer() async {
+  Future<void> validateOffer(String offerId) async {
     emit(ValidateOfferLoading());
     try {
-      final result = await validateOfferUseCase.call();
+      final result = await validateOfferUseCase.call(offerId);
       emit(ValidateOfferSuccess(validateOfferModel: result));
     } catch (e) {
       emit(ValidateOfferFailure(error: e.toString()));

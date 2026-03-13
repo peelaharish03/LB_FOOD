@@ -6,7 +6,8 @@ abstract class RestaurantOffersRemoteDataSource {
   Future<RestaurantOffersModel> restaurantOffers();
 }
 
-class RestaurantOffersRemoteDataSourceImpl implements RestaurantOffersRemoteDataSource {
+class RestaurantOffersRemoteDataSourceImpl
+    implements RestaurantOffersRemoteDataSource {
   final Dio client;
 
   RestaurantOffersRemoteDataSourceImpl({required this.client});
@@ -22,7 +23,8 @@ class RestaurantOffersRemoteDataSourceImpl implements RestaurantOffersRemoteData
         print('responce of RestaurantOffers:: $response');
         return RestaurantOffersModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to load RestaurantOffers data: ${response.statusCode}');
+        throw Exception(
+            'Failed to load RestaurantOffers data: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to load RestaurantOffers data: ${e.toString()}');

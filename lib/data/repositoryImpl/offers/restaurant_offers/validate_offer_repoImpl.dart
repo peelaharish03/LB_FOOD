@@ -8,7 +8,7 @@ class ValidateOfferRepositoryImpl implements ValidateOfferRepository {
   ValidateOfferRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<ValidateOfferModel> validateOffer() async {
-    return await remoteDataSource.validateOffer();
+  Future<ValidateOfferModel> validateOffer(String offerId) async {
+    return await remoteDataSource.validateOffer(offerId);
   }
 }
