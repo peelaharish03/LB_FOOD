@@ -75,8 +75,11 @@ const defaultAddressUrl = 'usermgmt/api/addresses/setdefaultAddress';
 const addressSavetoCartUrl = 'order/api/carts/address?addressId';
 const paymentRefundHistory = '';
 const restaurantOffersUrl =
-    'product/api/offers/list?businessId=0&active=true&page=0&size=100';
-const validateOfferUrl = 'order/offers/5/validate';
+    'product/api/offers/list?active=true&page=0&size=100';
+String validateOfferUrl(String offerId) {
+  return 'order/offers/$offerId/validate';
+}
+
 const ratingReviewUrl = 'product/internal/reviews';
 const createComplaintUrl = 'order/api/orders/complaints';
 const checkoutUrl = 'order/api/orders/estimate-amount';

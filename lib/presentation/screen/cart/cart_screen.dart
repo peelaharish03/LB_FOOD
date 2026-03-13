@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
-import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
@@ -164,6 +163,7 @@ class _CartScreenState extends State<CartScreen> {
       final prefs = await SharedPreferences.getInstance();
       final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
       final stickyApplied = prefs.getBool('offer_applied') ?? false;
+      final offerId = (prefs.getString('offer_id') ?? '').trim();
 
       final hasExactlyOne = getCartItemCount() == 1;
       if (hasExactlyOne) {
@@ -172,10 +172,11 @@ class _CartScreenState extends State<CartScreen> {
           return;
         }
         if (!isOfferFlow) return;
+        if (offerId.isEmpty) return;
         _offerValidationInFlight = true;
         _lastOfferValidationAt = now;
         try {
-          await context.read<ValidateOfferCubit>().validateOffer();
+          await context.read<ValidateOfferCubit>().validateOffer(offerId);
         } finally {
           _offerValidationInFlight = false;
         }
@@ -519,7 +520,7 @@ class _CartScreenState extends State<CartScreen> {
               setState(() {
                 cartId = state.cart.id;
                 notesController.text = state.cart.notes ?? "";
-                selfOrder = state.cart.selfOrder ?? false;
+                selfOrder = false;
               });
               _maybeAutoValidateOffer();
               _refreshCheckout();
@@ -611,7 +612,8 @@ class _CartScreenState extends State<CartScreen> {
                 CustomSnackbars.showErrorSnack(
                   context: context,
                   title: "Offer Expired",
-                  message: res.data ?? "Coupon is not valid",
+                  message:
+                      "Offer has expired. Please wait 10 minutes and try again.",
                 );
                 setState(() {
                   _isCouponApplied = false;
@@ -620,6 +622,7 @@ class _CartScreenState extends State<CartScreen> {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('offer_applied');
                   await prefs.remove('is_offer_flow');
+                  await prefs.remove('offer_id');
                   await prefs.remove('offer_coupon');
                   await prefs.remove('offer_started_at');
                 }();
@@ -634,6 +637,7 @@ class _CartScreenState extends State<CartScreen> {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.remove('offer_applied');
                 await prefs.remove('is_offer_flow');
+                await prefs.remove('offer_id');
                 await prefs.remove('offer_coupon');
                 await prefs.remove('offer_started_at');
               }();
@@ -657,6 +661,7 @@ class _CartScreenState extends State<CartScreen> {
               () async {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.remove('is_offer_flow');
+                await prefs.remove('offer_id');
                 await prefs.remove('offer_coupon');
                 await prefs.remove('offer_started_at');
                 await prefs.remove('offer_applied');
@@ -686,6 +691,7 @@ class _CartScreenState extends State<CartScreen> {
           () async {
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('is_offer_flow');
+            await prefs.remove('offer_id');
             await prefs.remove('offer_coupon');
             await prefs.remove('offer_started_at');
           }();
@@ -711,6 +717,7 @@ class _CartScreenState extends State<CartScreen> {
               () async {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.remove('is_offer_flow');
+                await prefs.remove('offer_id');
                 await prefs.remove('offer_coupon');
                 await prefs.remove('offer_started_at');
               }();
@@ -755,7 +762,8 @@ class _CartScreenState extends State<CartScreen> {
 
                     final payload = {
                       "notes": notesController.text.trim(),
-                      "selfOrder": selfOrder,
+                      "selfOrder": false,
+                      "isOffer": _isCouponApplied,
                       "items": itemsPayload,
                     };
 
@@ -855,7 +863,7 @@ class _CartScreenState extends State<CartScreen> {
 
                       final Map<String, dynamic> payload = {
                         "notes": notesController.text.trim(),
-                        "selfOrder": selfOrder,
+                        "selfOrder": false,
                         "isOffer": _isCouponApplied,
                         "items": itemsPayload,
                       };
@@ -987,83 +995,75 @@ class _CartScreenState extends State<CartScreen> {
                             return CartItemCard(
                               item: item,
                               quantity: cart[item['name']] ?? 1,
+                              enableIncrement:
+                                  widget.orderId == null && !_isCouponApplied,
                               onQuantityChanged: (q) async {
-                                setState(() {
-                                  if (q <= 0) {
-                                    cart.remove(item['name']);
+                                final name = item['name'];
+                                if (name == null) return;
+
+                                if (q <= 0) {
+                                  setState(() {
+                                    cart.remove(name);
                                     selectedItems.removeAt(i);
-                                  } else {
-                                    cart[item['name']] = q;
-                                  }
-                                });
-                                final isCartEmpty = selectedItems.isEmpty;
-
-                                if (isCartEmpty) {
-                                  await context
-                                      .read<ClearCartCubit>()
-                                      .clearCart(context);
-                                  await context
-                                      .read<GetCartCubit>()
-                                      .fetchCart(context);
+                                  });
                                 } else {
-                                  final List<Map<String, dynamic>>
-                                      itemsPayload = selectedItems.map((item) {
-                                    final name = item['name'];
-                                    final quantity = cart[name] ?? 1;
-                                    return {
-                                      "productId":
-                                          item['productId'] ?? item['id'],
-                                      "quantity": quantity,
-                                      "price": item['price'] ?? 0,
-                                    };
-                                  }).toList();
-
-                                  final Map<String, dynamic> payload = {
-                                    "notes": notesController.text.trim(),
-                                    "items": itemsPayload,
-                                  };
-
-                                  context
-                                      .read<ProductsAddToCartCubit>()
-                                      .addToCart(payload);
-
-                                  context
-                                      .read<GetCartCubit>()
-                                      .fetchCart(context);
-
-                                  // Refresh checkout after quantity change
-                                  _refreshCheckout();
+                                  setState(() {
+                                    cart[name] = q;
+                                  });
                                 }
+
+                                final List<Map<String, dynamic>> itemsPayload =
+                                    selectedItems.map((itm) {
+                                  final n = itm['name'];
+                                  final quantity = cart[n] ?? 1;
+                                  return {
+                                    "productId": itm['productId'] ?? itm['id'],
+                                    "quantity": quantity,
+                                    "price": itm['price'] ?? 0,
+                                  };
+                                }).toList();
+
+                                final Map<String, dynamic> payload = {
+                                  "notes": notesController.text.trim(),
+                                  "selfOrder": false,
+                                  "isOffer": _isCouponApplied,
+                                  "items": itemsPayload,
+                                };
+
+                                await context
+                                    .read<ProductsAddToCartCubit>()
+                                    .addToCart(payload, context: context);
+                                await context
+                                    .read<GetCartCubit>()
+                                    .fetchCart(context);
+                                _refreshCheckout();
 
                                 widget.onBottomSheetVisibilityChanged
                                     ?.call(cart.isNotEmpty);
                               },
                             );
-                          } else {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 20, horizontal: 16),
-                              child: _checkoutLoading
-                                  ? const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(20.0),
-                                        child: CupertinoActivityIndicator(),
-                                      ),
-                                    )
-                                  : CheckoutBottomBar(
-                                      subtotal:
-                                          _isCouponApplied ? 0 : _subtotal,
-                                      gst: _isCouponApplied ? 0 : _gstAmount,
-                                      deliveryCharge: _isCouponApplied
-                                          ? 0
-                                          : _deliveryCharge,
-                                      total:
-                                          _isCouponApplied ? 1.0 : _grandTotal,
-                                      loading: loading,
-                                      onPlaceOrder: openCheckOut,
-                                    ),
-                            );
                           }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 20, horizontal: 16),
+                            child: _checkoutLoading
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(20.0),
+                                      child: CupertinoActivityIndicator(),
+                                    ),
+                                  )
+                                : CheckoutBottomBar(
+                                    subtotal: _isCouponApplied ? 0 : _subtotal,
+                                    gst: _isCouponApplied ? 0 : _gstAmount,
+                                    deliveryCharge:
+                                        _isCouponApplied ? 0 : _deliveryCharge,
+                                    total: _isCouponApplied ? 1.0 : _grandTotal,
+                                    loading: loading,
+                                    onPlaceOrder: openCheckOut,
+                                  ),
+                          );
                         },
                       ),
               ),

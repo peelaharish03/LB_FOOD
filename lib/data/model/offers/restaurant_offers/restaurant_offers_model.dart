@@ -84,6 +84,11 @@ class Content {
     required this.productIds,
     required this.categoryIds,
     required this.targetType,
+    required this.windowMinutes,
+    required this.maxClaimsPerWindow,
+    required this.slotStartTime,
+    required this.slotEndTime,
+    required this.presentSlotStatus,
   });
 
   final num? id;
@@ -97,9 +102,14 @@ class Content {
   final num? businessId;
   final bool? active;
   final String? description;
-  final List<dynamic> productIds;
-  final List<dynamic> categoryIds;
+  final List<num> productIds;
+  final List<num> categoryIds;
   final String? targetType;
+  final num? windowMinutes;
+  final num? maxClaimsPerWindow;
+  final DateTime? slotStartTime;
+  final DateTime? slotEndTime;
+  final bool? presentSlotStatus;
 
   factory Content.fromJson(Map<String, dynamic> json) {
     return Content(
@@ -116,11 +126,16 @@ class Content {
       description: json["description"],
       productIds: json["productIds"] == null
           ? []
-          : List<dynamic>.from(json["productIds"]!.map((x) => x)),
+          : List<num>.from(json["productIds"]!.map((x) => x)),
       categoryIds: json["categoryIds"] == null
           ? []
-          : List<dynamic>.from(json["categoryIds"]!.map((x) => x)),
+          : List<num>.from(json["categoryIds"]!.map((x) => x)),
       targetType: json["targetType"],
+      windowMinutes: json["windowMinutes"],
+      maxClaimsPerWindow: json["maxClaimsPerWindow"],
+      slotStartTime: DateTime.tryParse(json["slotStartTime"] ?? ""),
+      slotEndTime: DateTime.tryParse(json["slotEndTime"] ?? ""),
+      presentSlotStatus: json["presentSlotStatus"],
     );
   }
 }

@@ -5,6 +5,9 @@ import 'package:local_basket/presentation/screen/notifications/notifications_scr
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
 import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
+import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
+import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -20,9 +23,57 @@ class MainDashboard extends StatefulWidget {
   State<MainDashboard> createState() => _MainDashboardState();
 }
 
-
 class _MainDashboardState extends State<MainDashboard> {
   final NotificationServices _notificationServices = NotificationServices();
+
+  Future<void> _normalizeOfferStateOnFoodTap() async {
+    if (widget.isGuest) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final wasOfferFlow = prefs.getBool('is_offer_flow') ?? false;
+    final wasOfferApplied = prefs.getBool('offer_applied') ?? false;
+
+    await prefs.remove('is_offer_flow');
+    await prefs.remove('offer_applied');
+    await prefs.remove('offer_id');
+    await prefs.remove('offer_coupon');
+    await prefs.remove('offer_started_at');
+
+    if (!wasOfferFlow && !wasOfferApplied) return;
+    if (!mounted) return;
+
+    final cartCubit = context.read<GetCartCubit>();
+    if (cartCubit.state is! GetCartLoaded) {
+      await cartCubit.fetchCart(context);
+    }
+    if (!mounted) return;
+
+    final cartState = cartCubit.state;
+    if (cartState is! GetCartLoaded) return;
+
+    final cart = cartState.cart;
+    final hasItems = (cart.totalCount ?? 0) > 0;
+    if (!hasItems) return;
+
+    final itemsPayload = cart.cartItems
+        .map((ci) => {
+              'productId': ci.productId,
+              'quantity': ci.quantity ?? 0,
+              'price': ci.price ?? 0,
+            })
+        .toList();
+
+    final payload = {
+      'notes': cart.notes ?? '',
+      'selfOrder': false,
+      'isOffer': false,
+      'items': itemsPayload,
+    };
+
+    await context
+        .read<ProductsAddToCartCubit>()
+        .addToCart(payload, context: context);
+  }
 
   @override
   void initState() {
@@ -85,7 +136,8 @@ class _MainDashboardState extends State<MainDashboard> {
         showBackButton: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+            icon: const Icon(Icons.notifications_none_rounded,
+                color: Colors.white),
             onPressed: () {
               if (widget.isGuest) {
                 showLoginPromptSheet(context);
@@ -131,7 +183,9 @@ class _MainDashboardState extends State<MainDashboard> {
             imageUrl:
                 "https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg",
             gradient: [Color(0xFF1860EF), Color(0xFF5A95F5)],
-            onTap: () {
+            onTap: () async {
+              await _normalizeOfferStateOnFoodTap();
+              if (!mounted) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(

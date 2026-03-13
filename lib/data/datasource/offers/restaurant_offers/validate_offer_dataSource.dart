@@ -3,19 +3,20 @@ import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/offers/restaurant_offers/validate_offer_model.dart';
 
 abstract class ValidateOfferRemoteDataSource {
-  Future<ValidateOfferModel> validateOffer();
+  Future<ValidateOfferModel> validateOffer(String offerId);
 }
 
-class ValidateOfferRemoteDataSourceImpl implements ValidateOfferRemoteDataSource {
+class ValidateOfferRemoteDataSourceImpl
+    implements ValidateOfferRemoteDataSource {
   final Dio client;
 
   ValidateOfferRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<ValidateOfferModel> validateOffer() async {
+  Future<ValidateOfferModel> validateOffer(String offerId) async {
     try {
       final response = await client.post(
-        '$baseUrl$validateOfferUrl',
+        '$baseUrl${validateOfferUrl(offerId)}',
       );
 
       print('ValidateOffer Response: ${response.data}');
