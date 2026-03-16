@@ -268,7 +268,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
                   image: isNetwork
                       ? NetworkImage(image)
                       : AssetImage(image) as ImageProvider,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                 ),
               ),
               child: Container(
