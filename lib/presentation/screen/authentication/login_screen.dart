@@ -20,7 +20,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController mobileController = TextEditingController();
-  bool isChecked = false;
 
   @override
   void initState() {
@@ -187,51 +186,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                 const SizedBox(height: 14),
 
-                                /// Terms and checkbox
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Checkbox(
-                                      value: isChecked,
-                                      onChanged: (val) => setState(() {
-                                        isChecked = val ?? false;
-                                      }),
-                                      activeColor: const Color(0xFFFF6B3D),
-                                    ),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () async {
-                                          setState(() => isChecked = true);
-                                          await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const TermsAndConditionsScreen(),
-                                            ),
-                                          );
-                                        },
-                                        child: Text.rich(
-                                          TextSpan(
-                                            text: 'I agree to the ',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              color: Colors.grey.shade700,
-                                            ),
-                                            children: [
-                                              TextSpan(
-                                                text: 'Terms & Conditions',
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.w600,
-                                                  color:
-                                                      const Color(0xFFFF6B3D),
-                                                ),
-                                              ),
-                                            ],
+                                /// Terms text
+                                GestureDetector(
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const TermsAndConditionsScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text.rich(
+                                    TextSpan(
+                                      text: 'By continuing, you agree to our ',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: 'Terms & Conditions',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFFFF6B3D),
                                           ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -258,14 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     const SnackBar(
                                         content: Text(
                                             "Please enter a valid 10-digit mobile number")),
-                                  );
-                                  return;
-                                }
-                                if (!isChecked) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            "Please accept Terms & Conditions")),
                                   );
                                   return;
                                 }
