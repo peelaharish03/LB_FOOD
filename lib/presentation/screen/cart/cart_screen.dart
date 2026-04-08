@@ -49,12 +49,12 @@ class _CartScreenState extends State<CartScreen> {
   // static const razorPayKey = 'rzp_test_aa2AmRQV2HpRyT';
   // static const razorPaySecret = 'UMfObdnXjWv3opzzTwHwAiv8';
   //local basket test //
-  // static const razorPayKey = 'rzp_test_RsEtePJVg5vbk9';
-  // static const razorPaySecret = 'U7RLFFnNceIHKyMtuYJSlkQ5';
+  static const razorPayKey = 'rzp_test_RsEtePJVg5vbk9';
+  static const razorPaySecret = 'U7RLFFnNceIHKyMtuYJSlkQ5';
 
 //local basket live //
-  static const razorPayKey = 'rzp_live_SRv49GlnK0akex';
-  static const razorPaySecret = 'RlxAC426PW0X2ZKNLk12LnRH';
+  // static const razorPayKey = 'rzp_live_SRv49GlnK0akex';
+  // static const razorPaySecret = 'RlxAC426PW0X2ZKNLk12LnRH';
   final TextEditingController notesController = TextEditingController();
 
   final TextEditingController couponController = TextEditingController();
@@ -477,6 +477,12 @@ class _CartScreenState extends State<CartScreen> {
             'prefill': {
               'contact': '9705047662',
               'email': 'harishpeela03@gmail.com'
+            },
+            'method': {
+              'card': false, // ❌ Hide card payments
+              'netbanking': true,
+              'upi': true,
+              'wallet': true,
             },
             'theme': {'color': '#081724'}
           });
