@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
@@ -68,30 +68,18 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     context.read<CreateComplaintCubit>().createComplaint(payload);
   }
 
-  Future<void> _makeACall() async {
-    final Uri phoneUri = Uri(scheme: 'tel', path: '9000849678');
-    debugPrint('[ComplaintsScreen] Attempting to launch phone dialer with URI: $phoneUri');
-    
-    // try {
-    //   final launched = await launchUrl(
-    //     phoneUri,
-    //     mode: LaunchMode.externalApplication,
-    //   );
-    //   debugPrint('[ComplaintsScreen] Launch URL result: $launched');
-      
-    //   if (!launched && mounted) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       const SnackBar(content: Text('Could not launch phone dialer')),
-    //     );
-    //   }
-    // } catch (e) {
-    //   debugPrint('[ComplaintsScreen] Error launching phone dialer: $e');
-    //   if (mounted) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text('Error: ${e.toString()}')),
-    //     );
-    //   }
-    // }
+   void _makePhoneCall(String phoneNumber) async {
+    print("Phone Number: $phoneNumber");
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        throw 'Could not launch phone call';
+      }
+    } catch (e) {
+      debugPrint('Error launching phone call: $e');
+    }
   }
 
   @override
@@ -224,7 +212,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _makeACall,
+                      onPressed: () => _makePhoneCall('8185000440'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColor.SecondaryColor,
                         padding: const EdgeInsets.symmetric(
