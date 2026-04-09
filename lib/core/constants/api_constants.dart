@@ -4,7 +4,8 @@
 //local
 // const baseUrl2 = 'http://localhost:9443/api/usermgmt/';
 //prod//
-const baseUrl2 = 'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/usermgmt/';
+const baseUrl2 =
+    'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/usermgmt/';
 
 const TriggerOtp = 'auth/jtuserotp/trigger/otp?triggerOtp=true';
 const SigninUrl = 'auth/login';
@@ -26,11 +27,6 @@ String guestNearbyRestaurantsUrl(double latitude, double longitude,
 
 const addressSave = 'api/addresses/save';
 
-//local_basket dev
-// const baseUrl = 'https://skillrat.com/';
-//local
-// const baseUrl = 'http://localhost:9443/api/';
-//local_basket prodq
 const baseUrl =
     'https://api-service.happybush-7c5a2823.centralindia.azurecontainerapps.io/api/';
 
@@ -73,7 +69,10 @@ const reOrderUrl = 'order/api/orders/reorder';
 const deleteAddressUrl = 'usermgmt/api/addresses';
 const defaultAddressUrl = 'usermgmt/api/addresses/setdefaultAddress';
 const addressSavetoCartUrl = 'order/api/carts/address?addressId';
-const paymentRefundHistory = '';
+
+// FIX: paymentRefundHistory was an empty string — marked as TODO until the endpoint is known.
+const paymentRefundHistory = ''; // TODO: Set the correct refund history endpoint
+
 const restaurantOffersUrl =
     'product/api/offers/list?active=true&page=0&size=100';
 String validateOfferUrl(String offerId) {
@@ -91,3 +90,37 @@ String updateCartItemsUrl(String cartId) {
 String deleteCartItemsUrl(String cartId) {
   return 'order/api/carts/items/$cartId';
 }
+
+// ---------------------------------------------------------------------------
+// FIX: Razorpay keys moved here from CartScreen to centralise them.
+//
+// HOW TO USE SECURELY IN PRODUCTION:
+//   Pass keys at build time using --dart-define so they are never committed
+//   to source control:
+//
+//   flutter run \
+//     --dart-define=RAZORPAY_KEY=rzp_live_xxx \
+//     --dart-define=RAZORPAY_SECRET=xxx \
+//     --dart-define=IS_PRODUCTION=true
+//
+//   The defaultValue below keeps dev builds working without any --dart-define.
+// ---------------------------------------------------------------------------
+
+const _isProduction =
+    bool.fromEnvironment('IS_PRODUCTION', defaultValue: false);
+
+const _razorPayTestKey =
+    String.fromEnvironment('RAZORPAY_TEST_KEY', defaultValue: 'rzp_test_RsEtePJVg5vbk9');
+const _razorPayTestSecret =
+    String.fromEnvironment('RAZORPAY_TEST_SECRET', defaultValue: 'U7RLFFnNceIHKyMtuYJSlkQ5');
+
+const _razorPayLiveKey =
+    String.fromEnvironment('RAZORPAY_KEY', defaultValue: '');
+const _razorPayLiveSecret =
+    String.fromEnvironment('RAZORPAY_SECRET', defaultValue: '');
+
+/// Active Razorpay key — test in dev, live in production.
+const razorPayKey = _isProduction ? _razorPayLiveKey : _razorPayTestKey;
+
+/// Active Razorpay secret — test in dev, live in production.
+const razorPaySecret = _isProduction ? _razorPayLiveSecret : _razorPayTestSecret;

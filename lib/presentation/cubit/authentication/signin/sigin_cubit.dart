@@ -3,7 +3,7 @@ import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../domain/usecase/authentication/signin_usecase.dart';
 import 'signin_state.dart';
 
@@ -51,9 +51,9 @@ class SignInCubit extends Cubit<SignInState> {
         print('signEntity: $signEntity');
 
         if (signEntity.token != null && signEntity.token!.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          prefs.setString('TOKEN', signEntity.token ?? '');
-          prefs.setString('REFRESH_TOKEN', signEntity.refreshToken ?? '');
+          final storage = FlutterSecureStorage();
+          await storage.write(key: 'TOKEN', value: signEntity.token ?? '');
+          await storage.write(key: 'REFRESH_TOKEN', value: signEntity.refreshToken ?? '');
           context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
         } else {
           showDialog(

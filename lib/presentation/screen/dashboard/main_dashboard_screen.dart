@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/screen/notifications/notifications_screen.dart';
@@ -96,8 +97,8 @@ class _MainDashboardState extends State<MainDashboard> {
     _notificationServices.getDeviceToken().then((fcmToken) async {
       if (!mounted) return;
       if (fcmToken != null && !widget.isGuest) {
-        final prefs = await SharedPreferences.getInstance();
-        final savedAuthToken = prefs.getString('TOKEN');
+        final storage = FlutterSecureStorage();
+        final savedAuthToken = await storage.read(key: 'TOKEN');
         if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
           print('Updating customer with FCM token: $fcmToken');
           final payload = {
@@ -351,16 +352,16 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
     final token = await _notificationServices.getDeviceToken();
     if (!mounted) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final savedAuthToken = prefs.getString('TOKEN');
+    final storage = FlutterSecureStorage();
+    final savedAuthToken = await storage.read(key: 'TOKEN');
 
     if (token != null && savedAuthToken != null && savedAuthToken.isNotEmpty) {
       _updateFcmToken(token);
     }
 
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      final prefs = await SharedPreferences.getInstance();
-      final savedAuthToken = prefs.getString('TOKEN');
+      final storage = FlutterSecureStorage();
+      final savedAuthToken = await storage.read(key: 'TOKEN');
       if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
         _updateFcmToken(newToken);
       }

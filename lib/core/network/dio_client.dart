@@ -1,9 +1,17 @@
 import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/api_constants.dart';
+
+// NOTE: SharedPreferences import removed.
+// TOKEN and REFRESH_TOKEN are now read/written via FlutterSecureStorage.
+// ACTION REQUIRED: Wherever you write 'TOKEN' or 'REFRESH_TOKEN' during login/signup
+// (e.g. in your signin_remote_data_source or sigin_cubit), replace
+// prefs.setString('TOKEN', value) with:
+//   final storage = FlutterSecureStorage();
+//   await storage.write(key: 'TOKEN', value: value);
+// Do the same for REFRESH_TOKEN, and update SplashScreen's token read too.
 
 enum Method { post, get, put, delete, patch }
 
@@ -23,13 +31,13 @@ class DioClient {
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        String? token = prefs.getString('TOKEN');
+        // FIX: Read token from secure storage (encrypted) instead of SharedPreferences (plaintext)
+        final token = await secureStorage.read(key: 'TOKEN');
 
         options.headers["Authorization"] = "Bearer $token";
-      
+
         log('REQUEST[${options.method}] => PATH: ${options.path} '
-            '=> Request Values: ${options.queryParameters}, => HEADERS: ${options.headers}');
+            '=> Request Values: ${options.queryParameters}');
         return handler.next(options);
       },
       onResponse: (response, handler) {
@@ -38,7 +46,6 @@ class DioClient {
       },
       onError: (DioException error, handler) async {
         final statusCode = error.response?.statusCode;
-        print(statusCode);
         final data = error.response?.data;
         String errorMessage = 'Unknown error occurred';
         if (data is Map && data['message'] != null) {
@@ -51,14 +58,13 @@ class DioClient {
 
         log('ERROR[$statusCode] => MESSAGE: $errorMessage');
 
-        final prefs = await SharedPreferences.getInstance();
-
         // Prevent infinite loop if refresh token request itself fails
         final isRefreshingToken =
             error.requestOptions.path.contains('auth/refreshToken');
 
         if (statusCode == 401 && !isRefreshingToken) {
-          final refreshToken = prefs.getString('REFRESH_TOKEN');
+          // FIX: Read refresh token from secure storage
+          final refreshToken = await secureStorage.read(key: 'REFRESH_TOKEN');
 
           if (refreshToken != null) {
             try {
@@ -72,8 +78,10 @@ class DioClient {
               final newToken = refreshResponse.data['token'];
               final newRefreshToken = refreshResponse.data['refreshToken'];
 
-              await prefs.setString('TOKEN', newToken);
-              await prefs.setString('REFRESH_TOKEN', newRefreshToken);
+              // FIX: Write refreshed tokens to secure storage
+              await secureStorage.write(key: 'TOKEN', value: newToken);
+              await secureStorage.write(
+                  key: 'REFRESH_TOKEN', value: newRefreshToken);
 
               final RequestOptions requestOptions = error.requestOptions;
               requestOptions.headers["Authorization"] = "Bearer $newToken";
@@ -82,8 +90,9 @@ class DioClient {
               return handler.resolve(response);
             } catch (e) {
               log('Token refresh failed: $e');
-              await prefs.remove('TOKEN');
-              await prefs.remove('REFRESH_TOKEN');
+              // FIX: Clear tokens from secure storage on refresh failure
+              await secureStorage.delete(key: 'TOKEN');
+              await secureStorage.delete(key: 'REFRESH_TOKEN');
               return handler.reject(error);
             }
           }

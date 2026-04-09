@@ -1,5 +1,5 @@
 
-const appLogo = 'assets/images/png/ic_launcher.png';
+const appLogo = 'assets/images/jpg/ic_launcher.jpg';
 const appLogo2 = 'assets/images/jpg/3.jpg';
 //homepage 1st
 const dish = 'assets/images/jpg/dish.jpg';
