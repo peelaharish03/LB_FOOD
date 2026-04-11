@@ -25,6 +25,8 @@ import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.da
 import 'package:local_basket/presentation/cubit/payment/payment/payment_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
+// FIX: Import Razorpay keys from api_constants instead of hardcoding them here.
+import 'package:local_basket/core/constants/api_constants.dart';
 
 class CartScreen extends StatefulWidget {
   final int? orderId;
@@ -45,16 +47,11 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   late Razorpay _razorpay;
-  //juvarya keys //
-  // static const razorPayKey = 'rzp_test_aa2AmRQV2HpRyT';
-  // static const razorPaySecret = 'UMfObdnXjWv3opzzTwHwAiv8';
-  //local basket test //
-  // static const razorPayKey = 'rzp_test_RsEtePJVg5vbk9';
-  // static const razorPaySecret = 'U7RLFFnNceIHKyMtuYJSlkQ5';
 
-//local basket live //
-  static const razorPayKey = 'rzp_live_SRv49GlnK0akex';
-  static const razorPaySecret = 'RlxAC426PW0X2ZKNLk12LnRH';
+  // FIX: Keys are now imported from api_constants.dart.
+  // In production pass --dart-define=IS_PRODUCTION=true --dart-define=RAZORPAY_KEY=xxx
+  // See api_constants.dart for full instructions.
+
   final TextEditingController notesController = TextEditingController();
 
   final TextEditingController couponController = TextEditingController();
@@ -209,6 +206,7 @@ class _CartScreenState extends State<CartScreen> {
   int getCartItemCount() => cart.values.fold(0, (sum, q) => sum + q);
 
   Future<Map<String, dynamic>> _createOrder(int amount) async {
+    // FIX: razorPayKey and razorPaySecret now come from api_constants.dart
     final auth =
         'Basic ${base64Encode(utf8.encode('$razorPayKey:$razorPaySecret'))}';
     final headers = {'content-type': 'application/json', 'Authorization': auth};
@@ -386,7 +384,7 @@ class _CartScreenState extends State<CartScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.warning_amber_rounded,
+                const Icon(Icons.warning_amber_rounded,
                     color: Colors.orange, size: 60),
                 const SizedBox(height: 16),
                 const Text(
@@ -474,9 +472,18 @@ class _CartScreenState extends State<CartScreen> {
             'name': 'Local Basket',
             'order_id': orderId,
             'description': 'Cart Payment',
+            // FIX: Removed hardcoded developer contact/email from prefill.
+            // These were pre-filling the developer's personal details for ALL users.
+            // TODO: Populate from the logged-in user's profile if needed.
             'prefill': {
-              'contact': '9705047662',
-              'email': 'harishpeela03@gmail.com'
+              'contact': '',
+              'email': '',
+            },
+            'method': {
+              'card': false,
+              'netbanking': true,
+              'upi': true,
+              'wallet': true,
             },
             'theme': {'color': '#081724'}
           });
@@ -567,7 +574,6 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<CheckoutCubit, CheckoutState>(
           listener: (context, state) {
             if (state is CheckoutLoading) {
-              // CupertinoActivityIndicator();
               setState(() => _checkoutLoading = true);
             } else if (state is CheckoutSuccess) {
               final data = state.model.data;
@@ -585,7 +591,6 @@ class _CartScreenState extends State<CartScreen> {
                 title: "Error",
                 message: "Failed to load checkout details",
               );
-              print(state.error);
             }
           },
         ),
@@ -684,7 +689,7 @@ class _CartScreenState extends State<CartScreen> {
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: 'Failed',
-                message: "payment Failed",
+                message: "Payment Failed",
               );
             }
           },
@@ -779,49 +784,6 @@ class _CartScreenState extends State<CartScreen> {
                   }
                 },
               ),
-              // Padding(
-              //   padding:
-              //       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              //   child: Row(
-              //     children: [
-              //       Checkbox(
-              //         value: selfOrder,
-              //         activeColor: AppColor.PrimaryColor,
-              //         onChanged: (val) {
-              //           setState(() => selfOrder = val ?? true);
-
-              //           final itemsPayload = selectedItems.map((item) {
-              //             final name = item['name'];
-              //             final quantity = cart[name] ?? 1;
-              //             return {
-              //               "productId": item['productId'] ?? item['id'],
-              //               "quantity": quantity,
-              //               "price": item['price'] ?? 0,
-              //             };
-              //           }).toList();
-
-              //           final payload = {
-              //             "notes": notesController.text.trim(),
-              //             "selfOrder": selfOrder,
-              //             "items": itemsPayload,
-              //           };
-
-              //           context
-              //               .read<ProductsAddToCartCubit>()
-              //               .addToCart(payload);
-
-              //           // _refreshCheckout();
-              //         },
-              //       ),
-              //       const SizedBox(width: 8),
-              //       const Text(
-              //         "Self Order (I'll pick it myself)",
-              //         style:
-              //             TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              //       ),
-              //     ],
-              //   ),
-              // ),
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -913,42 +875,6 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
               ),
-              // Padding(
-              //   padding:
-              //       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              //   child: Row(
-              //     children: [
-              //       Expanded(
-              //         child: TextField(
-              //           controller: couponController,
-              //           decoration: InputDecoration(
-              //             hintText: "Enter coupon code",
-              //             border: OutlineInputBorder(
-              //               borderRadius: BorderRadius.circular(12),
-              //             ),
-              //             contentPadding:
-              //                 const EdgeInsets.symmetric(horizontal: 12),
-              //           ),
-              //         ),
-              //       ),
-              //       const SizedBox(width: 8),
-              //       ElevatedButton(
-              //         onPressed: () {
-              //           _maybeAutoValidateOffer();
-              //         },
-              //         style: ElevatedButton.styleFrom(
-              //           backgroundColor: AppColor.PrimaryColor,
-              //           padding: const EdgeInsets.symmetric(
-              //               horizontal: 16, vertical: 12),
-              //           shape: RoundedRectangleBorder(
-              //             borderRadius: BorderRadius.circular(12),
-              //           ),
-              //         ),
-              //         child: const Text("Apply"),
-              //       ),
-              //     ],
-              //   ),
-              // ),
               Expanded(
                 child: selectedItems.isEmpty
                     ? Center(

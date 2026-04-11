@@ -16,6 +16,7 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
 
   @override
   Future<PaymentModel> Payment(Map<String, dynamic> payload) async {
+    print('payload: $payload');
     final prefs = await SharedPreferences.getInstance();
     final deviceId = prefs.getString('device_id') ?? '';
     try {

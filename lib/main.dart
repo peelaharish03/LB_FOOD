@@ -1,7 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:local_basket/core/constants/global_rating_listener.dart';
 import 'package:local_basket/core/network/network_cubit.dart';
-import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/firebase_options.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
@@ -45,9 +44,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/injection.dart' as di;
 import 'core/constants/app_navigator.dart';
 
+// FIX: Removed 'push_notication_services.dart' import from main.dart.
+// All notification setup is now handled exclusively in SplashScreen.initNotifications().
+// Having it in both MyApp.initState() AND SplashScreen was registering
+// FirebaseMessaging.onMessage.listen() TWICE, causing double notifications on Android.
+
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Background Message → ${message.messageId}");
+  debugPrint("Background Message → ${message.messageId}");
 }
 
 void main() async {
@@ -61,49 +65,38 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print("Firebase Initialized");
+    debugPrint("Firebase Initialized");
 
-    // Background handler
+    // Background handler must be registered before runApp
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
-    print("Firebase init error → $e");
+    debugPrint("Firebase init error → $e");
   }
 
   di.init();
 
-  final connectivity = await Connectivity().checkConnectivity();
-  if (connectivity == ConnectivityResult.none) {
-    print("No Internet");
+  // FIX: checkConnectivity() can return a List in newer connectivity_plus versions.
+  // Using contains() to safely check for connectivity in both v2 and v3+.
+  final connectivityResults = await Connectivity().checkConnectivity();
+  final hasInternet = connectivityResults is List
+      ? !(connectivityResults as List).every((r) => r == ConnectivityResult.none)
+      : connectivityResults != ConnectivityResult.none;
+
+  if (!hasInternet) {
+    debugPrint("No Internet");
   } else {
-    print("Internet Connected");
+    debugPrint("Internet Connected");
   }
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
+  // FIX: Changed from StatefulWidget to StatelessWidget.
+  // The initState() was calling NotificationServices methods that duplicated
+  // what SplashScreen already does, creating double onMessage listeners.
+  // SplashScreen.initNotifications() is the single source of notification setup.
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final NotificationServices _notificationServices = NotificationServices();
-
-  @override
-  void initState() {
-    super.initState();
-
-    _notificationServices.requestNotificationPermissions();
-    _notificationServices.enableForegroundNotifications();
-    _notificationServices.initializeFirebaseMessaging(context);
-    _notificationServices.setupNotificationInteraction(context);
-    _notificationServices.listenForTokenRefresh();
-    _notificationServices.getDeviceToken().then((token) {
-      print('MyApp initState() → getDeviceToken() returned: $token');
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +148,7 @@ class _MyAppState extends State<MyApp> {
         ),
         builder: (context, child) =>
             GlobalRatingListener(child: child ?? const SizedBox()),
-        home: SplashScreen(),
+        home: const SplashScreen(),
       ),
     );
   }

@@ -32,17 +32,20 @@ class RatingService {
 
         if (eligible) {
           final orderId = order.orderNumber ?? '';
+          if (orderId.isEmpty) continue;
           final isRated = await hasRated(orderId);
-          final alreadyPrompted =
-              orderId.isNotEmpty && _promptedThisSession.contains(orderId);
-          debugPrint('[RatingService] Checking order ${order.orderNumber} | rated=$isRated, promptedThisSession=$alreadyPrompted');
+          final alreadyPrompted = _promptedThisSession.contains(orderId);
+          debugPrint('[RatingService] Checking order $orderId | rated=$isRated, promptedThisSession=$alreadyPrompted');
           if (!isRated && !alreadyPrompted) {
-            if (orderId.isNotEmpty) {
-              _promptedThisSession.add(orderId);
-            }
+            _promptedThisSession.add(orderId);
             _isDialogOpen = true;
             await showRatingDialog(context: context, order: order);
             _isDialogOpen = false;
+            // Double-check after dialog close in case state changed
+            final nowRated = await hasRated(orderId);
+            if (nowRated) {
+              _promptedThisSession.remove(orderId);
+            }
             break;
           }
         }
@@ -60,6 +63,7 @@ class RatingService {
     return showDialog(
       context: navContext,
       useRootNavigator: true,
+      barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           shape:
@@ -133,7 +137,10 @@ class RatingService {
                   final state = cubit.state;
                   if (state is RatingReviewSuccess) {
                     final orderId = order.orderNumber ?? '';
-                    await markRated(orderId);
+                    if (orderId.isNotEmpty) {
+                      await markRated(orderId);
+                      _promptedThisSession.remove(orderId);
+                    }
                     if (context.mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(AppNavigator.key.currentContext ??
@@ -169,7 +176,9 @@ class RatingService {
     final prefs = await SharedPreferences.getInstance();
     if (orderId.isEmpty) return false;
     final ratedKey = 'rating_v2_$orderId';
-    return prefs.getBool(ratedKey) ?? false;
+    final value = prefs.getBool(ratedKey) ?? false;
+    debugPrint('[RatingService] hasRated($orderId) => $value (key: $ratedKey)');
+    return value;
   }
 
   Future<void> markRated(String orderId) async {
@@ -177,5 +186,6 @@ class RatingService {
     if (orderId.isEmpty) return;
     final ratedKey = 'rating_v2_$orderId';
     await prefs.setBool(ratedKey, true);
+    debugPrint('[RatingService] markRated($orderId) saved true to key: $ratedKey');
   }
 }

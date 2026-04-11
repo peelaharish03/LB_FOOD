@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
@@ -65,6 +66,20 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     };
 
     context.read<CreateComplaintCubit>().createComplaint(payload);
+  }
+
+   void _makePhoneCall(String phoneNumber) async {
+    print("Phone Number: $phoneNumber");
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        throw 'Could not launch phone call';
+      }
+    } catch (e) {
+      debugPrint('Error launching phone call: $e');
+    }
   }
 
   @override
@@ -191,6 +206,31 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                               ),
                             )
                           : const Text('Submit Complaint'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _makePhoneCall('8185000440'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColor.SecondaryColor,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          :  Text('Make a Call', style: TextStyle(color: AppColor.White, fontWeight: FontWeight.bold, fontSize: 14),),
                     ),
                   ),
                 ],

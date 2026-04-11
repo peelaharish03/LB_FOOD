@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:local_basket/core/constants/restaurant_appbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
@@ -56,6 +57,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   bool _isLastMenuPage = false;
   final ScrollController _scrollController = ScrollController();
   int _offerAutoLoadAttempts = 0;
+  
+  // Cache variables
+  bool _isDataCached = false;
+  List<Map<String, dynamic>>? _cachedMenuItems;
+  static const String _menuCacheTimestampKey = 'menu_cache_timestamp';
+  static const String _menuCacheRestaurantIdKey = 'menu_cache_restaurant_id';
+  static const String _menuCacheDataKey = 'menu_cache_data';
+  static const String _menuCacheUserTypeKey = 'menu_cache_user_type';
+  static const Duration _menuCacheExpiry = Duration(hours: 1); // Cache for 1 hour
 
   @override
   void initState() {
@@ -76,6 +86,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         if (mounted) setState(() => _isOfferFlow = hasCoupon);
       }();
 
+      // Check for cached menu data first
+      _checkCachedMenuData();
+
       if (!widget.isGuest) {
         _scrollController.addListener(() {
           final direction = _scrollController.position.userScrollDirection;
@@ -91,23 +104,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           if (_scrollController.position.extentAfter < 300) {
             _loadMoreMenu();
           }
-        });
-      }
-      if (widget.isGuest) {
-        context
-            .read<GuestMenuByRestaurantIdCubit>()
-            .fetchGuestMenuByRestaurantId({
-          'restaurantId': int.tryParse(widget.restaurantId) ?? 0,
-        });
-      } else {
-        context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
-          'restaurantId': widget.restaurantId,
-          'search': searchText,
-          'page': page,
-          'size': size,
-        });
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _loadCart();
         });
       }
     });
@@ -223,6 +219,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     _isLoadingMore = false;
     menuItems = [];
     _offerAutoLoadAttempts = 0;
+    
+    // Check if we have cached data first
+    if (await _hasValidMenuCache()) {
+      print('📦 Using cached menu data - no API call');
+      return;
+    }
+    
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
       'restaurantId': widget.restaurantId,
       'search': searchText,
@@ -263,6 +266,180 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       'page': page,
       'size': size,
     });
+  }
+
+  // Cache management methods
+  Future<void> _checkCachedMenuData() async {
+    if (await _hasValidMenuCache()) {
+      print('📦 Loading menu from cache');
+      await _loadMenuFromCache();
+      
+      // Load cart after menu is loaded from cache
+      if (!widget.isGuest) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _loadCart();
+        });
+      }
+    } else {
+      // No valid cache, load from API
+      if (widget.isGuest) {
+        context
+            .read<GuestMenuByRestaurantIdCubit>()
+            .fetchGuestMenuByRestaurantId({
+          'restaurantId': int.tryParse(widget.restaurantId) ?? 0,
+        });
+      } else {
+        context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
+          'restaurantId': widget.restaurantId,
+          'search': searchText,
+          'page': page,
+          'size': size,
+        });
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _loadCart();
+        });
+      }
+    }
+  }
+
+  Future<bool> _hasValidMenuCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final cachedTimestamp = prefs.getInt(_menuCacheTimestampKey);
+    final cachedRestaurantId = prefs.getString(_menuCacheRestaurantIdKey);
+    final cachedUserType = prefs.getString(_menuCacheUserTypeKey);
+    
+    if (cachedTimestamp == null || cachedRestaurantId == null || cachedUserType == null) {
+      print('📦 No menu cache metadata found');
+      return false;
+    }
+    
+    // Check if restaurant ID matches
+    if (cachedRestaurantId != widget.restaurantId) {
+      print('📦 Restaurant ID changed, invalidating menu cache');
+      return false;
+    }
+    
+    // Check if user type matches
+    final currentUserType = widget.isGuest ? 'guest' : 'user';
+    if (cachedUserType != currentUserType) {
+      print('📦 User type changed, invalidating menu cache');
+      return false;
+    }
+    
+    // Check if cache is expired
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final cacheAge = now - cachedTimestamp;
+    if (cacheAge > _menuCacheExpiry.inMilliseconds) {
+      print('📦 Menu cache expired');
+      return false;
+    }
+    
+    // Load and validate cached menu data
+    final cachedDataString = prefs.getString(_menuCacheDataKey);
+    if (cachedDataString == null) {
+      print('📦 No cached menu data found');
+      return false;
+    }
+    
+    try {
+      final List<dynamic> decodedData = jsonDecode(cachedDataString);
+      _cachedMenuItems = decodedData.cast<Map<String, dynamic>>();
+      if (_cachedMenuItems == null || _cachedMenuItems!.isEmpty) {
+        print('📦 Cached menu data is empty');
+        return false;
+      }
+      print('📦 Loaded ${_cachedMenuItems!.length} menu items from cache');
+      return true;
+    } catch (e) {
+      print('📦 Failed to decode cached menu data: $e');
+      return false;
+    }
+  }
+
+  Future<void> _loadMenuFromCache() async {
+    if (_cachedMenuItems == null) return;
+    
+    // Convert cached maps back to Content objects
+    menuItems = _cachedMenuItems!.map((item) => Content(
+      id: item['id'] ?? 0,
+      name: item['name'] ?? '',
+      shortCode: item['shortCode'] ?? '',
+      ignoreTax: item['ignoreTax'] ?? false,
+      discount: item['discount'] ?? true,
+      description: item['description'] ?? '',
+      price: (item['price'] ?? 0).toDouble(),
+      available: item['available'] ?? false,
+      shopifyProductId: item['shopifyProductId'] ?? '',
+      shopifyVariantId: item['shopifyVariantId'] ?? '',
+      businessId: item['businessId'] ?? 0,
+      categoryId: item['categoryId'] ?? 0,
+      media: (item['media'] as List<dynamic>?)?.map((m) => Media(
+        mediaType: m['mediaType'] ?? '',
+        url: m['url'] ?? '',
+      )).toList() ?? [],
+      attributes: (item['attributes'] as List<dynamic>?)?.map((a) => Attribute(
+        id: a['id'] ?? 0,
+        attributeName: a['attributeName'] ?? '',
+        attributeValue: a['attributeValue'] ?? '',
+      )).toList() ?? [],
+    )).toList();
+    
+    setState(() {
+      _isMenuLoaded = true;
+      _isDataCached = true;
+    });
+  }
+
+  Future<void> _saveMenuToCache(List<Content> menuData) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    try {
+      // Convert menu items to JSON for storage
+      final menuJson = menuData.map((item) => {
+        'id': item.id,
+        'name': item.name,
+        'shortCode': item.shortCode,
+        'ignoreTax': item.ignoreTax,
+        'discount': item.discount,
+        'description': item.description,
+        'price': item.price,
+        'available': item.available,
+        'shopifyProductId': item.shopifyProductId,
+        'shopifyVariantId': item.shopifyVariantId,
+        'businessId': item.businessId,
+        'categoryId': item.categoryId,
+        'media': item.media?.map((m) => {
+          'mediaType': m.mediaType,
+          'url': m.url,
+        }).toList() ?? [],
+        'attributes': item.attributes?.map((a) => {
+          'id': a.id,
+          'attributeName': a.attributeName,
+          'attributeValue': a.attributeValue,
+        }).toList() ?? [],
+      }).toList();
+      
+      await prefs.setString(_menuCacheDataKey, jsonEncode(menuJson));
+      await prefs.setInt(_menuCacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setString(_menuCacheRestaurantIdKey, widget.restaurantId);
+      await prefs.setString(_menuCacheUserTypeKey, widget.isGuest ? 'guest' : 'user');
+      
+      _cachedMenuItems = menuJson.cast<Map<String, dynamic>>();
+      print('📦 Saved ${menuJson.length} menu items to cache');
+    } catch (e) {
+      print('❌ Failed to save menu data: $e');
+    }
+  }
+
+  Future<void> _clearMenuCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_menuCacheTimestampKey);
+    await prefs.remove(_menuCacheRestaurantIdKey);
+    await prefs.remove(_menuCacheDataKey);
+    await prefs.remove(_menuCacheUserTypeKey);
+    _cachedMenuItems = null;
+    print('📦 Cleared menu cache');
   }
 
   Future<void> update_Cart(Content item, int qty) async {
@@ -536,15 +713,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
   }
 
-  void _onSearchChanged(String value) {
+  void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      setState(() {
-        searchText = value;
-      });
-      if (!widget.isGuest) {
-        _loadMenu();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query != searchText) {
+        setState(() => searchText = query);
+        // Clear cache when searching to get fresh results
+        await _clearMenuCache();
+        await _loadMenu();
       }
     });
   }
@@ -674,10 +850,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                           padding: const EdgeInsets.only(right: 8),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
+                            onTap: () async {
                               setState(() {
                                 filterType = filter;
                               });
+                              // Clear cache when filter changes to get fresh results
+                              await _clearMenuCache();
                               if (!widget.isGuest) _loadMenu();
                             },
                             child: AnimatedContainer(
@@ -768,11 +946,83 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
+  Widget _buildCachedMenuItems() {
+    if (menuItems.isEmpty) {
+      return const Center(child: Text("No cached menu items available"));
+    }
+
+    // Apply the same filtering logic as the original BLoC builders
+    final filteredItems = menuItems.where((item) {
+      if (_isOfferFlow && (widget.couponCode?.isNotEmpty ?? false)) {
+        if (!_matchesOfferBiryani(item)) return false;
+      }
+      final matchesSearch = (item.name ?? "")
+          .toLowerCase()
+          .contains(searchText.toLowerCase());
+      final foodType = item.attributes
+          .firstWhere(
+            (a) => (a.attributeName ?? "").toLowerCase() == 'type',
+            orElse: () => Attribute(
+              id: 0,
+              attributeName: 'type',
+              attributeValue: 'unknown',
+            ),
+          )
+          .attributeValue ??
+          'unknown';
+      final matchesFilter = filterType == 'All' ||
+          (filterType == 'Veg' && foodType.toLowerCase() == 'veg') ||
+          (filterType == 'NonVeg' && foodType.toLowerCase() == 'nonveg');
+      return matchesSearch && matchesFilter;
+    }).toList();
+
+    return Column(
+      children: [
+        ...filteredItems.map((item) {
+          final qty = cart[item.name ?? ""] ?? 0;
+          return MenuItemWidget(
+            item: item,
+            quantity: qty,
+            restaurantId: widget.restaurantId,
+            restaurantName: widget.restaurantName,
+            isCouponFlow: _isOfferFlow,
+            onQuantityChanged: (newQty) async {
+              if (_isOfferFlow) {
+                final alreadySelected = cart.entries.any((entry) =>
+                    entry.value > 0 && entry.key != item.name);
+                if (alreadySelected && newQty > 0) {
+                  _showReplaceItemDialog(item);
+                  return;
+                }
+              }
+              await update_Cart(item, newQty);
+            },
+          );
+        }),
+        if (_isLoadingMore)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: CupertinoActivityIndicator(),
+          ),
+      ],
+    );
+  }
+
   Widget _buildGuestMenuItems() {
+    // If we have cached data, show it immediately without any loading
+    if (_isDataCached && _cachedMenuItems != null && _cachedMenuItems!.isNotEmpty) {
+      print('📦 Displaying cached guest menu items - no loading');
+      return _buildCachedMenuItems();
+    }
+    
     return BlocConsumer<GuestMenuByRestaurantIdCubit,
         GuestMenuByRestaurantIdState>(
       listener: (context, state) {
-        if (state is GuestMenuByRestaurantIdSuccess) _isMenuLoaded = true;
+        if (state is GuestMenuByRestaurantIdSuccess) {
+          _isMenuLoaded = true;
+          // Save menu data to cache
+          _saveMenuToCache(state.data.content);
+        }
       },
       builder: (context, state) {
         if (state is GuestMenuByRestaurantIdLoading) {
@@ -827,6 +1077,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Widget _buildUserMenuItems() {
+    // If we have cached data, show it immediately without any loading
+    if (_isDataCached && _cachedMenuItems != null && _cachedMenuItems!.isNotEmpty) {
+      print('📦 Displaying cached user menu items - no loading');
+      return _buildCachedMenuItems();
+    }
+    
     return BlocConsumer<GetMenuByRestaurantIdCubit, GetMenuByRestaurantIdState>(
       listener: (context, state) {
         if (state is GetMenuByRestaurantIdLoaded) {
@@ -843,6 +1099,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             _isLastMenuPage = state.model.last ?? false;
             _isLoadingMore = false;
           });
+          
+          // Save menu data to cache (only on first page load)
+          if (page == 0) {
+            _saveMenuToCache(menuItems);
+          }
+          
           if (!_isCartLoaded) _loadCart();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;

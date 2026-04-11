@@ -47,6 +47,7 @@ dependencies:
   device_info_plus: ^11.5.0
   infinite_carousel: ^1.1.1
   flutter_slidable: ^4.0.3
+  url_launcher: ^6.3.0
 
 
 

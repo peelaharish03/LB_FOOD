@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 import 'package:local_basket/presentation/screen/authentication/nameInput_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -54,7 +55,8 @@ class _SplashScreenState extends State<SplashScreen> {
     }
     print("Device ID: $deviceId");
 
-    final token = prefs.getString('TOKEN');
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'TOKEN');
     final isFirstTime = prefs.getBool('isFirstTime') ?? true;
 
     if (isFirstTime) {

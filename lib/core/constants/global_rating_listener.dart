@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_state.dart';
 import 'rating_service.dart';
@@ -29,11 +30,24 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
   }
 
   void _startRatingCheckTimer() {
-    _timer = Timer.periodic(Duration(minutes: 1), (_) => _checkOrders());
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _checkOrders());
   }
 
-  void _checkOrders() {
+  // FIX: Made async to check login state before firing the API call.
+  // Previously this ran every 60 seconds for ALL users — including guests —
+  // generating 401 errors on every tick until the user logged in.
+  Future<void> _checkOrders() async {
     if (!mounted) return;
+
+    // FIX: Only poll order history when the user is actually logged in.
+    // This prevents unnecessary 401 API calls for guest/unauthenticated users.
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'TOKEN') ?? '';
+    if (token.isEmpty) {
+      debugPrint('[GlobalRatingListener] Skipping order check — user not logged in');
+      return;
+    }
+
     final now = DateTime.now();
     final last = _lastOrderCheckAt;
     if (last != null && now.difference(last) < _minCheckInterval) {
@@ -41,6 +55,8 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
     }
     _lastOrderCheckAt = now;
     debugPrint('[GlobalRatingListener] Triggering order check');
+
+    if (!mounted) return;
     final cubit = context.read<OrderHistoryCubit>();
     cubit.fetchCart(0, 20, '', context);
   }
