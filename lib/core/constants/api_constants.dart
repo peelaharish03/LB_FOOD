@@ -119,7 +119,6 @@ const _razorPayLiveKey =
 const _razorPayLiveSecret =
     String.fromEnvironment('RAZORPAY_SECRET', defaultValue: '');
 
-/// Active Razorpay key — test in dev, live in production.
 const razorPayKey = _isProduction ? _razorPayLiveKey : _razorPayTestKey;
 
 /// Active Razorpay secret — test in dev, live in production.
