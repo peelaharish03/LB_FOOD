@@ -51,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
+//
   Widget _buildUserProfile(BuildContext context) {
     return BlocBuilder<CurrentCustomerCubit, CurrentCustomerState>(
       builder: (context, state) {
