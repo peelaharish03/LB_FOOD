@@ -1,8 +1,6 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
+    id("com.google.gms.google-services") // Firebase
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -27,6 +25,16 @@ android {
         }
     }
 
+    // ✅ RELEASE SIGNING CONFIG (FOR CI/CD)
+    signingConfigs {
+        create("release") {
+            storeFile = file("../upload.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -48,16 +56,18 @@ android {
     }
 
     buildTypes {
+
         getByName("release") {
             isMinifyEnabled = true
-            isShrinkResources = true      // ⭐ FIXED HERE
+            isShrinkResources = true
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
 
-            signingConfig = signingConfigs.getByName("debug")
+            // ✅ USE RELEASE SIGNING
+            signingConfig = signingConfigs.getByName("release")
 
             ndk {
                 debugSymbolLevel = "FULL"
@@ -72,7 +82,6 @@ android {
             }
         }
     }
-
 }
 
 flutter {
@@ -82,4 +91,3 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
-
