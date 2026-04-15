@@ -1121,7 +1121,7 @@
       "name": "local_basket",
       "rootUri": "../",
       "packageUri": "lib/",
-      "languageVersion": "3.5"
+      "languageVersion": "3.7"
     }
   ],
   "generator": "pub",
