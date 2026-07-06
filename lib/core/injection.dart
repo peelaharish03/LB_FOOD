@@ -33,8 +33,6 @@ import 'package:local_basket/data/datasource/rating&reviews/rating&review_dataso
 import 'package:local_basket/data/datasource/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_dataSource.dart';
 import 'package:local_basket/data/datasource/restaurants/getNearbyRestaurants/getNearByrestarants_dataSource.dart';
 import 'package:local_basket/data/datasource/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_dataSource.dart';
-import 'package:local_basket/data/datasource/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_dataSource.dart';
-import 'package:local_basket/data/datasource/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_dataSource.dart';
 import 'package:local_basket/data/repositoryImpl/address/defaultAddress/get/getDefaultAddress_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/defaultAddress/post/defaultAddress_dataSource.dart';
 import 'package:local_basket/data/repositoryImpl/address/deleteAddress/deleteAddress_repoImpl.dart';
@@ -66,8 +64,6 @@ import 'package:local_basket/data/repositoryImpl/rating&reviews/rating&review_re
 import 'package:local_basket/data/repositoryImpl/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getNearbyRestaurants/getNearByrestarants_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_repoImpl.dart';
-import 'package:local_basket/data/repositoryImpl/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_repoImpl.dart';
-import 'package:local_basket/data/repositoryImpl/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_repoImpl.dart';
 import 'package:local_basket/domain/repository/address/defaultAddress/get/getDefaultAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/defaultAddress/post/defaultAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/deleteAddress/deleteAddress_repository.dart';
@@ -99,8 +95,6 @@ import 'package:local_basket/domain/repository/rating&reviews/rating&review_repo
 import 'package:local_basket/domain/repository/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getNearbyRestaurants/getNearByrestarants_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_repository.dart';
-import 'package:local_basket/domain/repository/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_repository.dart';
-import 'package:local_basket/domain/repository/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_repository.dart';
 import 'package:local_basket/domain/usecase/address/defaultAddress/get/getDefaultAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/defaultAddress/post/defaultAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/deleteAddress/deleteAddress_usecase.dart';
@@ -132,8 +126,6 @@ import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase
 import 'package:local_basket/domain/usecase/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getNearbyRestaurants/getNearByrestarants_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_usecase.dart';
-import 'package:local_basket/domain/usecase/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_usecase.dart';
-import 'package:local_basket/domain/usecase/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_cubit.dart';
@@ -165,8 +157,6 @@ import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cub
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_cubit.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_cubit.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -189,17 +179,20 @@ void init() {
   );
   sl.registerLazySingleton<TriggerOtpRepository>(
     () => TriggerOtpRepositoryImpl(
-        remoteDataSource: sl<TriggerOtpRemoteDataSource>()),
+      remoteDataSource: sl<TriggerOtpRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => TriggerOtpValidationUseCase(repository: sl<TriggerOtpRepository>()),
   );
-  sl.registerFactory(() => TriggerOtpCubit(
-        useCase: sl<TriggerOtpValidationUseCase>(),
-        networkService: sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => TriggerOtpCubit(
+      useCase: sl<TriggerOtpValidationUseCase>(),
+      networkService: sl<NetworkService>(),
+    ),
+  );
 
-//signin
+  //signin
 
   sl.registerLazySingleton<SignInRemoteDataSource>(
     () => SignInRemoteDataSourceImpl(client: sl<DioClient>().dio),
@@ -210,11 +203,13 @@ void init() {
   sl.registerLazySingleton(
     () => SignInValidationUseCase(repository: sl<SignInRepository>()),
   );
-  sl.registerFactory(() => SignInCubit(
-        useCase: sl<SignInValidationUseCase>(),
-        networkService: sl<NetworkService>(),
-        // createCartCubit: sl(),
-      ));
+  sl.registerFactory(
+    () => SignInCubit(
+      useCase: sl<SignInValidationUseCase>(),
+      networkService: sl<NetworkService>(),
+      // createCartCubit: sl(),
+    ),
+  );
 
   //signup
 
@@ -227,10 +222,12 @@ void init() {
   sl.registerLazySingleton(
     () => SignUpValidationUseCase(repository: sl<SignUpRepository>()),
   );
-  sl.registerFactory(() => SignUpCubit(
-        useCase: sl<SignUpValidationUseCase>(),
-        networkService: sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => SignUpCubit(
+      useCase: sl<SignUpValidationUseCase>(),
+      networkService: sl<NetworkService>(),
+    ),
+  );
 
   //RolePost
   sl.registerLazySingleton<RolePostRemoteDatasource>(
@@ -240,12 +237,11 @@ void init() {
   sl.registerLazySingleton<RolePostRepository>(
     () => RolePostRepoImpl(remoteDataSource: sl<RolePostRemoteDatasource>()),
   );
-  sl.registerLazySingleton(
-    () => RolePostUsecase(sl<RolePostRepository>()),
-  );
+  sl.registerLazySingleton(() => RolePostUsecase(sl<RolePostRepository>()));
 
   sl.registerFactory(
-      () => RolePostCubit(sl<RolePostUsecase>(), sl<NetworkService>()));
+    () => RolePostCubit(sl<RolePostUsecase>(), sl<NetworkService>()),
+  );
 
   //currentcustomer
 
@@ -254,13 +250,18 @@ void init() {
   );
   sl.registerLazySingleton<CurrentCustomerRepository>(
     () => CurrentCustomerRepositoryImpl(
-        remoteDataSource: sl<CurrentCustomerRemoteDataSource>()),
+      remoteDataSource: sl<CurrentCustomerRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => CurrentCustomerValidationUseCase(sl<CurrentCustomerRepository>()),
   );
-  sl.registerFactory(() => CurrentCustomerCubit(
-      sl<CurrentCustomerValidationUseCase>(), sl<NetworkService>()));
+  sl.registerFactory(
+    () => CurrentCustomerCubit(
+      sl<CurrentCustomerValidationUseCase>(),
+      sl<NetworkService>(),
+    ),
+  );
 
   //location//
 
@@ -269,18 +270,22 @@ void init() {
   );
   sl.registerLazySingleton<LocationRepository>(
     () => LocationRepositoryImpl(
-        remoteDataSource: sl<LocationRemoteDataSource>(),
-        latLangRemoteDataSource: sl<LocationRemoteDataSource>()),
+      remoteDataSource: sl<LocationRemoteDataSource>(),
+      latLangRemoteDataSource: sl<LocationRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => LocationUsecase(
-        repository: sl<LocationRepository>(),
-        latLongRepository: sl<LocationRepository>()),
+      repository: sl<LocationRepository>(),
+      latLongRepository: sl<LocationRepository>(),
+    ),
   );
-  sl.registerFactory(() => LocationCubit(
-        usecase: sl<LocationUsecase>(),
-        networkService: sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => LocationCubit(
+      usecase: sl<LocationUsecase>(),
+      networkService: sl<NetworkService>(),
+    ),
+  );
 
   //GetNearByRestaurants
 
@@ -289,15 +294,19 @@ void init() {
   );
   sl.registerLazySingleton<GetNearByRestaurantsRepository>(
     () => GetNearByRestaurantsRepositoryImpl(
-        remoteDataSource: sl<GetNearByRestaurantsRemoteDataSource>()),
+      remoteDataSource: sl<GetNearByRestaurantsRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => GetNearByRestaurantsUseCase(
-        repository: sl<GetNearByRestaurantsRepository>()),
+      repository: sl<GetNearByRestaurantsRepository>(),
+    ),
   );
-  sl.registerFactory(() => GetNearbyRestaurantsCubit(
-        getNearbyRestaurantsUseCase: sl<GetNearByRestaurantsUseCase>(),
-      ));
+  sl.registerFactory(
+    () => GetNearbyRestaurantsCubit(
+      getNearbyRestaurantsUseCase: sl<GetNearByRestaurantsUseCase>(),
+    ),
+  );
 
   //GetMenuByRestaurantId
   sl.registerLazySingleton<GetMenuByRestaurantIdRemoteDataSource>(
@@ -306,15 +315,17 @@ void init() {
   );
   sl.registerLazySingleton<GetMenuByRestaurantIdRepository>(
     () => GetMenuByRestaurantIdRepositoryImpl(
-        remoteDataSource: sl<GetMenuByRestaurantIdRemoteDataSource>()),
+      remoteDataSource: sl<GetMenuByRestaurantIdRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => GetMenuByRestaurantIdUseCase(
-        repository: sl<GetMenuByRestaurantIdRepository>()),
+      repository: sl<GetMenuByRestaurantIdRepository>(),
+    ),
   );
-  sl.registerFactory(() => GetMenuByRestaurantIdCubit(
-        sl<GetMenuByRestaurantIdUseCase>(),
-      ));
+  sl.registerFactory(
+    () => GetMenuByRestaurantIdCubit(sl<GetMenuByRestaurantIdUseCase>()),
+  );
 
   //CreateCart
   sl.registerLazySingleton<CreateCartRemoteDataSource>(
@@ -322,15 +333,15 @@ void init() {
   );
   sl.registerLazySingleton<CreateCartRepository>(
     () => CreateCartRepositoryImpl(
-        remoteDataSource: sl<CreateCartRemoteDataSource>()),
+      remoteDataSource: sl<CreateCartRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => CreateCartUseCase(repository: sl<CreateCartRepository>()),
   );
-  sl.registerFactory(() => CreateCartCubit(
-        sl<CreateCartUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => CreateCartCubit(sl<CreateCartUseCase>(), sl<NetworkService>()),
+  );
 
   //GetCart
   sl.registerLazySingleton<GetCartRemoteDataSource>(
@@ -343,10 +354,9 @@ void init() {
   sl.registerLazySingleton(
     () => GetCartUseCase(repository: sl<GetCartRepository>()),
   );
-  sl.registerFactory(() => GetCartCubit(
-        sl<GetCartUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => GetCartCubit(sl<GetCartUseCase>(), sl<NetworkService>()),
+  );
 
   //ProductsAddToCart
   sl.registerLazySingleton<ProductsAddToCartRemoteDataSource>(
@@ -354,15 +364,18 @@ void init() {
   );
   sl.registerLazySingleton<ProductsAddToCartRepository>(
     () => ProductsAddToCartRepositoryImpl(
-        remoteDataSource: sl<ProductsAddToCartRemoteDataSource>()),
+      remoteDataSource: sl<ProductsAddToCartRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => ProductsAddToCartUseCase(sl<ProductsAddToCartRepository>()),
   );
-  sl.registerFactory(() => ProductsAddToCartCubit(
-        sl<ProductsAddToCartUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => ProductsAddToCartCubit(
+      sl<ProductsAddToCartUseCase>(),
+      sl<NetworkService>(),
+    ),
+  );
 
   //UpdateCartItems
   sl.registerLazySingleton<UpdateCartItemsRemoteDataSource>(
@@ -370,15 +383,18 @@ void init() {
   );
   sl.registerLazySingleton<UpdateCartItemsRepository>(
     () => UpdateCartItemsRepositoryImpl(
-        remoteDataSource: sl<UpdateCartItemsRemoteDataSource>()),
+      remoteDataSource: sl<UpdateCartItemsRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => UpdateCartItemsUseCase(repository: sl<UpdateCartItemsRepository>()),
   );
-  sl.registerFactory(() => UpdateCartItemsCubit(
-        sl<UpdateCartItemsUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => UpdateCartItemsCubit(
+      sl<UpdateCartItemsUseCase>(),
+      sl<NetworkService>(),
+    ),
+  );
 
   //SaveAddress
   sl.registerLazySingleton<SaveAddressRemoteDataSource>(
@@ -386,15 +402,15 @@ void init() {
   );
   sl.registerLazySingleton<SaveAddressRepository>(
     () => SaveAddressRepositoryImpl(
-        remoteDataSource: sl<SaveAddressRemoteDataSource>()),
+      remoteDataSource: sl<SaveAddressRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => SaveAddressUseCase(repository: sl<SaveAddressRepository>()),
   );
-  sl.registerFactory(() => SaveAddressCubit(
-        sl<SaveAddressUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => SaveAddressCubit(sl<SaveAddressUseCase>(), sl<NetworkService>()),
+  );
 
   //GetAddress
   sl.registerLazySingleton<GetAddressRemoteDataSource>(
@@ -402,15 +418,15 @@ void init() {
   );
   sl.registerLazySingleton<GetAddressRepository>(
     () => GetAddressRepositoryImpl(
-        remoteDataSource: sl<GetAddressRemoteDataSource>()),
+      remoteDataSource: sl<GetAddressRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => GetAddressUseCase(repository: sl<GetAddressRepository>()),
   );
-  sl.registerFactory(() => GetAddressCubit(
-        sl<GetAddressUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => GetAddressCubit(sl<GetAddressUseCase>(), sl<NetworkService>()),
+  );
 
   //Payment
   sl.registerLazySingleton<PaymentRemoteDataSource>(
@@ -423,27 +439,31 @@ void init() {
   sl.registerLazySingleton(
     () => PaymentUseCase(repository: sl<PaymentRepository>()),
   );
-  sl.registerFactory(() => PaymentCubit(
-        sl<PaymentUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => PaymentCubit(sl<PaymentUseCase>(), sl<NetworkService>()),
+  );
 
   //GetRestaurantsByProductName
   sl.registerLazySingleton<GetRestaurantsByProductNameRemoteDataSource>(
     () => GetRestaurantsByProductNameRemoteDataSourceImpl(
-        client: sl<DioClient>().dio),
+      client: sl<DioClient>().dio,
+    ),
   );
   sl.registerLazySingleton<GetRestaurantsByProductNameRepository>(
     () => GetRestaurantsByProductNameRepositoryImpl(
-        remoteDataSource: sl<GetRestaurantsByProductNameRemoteDataSource>()),
+      remoteDataSource: sl<GetRestaurantsByProductNameRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => GetRestaurantsByProductNameUseCase(
-        repository: sl<GetRestaurantsByProductNameRepository>()),
+      repository: sl<GetRestaurantsByProductNameRepository>(),
+    ),
   );
-  sl.registerFactory(() => GetRestaurantsByProductNameCubit(
-        sl<GetRestaurantsByProductNameUseCase>(),
-      ));
+  sl.registerFactory(
+    () => GetRestaurantsByProductNameCubit(
+      sl<GetRestaurantsByProductNameUseCase>(),
+    ),
+  );
 
   //CreateOrder
   sl.registerLazySingleton<CreateOrderRemoteDataSource>(
@@ -451,15 +471,15 @@ void init() {
   );
   sl.registerLazySingleton<CreateOrderRepository>(
     () => CreateOrderRepositoryImpl(
-        remoteDataSource: sl<CreateOrderRemoteDataSource>()),
+      remoteDataSource: sl<CreateOrderRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => CreateOrderUseCase(repository: sl<CreateOrderRepository>()),
   );
-  sl.registerFactory(() => CreateOrderCubit(
-        sl<CreateOrderUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => CreateOrderCubit(sl<CreateOrderUseCase>(), sl<NetworkService>()),
+  );
 
   //OrderHistory
   sl.registerLazySingleton<OrderHistoryRemoteDataSource>(
@@ -467,15 +487,15 @@ void init() {
   );
   sl.registerLazySingleton<OrderHistoryRepository>(
     () => OrderHistoryRepositoryImpl(
-        remoteDataSource: sl<OrderHistoryRemoteDataSource>()),
+      remoteDataSource: sl<OrderHistoryRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => OrderHistoryUseCase(repository: sl<OrderHistoryRepository>()),
   );
-  sl.registerFactory(() => OrderHistoryCubit(
-        sl<OrderHistoryUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => OrderHistoryCubit(sl<OrderHistoryUseCase>(), sl<NetworkService>()),
+  );
 
   //ClearCart
   sl.registerLazySingleton<ClearCartRemoteDataSource>(
@@ -483,15 +503,15 @@ void init() {
   );
   sl.registerLazySingleton<ClearCartRepository>(
     () => ClearCartRepositoryImpl(
-        remoteDataSource: sl<ClearCartRemoteDataSource>()),
+      remoteDataSource: sl<ClearCartRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => ClearCartUseCase(repository: sl<ClearCartRepository>()),
   );
-  sl.registerFactory(() => ClearCartCubit(
-        sl<ClearCartUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => ClearCartCubit(sl<ClearCartUseCase>(), sl<NetworkService>()),
+  );
 
   //ReOrder
   sl.registerLazySingleton<ReOrderRemoteDataSource>(
@@ -504,10 +524,9 @@ void init() {
   sl.registerLazySingleton(
     () => ReOrderUseCase(repository: sl<ReOrderRepository>()),
   );
-  sl.registerFactory(() => ReOrderCubit(
-        sl<ReOrderUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => ReOrderCubit(sl<ReOrderUseCase>(), sl<NetworkService>()),
+  );
 
   //DeleteAddress
   sl.registerLazySingleton<DeleteAddressRemoteDataSource>(
@@ -515,15 +534,15 @@ void init() {
   );
   sl.registerLazySingleton<DeleteAddressRepository>(
     () => DeleteAddressRepositoryImpl(
-        remoteDataSource: sl<DeleteAddressRemoteDataSource>()),
+      remoteDataSource: sl<DeleteAddressRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => DeleteAddressUseCase(repository: sl<DeleteAddressRepository>()),
   );
-  sl.registerFactory(() => DeleteAddressCubit(
-        sl<DeleteAddressUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => DeleteAddressCubit(sl<DeleteAddressUseCase>(), sl<NetworkService>()),
+  );
 
   //UpdateCurrentCustomer
 
@@ -533,16 +552,20 @@ void init() {
   );
   sl.registerLazySingleton<UpdateCurrentCustomerRepository>(
     () => UpdateCurrentCustomerRepositoryImpl(
-        remoteDatasource: sl<UpdateCurrentCustomerRemoteDatasource>()),
+      remoteDatasource: sl<UpdateCurrentCustomerRemoteDatasource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => UpdateCurrentCustomerUseCase(
-        repository: sl<UpdateCurrentCustomerRepository>()),
+      repository: sl<UpdateCurrentCustomerRepository>(),
+    ),
   );
-  sl.registerFactory(() => UpdateCurrentCustomerCubit(
-        useCase: sl<UpdateCurrentCustomerUseCase>(),
-        networkService: sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () => UpdateCurrentCustomerCubit(
+      useCase: sl<UpdateCurrentCustomerUseCase>(),
+      networkService: sl<NetworkService>(),
+    ),
+  );
 
   //DefaultAddress
 
@@ -551,15 +574,16 @@ void init() {
   );
   sl.registerLazySingleton<DefaultAddressRepository>(
     () => DefaultAddressRepositoryImpl(
-        remoteDataSource: sl<DefaultAddressRemoteDataSource>()),
+      remoteDataSource: sl<DefaultAddressRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => DefaultAddressUseCase(repository: sl<DefaultAddressRepository>()),
   );
-  sl.registerFactory(() => DefaultAddressCubit(
-        sl<DefaultAddressUseCase>(),
-        sl<NetworkService>(),
-      ));
+  sl.registerFactory(
+    () =>
+        DefaultAddressCubit(sl<DefaultAddressUseCase>(), sl<NetworkService>()),
+  );
 
   //AddressSavetoCart
   sl.registerLazySingleton<AddressSavetoCartRemoteDataSource>(
@@ -567,50 +591,19 @@ void init() {
   );
   sl.registerLazySingleton<AddressSavetoCartRepository>(
     () => AddressSavetoCartRepositoryImpl(
-        remoteDataSource: sl<AddressSavetoCartRemoteDataSource>()),
+      remoteDataSource: sl<AddressSavetoCartRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () =>
         AddressSavetoCartUseCase(repository: sl<AddressSavetoCartRepository>()),
   );
-  sl.registerFactory(() => AddressSavetoCartCubit(
-        sl<AddressSavetoCartUseCase>(),
-        sl<NetworkService>(),
-      ));
-
-  //GuestNearbyRestaurants
-  sl.registerLazySingleton<GuestNearByRestaurantsRemoteDataSource>(
-    () =>
-        GuestNearByRestaurantsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  sl.registerFactory(
+    () => AddressSavetoCartCubit(
+      sl<AddressSavetoCartUseCase>(),
+      sl<NetworkService>(),
+    ),
   );
-  sl.registerLazySingleton<GuestNearByRestaurantsRepository>(
-    () => GuestNearByRestaurantsRepositoryImpl(
-        remoteDataSource: sl<GuestNearByRestaurantsRemoteDataSource>()),
-  );
-  sl.registerLazySingleton(
-    () => GuestNearByRestaurantsUseCase(
-        repository: sl<GuestNearByRestaurantsRepository>()),
-  );
-  sl.registerFactory(() => GuestNearByRestaurantsCubit(
-        sl<GuestNearByRestaurantsUseCase>(),
-      ));
-
-  //GuestMenuByRestaurantId
-  sl.registerLazySingleton<GuestMenuByRestaurantIdRemoteDataSource>(
-    () => GuestMenuByRestaurantIdRemoteDataSourceImpl(
-        client: sl<DioClient>().dio),
-  );
-  sl.registerLazySingleton<GuestMenuByRestaurantIdRepository>(
-    () => GuestMenuByRestaurantIdRepositoryImpl(
-        remoteDataSource: sl<GuestMenuByRestaurantIdRemoteDataSource>()),
-  );
-  sl.registerLazySingleton(
-    () => GuestMenuByRestaurantIdUseCase(
-        repository: sl<GuestMenuByRestaurantIdRepository>()),
-  );
-  sl.registerFactory(() => GuestMenuByRestaurantIdCubit(
-        sl<GuestMenuByRestaurantIdUseCase>(),
-      ));
 
   //DeleteAccount
   sl.registerLazySingleton<DeleteAccountRemoteDataSource>(
@@ -618,14 +611,13 @@ void init() {
   );
   sl.registerLazySingleton<DeleteAccountRepository>(
     () => DeleteAccountRepositoryImpl(
-        remoteDataSource: sl<DeleteAccountRemoteDataSource>()),
+      remoteDataSource: sl<DeleteAccountRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => DeleteAccountUseCase(repository: sl<DeleteAccountRepository>()),
   );
-  sl.registerFactory(() => DeleteAccountCubit(
-        sl<DeleteAccountUseCase>(),
-      ));
+  sl.registerFactory(() => DeleteAccountCubit(sl<DeleteAccountUseCase>()));
 
   //RestaurantOffers
 
@@ -634,14 +626,15 @@ void init() {
   );
   sl.registerLazySingleton<RestaurantOffersRepository>(
     () => RestaurantOffersRepositoryImpl(
-        remoteDataSource: sl<RestaurantOffersRemoteDataSource>()),
+      remoteDataSource: sl<RestaurantOffersRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => RestaurantOffersUseCase(repository: sl<RestaurantOffersRepository>()),
   );
-  sl.registerFactory(() => RestaurantOffersCubit(
-        sl<RestaurantOffersUseCase>(),
-      ));
+  sl.registerFactory(
+    () => RestaurantOffersCubit(sl<RestaurantOffersUseCase>()),
+  );
 
   //ValidateOffer
   sl.registerLazySingleton<ValidateOfferRemoteDataSource>(
@@ -649,14 +642,13 @@ void init() {
   );
   sl.registerLazySingleton<ValidateOfferRepository>(
     () => ValidateOfferRepositoryImpl(
-        remoteDataSource: sl<ValidateOfferRemoteDataSource>()),
+      remoteDataSource: sl<ValidateOfferRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => ValidateOfferUseCase(repository: sl<ValidateOfferRepository>()),
   );
-  sl.registerFactory(() => ValidateOfferCubit(
-        sl<ValidateOfferUseCase>(),
-      ));
+  sl.registerFactory(() => ValidateOfferCubit(sl<ValidateOfferUseCase>()));
 
   //RatingReview
   sl.registerLazySingleton<RatingReviewRemoteDataSource>(
@@ -664,14 +656,15 @@ void init() {
   );
   sl.registerLazySingleton<RatingReviewRepository>(
     () => RatingReviewRepositoryImpl(
-        remoteDataSource: sl<RatingReviewRemoteDataSource>()),
+      remoteDataSource: sl<RatingReviewRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => RatingReviewUseCase(repository: sl<RatingReviewRepository>()),
   );
-  sl.registerFactory(() => RatingReviewCubit(
-        ratingReviewUseCase: sl<RatingReviewUseCase>(),
-      ));
+  sl.registerFactory(
+    () => RatingReviewCubit(ratingReviewUseCase: sl<RatingReviewUseCase>()),
+  );
 
   //CreateComplaint
   sl.registerLazySingleton<CreateComplaintRemoteDataSource>(
@@ -679,14 +672,17 @@ void init() {
   );
   sl.registerLazySingleton<CreateComplaintRepository>(
     () => CreateComplaintRepositoryImpl(
-        remoteDataSource: sl<CreateComplaintRemoteDataSource>()),
+      remoteDataSource: sl<CreateComplaintRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => CreateComplaintUseCase(repository: sl<CreateComplaintRepository>()),
   );
-  sl.registerFactory(() => CreateComplaintCubit(
-        createComplaintUseCase: sl<CreateComplaintUseCase>(),
-      ));
+  sl.registerFactory(
+    () => CreateComplaintCubit(
+      createComplaintUseCase: sl<CreateComplaintUseCase>(),
+    ),
+  );
 
   //DeliveryCharge
   sl.registerLazySingleton<CheckoutRemoteDataSource>(
@@ -694,31 +690,33 @@ void init() {
   );
   sl.registerLazySingleton<CheckoutRepository>(
     () => CheckoutRepositoryImpl(
-        remoteDataSource: sl<CheckoutRemoteDataSource>()),
+      remoteDataSource: sl<CheckoutRemoteDataSource>(),
+    ),
   );
   sl.registerLazySingleton(
     () => CheckoutUseCase(repository: sl<CheckoutRepository>()),
   );
-  sl.registerFactory(() => CheckoutCubit(
-        useCase: sl<CheckoutUseCase>(),
-      ));
+  sl.registerFactory(() => CheckoutCubit(useCase: sl<CheckoutUseCase>()));
 
-      //Notifications
-      sl.registerLazySingleton<GetNotificationsRemoteDataSource>(
-        () => GetNotificationsRemoteDataSourceImpl(client: sl<DioClient>().dio),
-      );
-      sl.registerLazySingleton<NotificationsRepository>(
-        () => NotificationsRepositoryImpl(
-            remoteDataSource: sl<GetNotificationsRemoteDataSource>()),
-      );
-      sl.registerLazySingleton(
-        () => GetNotificationsUseCase(repository: sl<NotificationsRepository>()),
-      );
-      sl.registerLazySingleton(
-        () => ClearNotificationsUseCase(repository: sl<NotificationsRepository>()),
-      );
-      sl.registerFactory(() => NotificationsCubit(
-            getNotificationsUseCase: sl<GetNotificationsUseCase>(),
-            clearNotificationsUseCase: sl<ClearNotificationsUseCase>(),
-          ));
+  //Notifications
+  sl.registerLazySingleton<GetNotificationsRemoteDataSource>(
+    () => GetNotificationsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<NotificationsRepository>(
+    () => NotificationsRepositoryImpl(
+      remoteDataSource: sl<GetNotificationsRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => GetNotificationsUseCase(repository: sl<NotificationsRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ClearNotificationsUseCase(repository: sl<NotificationsRepository>()),
+  );
+  sl.registerFactory(
+    () => NotificationsCubit(
+      getNotificationsUseCase: sl<GetNotificationsUseCase>(),
+      clearNotificationsUseCase: sl<ClearNotificationsUseCase>(),
+    ),
+  );
 }

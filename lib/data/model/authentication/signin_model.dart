@@ -1,36 +1,29 @@
 class SignInModel {
-  String? token;
+  String? accessToken;
   String? refreshToken;
-  String? type;
-  int? id;
-  List<String>? roles;
-  String? primaryContact;
+  int? expiresIn;
+  String? tokenType;
 
-  SignInModel(
-      {this.token,
-      this.refreshToken,
-      this.type,
-      this.id,
-      this.roles,
-      this.primaryContact});
+  SignInModel({
+    this.accessToken,
+    this.refreshToken,
+    this.expiresIn,
+    this.tokenType,
+  });
 
   SignInModel.fromJson(Map<String, dynamic> json) {
-    token = json['token'];
+    accessToken = json['accessToken'];
     refreshToken = json['refreshToken'];
-    type = json['type'];
-    id = json['id'];
-    roles = json['roles'].cast<String>();
-    primaryContact = json['primaryContact'];
+    expiresIn = json['expiresIn'];
+    tokenType = json['tokenType'];
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['token'] = token;
-    data['refreshToken'] = refreshToken;
-    data['type'] = type;
-    data['id'] = id;
-    data['roles'] = roles;
-    data['primaryContact'] = primaryContact;
-    return data;
+    return {
+      'accessToken': accessToken,
+      'refreshToken': refreshToken,
+      'expiresIn': expiresIn,
+      'tokenType': tokenType,
+    };
   }
 }

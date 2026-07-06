@@ -8,10 +8,19 @@ class UpdateCartItemsCubit extends Cubit<UpdateCartItemsState> {
   final UpdateCartItemsUseCase updateCartItemsUseCase;
   final NetworkService networkService;
   UpdateCartItemsCubit(this.updateCartItemsUseCase, this.networkService)
-      : super(UpdateCartItemsInitial());
+    : super(UpdateCartItemsInitial());
 
   Future<void> updateCartItem(
-      Map<String, dynamic> payload, String cartId, context) async {
+    Map<String, dynamic> payload,
+    String cartId,
+    String itemId,
+    context,
+  ) async {
+    if (!_hasValidId(cartId) || !_hasValidId(itemId)) {
+      emit(UpdateCartItemsFailure('Cart id or item id is missing'));
+      return;
+    }
+
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {
@@ -25,11 +34,19 @@ class UpdateCartItemsCubit extends Cubit<UpdateCartItemsState> {
     } else {
       emit(UpdateCartItemsLoading());
       try {
-        final result = await updateCartItemsUseCase(payload, cartId);
+        final result = await updateCartItemsUseCase(payload, cartId, itemId);
         emit(UpdateCartItemsSuccess(result));
       } catch (e) {
         emit(UpdateCartItemsFailure(e.toString()));
       }
     }
+  }
+
+  bool _hasValidId(String? id) {
+    final normalized = id?.trim();
+    return normalized != null &&
+        normalized.isNotEmpty &&
+        normalized != '0' &&
+        normalized.toLowerCase() != 'null';
   }
 }

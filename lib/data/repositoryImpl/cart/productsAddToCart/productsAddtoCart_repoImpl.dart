@@ -8,9 +8,11 @@ class ProductsAddToCartRepositoryImpl implements ProductsAddToCartRepository {
   ProductsAddToCartRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<List<ProductsAddToCartModel>> productsAddToCart(Map<String, dynamic> payload,{
+  Future<ProductsAddToCartModel> productsAddToCart(
+    cartId,
+    Map<String, dynamic> payload, {
     bool forceReplace = false,
   }) {
-    return remoteDataSource.productsAddToCart(payload);
+    return remoteDataSource.productsAddToCart(cartId, payload);
   }
 }

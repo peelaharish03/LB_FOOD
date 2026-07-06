@@ -117,9 +117,9 @@
     },
     {
       "name": "device_info_plus",
-      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/device_info_plus-11.5.0",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/device_info_plus-10.1.2",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.3"
     },
     {
       "name": "device_info_plus_platform_interface",
@@ -1089,9 +1089,9 @@
     },
     {
       "name": "win32_registry",
-      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/win32_registry-2.1.0",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/win32_registry-1.1.5",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.4"
     },
     {
       "name": "wkt_parser",

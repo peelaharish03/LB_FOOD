@@ -1,5 +1,5 @@
 import 'package:local_basket/core/constants/colors.dart';
-import 'package:local_basket/data/model/restaurants/guestMenuByRestaurantId/menu_content_model.dart';
+import 'package:local_basket/data/model/restaurants/menu_content_model.dart';
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/menu.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,16 +20,17 @@ class CartItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = (() {
-      final media = item['media'];
-      if (media is String) return media;
-      if (media is List && media.isNotEmpty) {
-        final first = media[0];
-        if (first is Map && first['url'] != null) return first['url'];
-        if (first is Media && first.url != null) return first.url;
-      }
-      return null;
-    })();
+    final imageUrl =
+        (() {
+          final media = item['media'];
+          if (media is String) return media;
+          if (media is List && media.isNotEmpty) {
+            final first = media[0];
+            if (first is Map && first['url'] != null) return first['url'];
+            if (first is Media && first.url != null) return first.url;
+          }
+          return null;
+        })();
 
     final isVeg = (item['type']?.toLowerCase() ?? '') == 'veg';
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
@@ -55,16 +56,18 @@ class CartItemCard extends StatelessWidget {
                   width: 120,
                   height: 120,
                   color: Colors.grey[200],
-                  child: hasImage
-                      ? Image.network(
-                          imageUrl!,
-                          fit: BoxFit.cover,
-                          width: 120,
-                          height: 120,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: Colors.grey[200]),
-                        )
-                      : const SizedBox.shrink(),
+                  child:
+                      hasImage
+                          ? Image.network(
+                            imageUrl!,
+                            fit: BoxFit.cover,
+                            width: 120,
+                            height: 120,
+                            errorBuilder:
+                                (_, __, ___) =>
+                                    Container(color: Colors.grey[200]),
+                          )
+                          : const SizedBox.shrink(),
                 ),
               ),
               Positioned.fill(
@@ -74,9 +77,10 @@ class CartItemCard extends StatelessWidget {
                   child: Container(
                     width: 80,
                     height: 30,
-                    margin: hasImage
-                        ? const EdgeInsets.only(bottom: 6)
-                        : EdgeInsets.zero,
+                    margin:
+                        hasImage
+                            ? const EdgeInsets.only(bottom: 6)
+                            : EdgeInsets.zero,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(6),
@@ -93,8 +97,11 @@ class CartItemCard extends StatelessWidget {
                       children: [
                         GestureDetector(
                           onTap: () => onQuantityChanged(quantity - 1),
-                          child: const Icon(Icons.remove,
-                              size: 18, color: Colors.red),
+                          child: const Icon(
+                            Icons.remove,
+                            size: 18,
+                            color: Colors.red,
+                          ),
                         ),
                         Text(
                           '$quantity',
@@ -104,14 +111,18 @@ class CartItemCard extends StatelessWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap: enableIncrement
-                              ? () => onQuantityChanged(quantity + 1)
-                              : null,
-                          child: Icon(Icons.add,
-                              size: 18,
-                              color: enableIncrement
-                                  ? AppColor.PrimaryColor
-                                  : Colors.grey),
+                          onTap:
+                              enableIncrement
+                                  ? () => onQuantityChanged(quantity + 1)
+                                  : null,
+                          child: Icon(
+                            Icons.add,
+                            size: 18,
+                            color:
+                                enableIncrement
+                                    ? AppColor.PrimaryColor
+                                    : Colors.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -153,9 +164,13 @@ class CartItemCard extends StatelessWidget {
                   children: [
                     Icon(Icons.star, color: Colors.green, size: 16),
                     SizedBox(width: 4),
-                    Text("4.5",
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w500)),
+                    Text(
+                      "4.5",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),

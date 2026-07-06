@@ -37,6 +37,7 @@ class GetMenuByRestaurantIdRemoteDataSourceImpl
             'Failed to load GetMenuByRestaurantId data: ${response.statusCode}');
       }
     } catch (e) {
+      print(e);
       throw Exception('Failed to load GetMenuByRestaurantId data: ${e.toString()}');
     }
   }

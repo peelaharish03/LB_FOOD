@@ -5,10 +5,6 @@ import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/screen/notifications/notifications_screen.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
-import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
-import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -17,8 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 
 class MainDashboard extends StatefulWidget {
-  final bool isGuest;
-  const MainDashboard({super.key, this.isGuest = false});
+  const MainDashboard({super.key});
 
   @override
   State<MainDashboard> createState() => _MainDashboardState();
@@ -28,8 +23,6 @@ class _MainDashboardState extends State<MainDashboard> {
   final NotificationServices _notificationServices = NotificationServices();
 
   Future<void> _normalizeOfferStateOnFoodTap() async {
-    if (widget.isGuest) return;
-
     final prefs = await SharedPreferences.getInstance();
     final wasOfferFlow = prefs.getBool('is_offer_flow') ?? false;
     final wasOfferApplied = prefs.getBool('offer_applied') ?? false;
@@ -42,38 +35,6 @@ class _MainDashboardState extends State<MainDashboard> {
 
     if (!wasOfferFlow && !wasOfferApplied) return;
     if (!mounted) return;
-
-    final cartCubit = context.read<GetCartCubit>();
-    if (cartCubit.state is! GetCartLoaded) {
-      await cartCubit.fetchCart(context);
-    }
-    if (!mounted) return;
-
-    final cartState = cartCubit.state;
-    if (cartState is! GetCartLoaded) return;
-
-    final cart = cartState.cart;
-    final hasItems = (cart.totalCount ?? 0) > 0;
-    if (!hasItems) return;
-
-    final itemsPayload = cart.cartItems
-        .map((ci) => {
-              'productId': ci.productId,
-              'quantity': ci.quantity ?? 0,
-              'price': ci.price ?? 0,
-            })
-        .toList();
-
-    final payload = {
-      'notes': cart.notes ?? '',
-      'selfOrder': false,
-      'isOffer': false,
-      'items': itemsPayload,
-    };
-
-    await context
-        .read<ProductsAddToCartCubit>()
-        .addToCart(payload, context: context);
   }
 
   @override
@@ -96,7 +57,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
     _notificationServices.getDeviceToken().then((fcmToken) async {
       if (!mounted) return;
-      if (fcmToken != null && !widget.isGuest) {
+      if (fcmToken != null) {
         final storage = FlutterSecureStorage();
         final savedAuthToken = await storage.read(key: 'TOKEN');
         if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
@@ -108,24 +69,13 @@ class _MainDashboardState extends State<MainDashboard> {
             'fcmToken': fcmToken,
           };
           if (!mounted) return;
-          context
-              .read<UpdateCurrentCustomerCubit>()
-              .updateCustomer(payload, context);
+          context.read<UpdateCurrentCustomerCubit>().updateCustomer(
+            payload,
+            context,
+          );
         }
       }
     });
-  }
-
-  void showLoginPromptSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (context) => const LoginPromptSheet(),
-    );
   }
 
   @override
@@ -137,34 +87,24 @@ class _MainDashboardState extends State<MainDashboard> {
         showBackButton: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded,
-                color: Colors.white),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+            ),
             onPressed: () {
-              if (widget.isGuest) {
-                showLoginPromptSheet(context);
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                );
-              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
             },
           ),
           IconButton(
             icon: const Icon(Icons.person, color: Colors.white),
             onPressed: () {
-              if (widget.isGuest) {
-                showLoginPromptSheet(context);
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfileScreen(isGuest: widget.isGuest),
-                  ),
-                );
-              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
             },
           ),
         ],
@@ -173,7 +113,7 @@ class _MainDashboardState extends State<MainDashboard> {
         padding: const EdgeInsets.all(16),
         children: [
           /// 🔥 Offers Carousel
-          OffersCarousel(isGuest: widget.isGuest),
+          const OffersCarousel(),
 
           const SizedBox(height: 24),
 
@@ -189,9 +129,7 @@ class _MainDashboardState extends State<MainDashboard> {
               if (!mounted) return;
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => DashboardScreen(isGuest: widget.isGuest),
-                ),
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
               );
             },
           ),
@@ -207,8 +145,9 @@ class _MainDashboardState extends State<MainDashboard> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const _UnderDevelopmentScreen(title: "Special Zone"),
+                  builder:
+                      (_) =>
+                          const _UnderDevelopmentScreen(title: "Special Zone"),
                 ),
               );
             },
@@ -228,8 +167,8 @@ class _MainDashboardState extends State<MainDashboard> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const _UnderDevelopmentScreen(title: "Fresh Meat"),
+                  builder:
+                      (_) => const _UnderDevelopmentScreen(title: "Fresh Meat"),
                 ),
               );
             },
@@ -246,8 +185,8 @@ class _MainDashboardState extends State<MainDashboard> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const _UnderDevelopmentScreen(title: "Grocery"),
+                  builder:
+                      (_) => const _UnderDevelopmentScreen(title: "Grocery"),
                 ),
               );
             },
@@ -316,10 +255,7 @@ class _BannerCard extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
             ),
@@ -403,11 +339,7 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                _getIcon(),
-                size: 100,
-                color: AppColor.PrimaryColor,
-              ),
+              Icon(_getIcon(), size: 100, color: AppColor.PrimaryColor),
               const SizedBox(height: 20),
               Text(
                 "${widget.title}\nComing Soon!",
@@ -422,10 +354,7 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
               Text(
                 "We’re working hard to bring you\npremium ${widget.title} experience.",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 30),
               ElevatedButton(
@@ -434,8 +363,10 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
                 onPressed: () {},
                 child: const Text(
@@ -446,7 +377,7 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
                     color: Colors.white,
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),

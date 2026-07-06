@@ -9,13 +9,20 @@ class ProductsAddToCartCubit extends Cubit<ProductsAddToCartState> {
   final NetworkService networkService;
 
   ProductsAddToCartCubit(this.useCase, this.networkService)
-      : super(ProductsAddToCartInitial());
+    : super(ProductsAddToCartInitial());
 
   Future<void> addToCart(
+    cartId,
     Map<String, dynamic> payload, {
     context,
     bool forceReplace = false,
   }) async {
+    final activeCartId = cartId?.toString();
+    if (!_hasValidCartId(activeCartId)) {
+      emit(ProductsAddToCartFailure('Cart id is missing'));
+      return;
+    }
+
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {
@@ -29,13 +36,21 @@ class ProductsAddToCartCubit extends Cubit<ProductsAddToCartState> {
     } else {
       emit(ProductsAddToCartLoading());
       try {
-        final result = await useCase(payload, forceReplace: forceReplace);
+        final result = await useCase(
+          activeCartId,
+          payload,
+          forceReplace: forceReplace,
+        );
         emit(ProductsAddToCartSuccess(result));
       } catch (e) {
         if (e.toString().contains('403') &&
             context != null &&
             context.mounted) {
-          final result = await useCase(payload, forceReplace: true);
+          final result = await useCase(
+            activeCartId,
+            payload,
+            forceReplace: true,
+          );
           emit(ProductsAddToCartSuccess(result));
 
           return;
@@ -43,5 +58,13 @@ class ProductsAddToCartCubit extends Cubit<ProductsAddToCartState> {
         emit(ProductsAddToCartFailure(e.toString()));
       }
     }
+  }
+
+  bool _hasValidCartId(String? id) {
+    final normalized = id?.trim();
+    return normalized != null &&
+        normalized.isNotEmpty &&
+        normalized != '0' &&
+        normalized.toLowerCase() != 'null';
   }
 }

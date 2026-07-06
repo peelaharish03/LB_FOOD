@@ -8,7 +8,7 @@ class GetNearByRestaurantsRepositoryImpl implements GetNearByRestaurantsReposito
   GetNearByRestaurantsRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<GetNearByRestaurantsModel> getNearByRestaurants(Map<String, dynamic> params) {
+  Future<GetNearByStoresModel> getNearByRestaurants(Map<String, dynamic> params) {
     return remoteDataSource.getNearByRestaurants(params);
   }
 }

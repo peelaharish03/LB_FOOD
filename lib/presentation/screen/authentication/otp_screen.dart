@@ -19,16 +19,17 @@ import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen
 
 // ignore: must_be_immutable
 class OtpScreen extends StatefulWidget {
-  final String mobileNumber;
+  final String primaryContact;
   String otp;
   String fullName;
-  String otpValue;
+  String deviceId;
+  
 
   OtpScreen({
     super.key,
-    required this.mobileNumber,
+    required this.primaryContact,
     required this.otp,
-    required this.otpValue,
+    required this.deviceId,
     required this.fullName,
   });
 
@@ -98,17 +99,16 @@ class _OtpScreenState extends State<OtpScreen> {
             listener: (context, state) {
               if (state is CurrentCustomerLoaded && !_hasNavigated) {
                 _hasNavigated = true;
-                if (state.currentCustomerModel.eato == true) {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const MainDashboard()),
                   );
-                } else {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const NameInputScreen()),
-                  );
-                }
+                // } else {
+                //   Navigator.pushReplacement(
+                //     context,
+                //     MaterialPageRoute(builder: (_) => const NameInputScreen()),
+                //   );
+                // }
               } else if (state is CurrentCustomerError) {
                 CustomSnackbars.showErrorSnack(
                   context: context,
@@ -210,7 +210,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                 Row(
                                   children: [
                                     Text(
-                                      "+91 ${widget.mobileNumber}",
+                                      "+91 ${widget.primaryContact}",
                                       style: GoogleFonts.poppins(
                                         fontSize: 14,
                                         color: Colors.grey.shade700,
@@ -260,9 +260,10 @@ class _OtpScreenState extends State<OtpScreen> {
                                       if (value.length == 6) {
                                         context.read<SignInCubit>().signIn(
                                               context,
-                                              widget.mobileNumber,
+                                              widget.primaryContact,
                                               value,
                                               widget.fullName,
+                                              widget.deviceId,
                                             );
                                       }
                                     },
@@ -306,9 +307,10 @@ class _OtpScreenState extends State<OtpScreen> {
                                 if (otpController.text.length == 6) {
                                   context.read<SignInCubit>().signIn(
                                         context,
-                                        widget.mobileNumber,
+                                        widget.primaryContact,
                                         otpController.text,
                                         widget.fullName,
+                                        widget.deviceId,
                                       );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +330,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           onTap: () {
                             context
                                 .read<TriggerOtpCubit>()
-                                .resendOtp(context, widget.mobileNumber);
+                                .resendOtp(context, widget.primaryContact);
                           },
                           child: Text(
                             "Didn’t receive it? Resend OTP",

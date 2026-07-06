@@ -27,13 +27,23 @@ class GetCartCubit extends Cubit<GetCartState> {
       try {
         final cart = await useCase.execute();
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('cart_id', cart.id ?? 0);
+        final cartId = cart.id;
+        if (_hasValidCartId(cartId)) {
+          await prefs.setString('cart_id', cartId!);
+        }
         print("cart id is ${cart.id}");
         emit(GetCartLoaded(cart));
-
       } catch (e) {
         emit(GetCartError(e.toString()));
       }
     }
+  }
+
+  bool _hasValidCartId(String? id) {
+    final normalized = id?.trim();
+    return normalized != null &&
+        normalized.isNotEmpty &&
+        normalized != '0' &&
+        normalized.toLowerCase() != 'null';
   }
 }

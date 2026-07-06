@@ -33,8 +33,6 @@ import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cub
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestMenuByRestaurantId/guestMenuByRestaurantId_cubit.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_cubit.dart';
 import 'package:local_basket/presentation/screen/authentication/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -58,9 +56,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -78,9 +74,12 @@ void main() async {
   // FIX: checkConnectivity() can return a List in newer connectivity_plus versions.
   // Using contains() to safely check for connectivity in both v2 and v3+.
   final connectivityResults = await Connectivity().checkConnectivity();
-  final hasInternet = connectivityResults is List
-      ? !(connectivityResults as List).every((r) => r == ConnectivityResult.none)
-      : connectivityResults != ConnectivityResult.none;
+  final hasInternet =
+      connectivityResults is List
+          ? !(connectivityResults as List).every(
+            (r) => r == ConnectivityResult.none,
+          )
+          : connectivityResults != ConnectivityResult.none;
 
   if (!hasInternet) {
     debugPrint("No Internet");
@@ -127,8 +126,6 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<UpdateCurrentCustomerCubit>()),
         BlocProvider(create: (_) => di.sl<DefaultAddressCubit>()),
         BlocProvider(create: (_) => di.sl<AddressSavetoCartCubit>()),
-        BlocProvider(create: (_) => di.sl<GuestNearByRestaurantsCubit>()),
-        BlocProvider(create: (_) => di.sl<GuestMenuByRestaurantIdCubit>()),
         BlocProvider(create: (_) => di.sl<DeleteAccountCubit>()),
         BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
         BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
@@ -146,8 +143,9 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
           useMaterial3: true,
         ),
-        builder: (context, child) =>
-            GlobalRatingListener(child: child ?? const SizedBox()),
+        builder:
+            (context, child) =>
+                GlobalRatingListener(child: child ?? const SizedBox()),
         home: const SplashScreen(),
       ),
     );

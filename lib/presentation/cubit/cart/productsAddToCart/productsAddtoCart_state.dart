@@ -7,7 +7,7 @@ class ProductsAddToCartInitial extends ProductsAddToCartState {}
 class ProductsAddToCartLoading extends ProductsAddToCartState {}
 
 class ProductsAddToCartSuccess extends ProductsAddToCartState {
-  final List<ProductsAddToCartModel> cartModel;
+  final ProductsAddToCartModel cartModel;
 
   ProductsAddToCartSuccess(this.cartModel);
 }

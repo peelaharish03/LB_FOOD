@@ -33,18 +33,18 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _checkOrders());
   }
 
-  // FIX: Made async to check login state before firing the API call.
-  // Previously this ran every 60 seconds for ALL users — including guests —
-  // generating 401 errors on every tick until the user logged in.
+  // FIX: Check login state before firing the API call.
+  // This avoids 401 errors before the user logs in.
   Future<void> _checkOrders() async {
     if (!mounted) return;
 
-    // FIX: Only poll order history when the user is actually logged in.
-    // This prevents unnecessary 401 API calls for guest/unauthenticated users.
+    // Only poll order history when the user is actually logged in.
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'TOKEN') ?? '';
     if (token.isEmpty) {
-      debugPrint('[GlobalRatingListener] Skipping order check — user not logged in');
+      debugPrint(
+        '[GlobalRatingListener] Skipping order check — user not logged in',
+      );
       return;
     }
 
@@ -81,11 +81,15 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
       listener: (context, state) {
         if (state is OrderHistoryLoaded) {
           final orders = state.orders.data?.content ?? [];
-          final delivered = orders
-              .where((o) => (o.orderStatus ?? '').toUpperCase() == 'DELIVERED')
-              .length;
+          final delivered =
+              orders
+                  .where(
+                    (o) => (o.orderStatus ?? '').toUpperCase() == 'DELIVERED',
+                  )
+                  .length;
           debugPrint(
-              '[GlobalRatingListener] Orders loaded: ${orders.length}, delivered: $delivered');
+            '[GlobalRatingListener] Orders loaded: ${orders.length}, delivered: $delivered',
+          );
           RatingService().checkAndShowRatingPopup(
             context: context,
             orders: orders,

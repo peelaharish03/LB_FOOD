@@ -4,7 +4,8 @@ import 'package:local_basket/data/model/restaurants/getRestaurantsByProductName/
 
 abstract class GetRestaurantsByProductNameRemoteDataSource {
   Future<GetRestaurantsByProductNameModel> getRestaurantsByProductName(
-      Map<String, dynamic> params);
+    Map<String, dynamic> params,
+  );
 }
 
 class GetRestaurantsByProductNameRemoteDataSourceImpl
@@ -15,16 +16,17 @@ class GetRestaurantsByProductNameRemoteDataSourceImpl
 
   @override
   Future<GetRestaurantsByProductNameModel> getRestaurantsByProductName(
-      Map<String, dynamic> params) async {
+    Map<String, dynamic> params,
+  ) async {
     try {
-      final String productName = params['productName'];
-      final double latitude = params['latitude'];
-      final double longitude = params['longitude'];
-      final String postalCode = params['postalCode'];
-      final int page = params['page'];
-      final int size = params['size'];
+      final String productName = params['productName'] ?? '';
+      final double latitude = (params['latitude'] as num).toDouble();
+      final double longitude = (params['longitude'] as num).toDouble();
+      final double radius = ((params['radius'] ?? 5) as num).toDouble();
+      final int page = params['page'] ?? 0;
+      final int size = params['size'] ?? 20;
       final url =
-          '$baseUrl${getRestaurantsByProductNameUrl(productName,latitude, longitude, postalCode, page, size)}';
+          '$baseUrl2${getRestaurantsByProductNameUrl(productName, latitude, longitude, radius, page, size)}';
 
       final response = await client.request(
         url,
@@ -36,11 +38,13 @@ class GetRestaurantsByProductNameRemoteDataSourceImpl
         return GetRestaurantsByProductNameModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed to load GetRestaurantsByProductName data: ${response.statusCode}');
+          'Failed to load GetRestaurantsByProductName data: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception(
-          'Failed to load GetRestaurantsByProductName data: ${e.toString()}');
+        'Failed to load GetRestaurantsByProductName data: ${e.toString()}',
+      );
     }
   }
 }

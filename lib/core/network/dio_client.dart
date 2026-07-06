@@ -29,78 +29,96 @@ class DioClient {
         'Accept': 'application/json',
       };
 
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // FIX: Read token from secure storage (encrypted) instead of SharedPreferences (plaintext)
-        final token = await secureStorage.read(key: 'TOKEN');
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final requiresAuth = options.extra['requiresAuth'] != false;
 
-        options.headers["Authorization"] = "Bearer $token";
+          if (requiresAuth) {
+            // FIX: Read token from secure storage (encrypted) instead of SharedPreferences (plaintext)
+            final token = await secureStorage.read(key: 'TOKEN');
 
-        log('REQUEST[${options.method}] => PATH: ${options.path} '
-            '=> Request Values: ${options.queryParameters}');
-        return handler.next(options);
-      },
-      onResponse: (response, handler) {
-        log('RESPONSE[${response.statusCode}] => DATA: ${response.data}');
-        return handler.next(response);
-      },
-      onError: (DioException error, handler) async {
-        final statusCode = error.response?.statusCode;
-        final data = error.response?.data;
-        String errorMessage = 'Unknown error occurred';
-        if (data is Map && data['message'] != null) {
-          errorMessage = data['message'].toString();
-        } else if (data is String) {
-          errorMessage = data;
-        } else if (data != null) {
-          errorMessage = data.toString();
-        }
+            if (token != null && token.isNotEmpty) {
+              options.headers["Authorization"] = "Bearer $token";
+            } else {
+              options.headers.remove("Authorization");
+            }
+          } else {
+            options.headers.remove("Authorization");
+          }
 
-        log('ERROR[$statusCode] => MESSAGE: $errorMessage');
+          log(
+            'REQUEST[${options.method}] => PATH: ${options.path} '
+            '=> Request Values: ${options.queryParameters}',
+          );
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          log('RESPONSE[${response.statusCode}] => DATA: ${response.data}');
+          return handler.next(response);
+        },
+        onError: (DioException error, handler) async {
+          final statusCode = error.response?.statusCode;
+          final data = error.response?.data;
+          String errorMessage = 'Unknown error occurred';
+          if (data is Map && data['message'] != null) {
+            errorMessage = data['message'].toString();
+          } else if (data is String) {
+            errorMessage = data;
+          } else if (data != null) {
+            errorMessage = data.toString();
+          }
 
-        // Prevent infinite loop if refresh token request itself fails
-        final isRefreshingToken =
-            error.requestOptions.path.contains('auth/refreshToken');
+          log('ERROR[$statusCode] => MESSAGE: $errorMessage');
 
-        if (statusCode == 401 && !isRefreshingToken) {
-          // FIX: Read refresh token from secure storage
-          final refreshToken = await secureStorage.read(key: 'REFRESH_TOKEN');
+          // Prevent infinite loop if refresh token request itself fails
+          final isRefreshingToken = error.requestOptions.path.contains(
+            'auth/refreshToken',
+          );
 
-          if (refreshToken != null) {
-            try {
-              final refreshResponse = await dio.post(
-                '${baseUrl2}auth/refreshToken',
-                data: {
-                  'refreshToken': refreshToken,
-                },
-              );
+          if (statusCode == 401 &&
+              !isRefreshingToken &&
+              error.requestOptions.extra['requiresAuth'] != false) {
+            // FIX: Read refresh token from secure storage
+            final refreshToken = await secureStorage.read(key: 'REFRESH_TOKEN');
 
-              final newToken = refreshResponse.data['token'];
-              final newRefreshToken = refreshResponse.data['refreshToken'];
+            if (refreshToken != null) {
+              try {
+                final refreshResponse = await dio.post(
+                  '$baseUrl2/auth/refreshToken',
+                  options: Options(extra: {'requiresAuth': false}),
+                  data: {'refreshToken': refreshToken},
+                );
 
-              // FIX: Write refreshed tokens to secure storage
-              await secureStorage.write(key: 'TOKEN', value: newToken);
-              await secureStorage.write(
-                  key: 'REFRESH_TOKEN', value: newRefreshToken);
+                final newToken = refreshResponse.data['accessToken'];
+                final newRefreshToken = refreshResponse.data['refreshToken'];
 
-              final RequestOptions requestOptions = error.requestOptions;
-              requestOptions.headers["Authorization"] = "Bearer $newToken";
+                // FIX: Write refreshed tokens to secure storage
+                await secureStorage.write(key: 'TOKEN', value: newToken);
+                await secureStorage.write(
+                  key: 'REFRESH_TOKEN',
+                  value: newRefreshToken,
+                );
 
-              final response = await dio.fetch(requestOptions);
-              return handler.resolve(response);
-            } catch (e) {
-              log('Token refresh failed: $e');
-              // FIX: Clear tokens from secure storage on refresh failure
-              await secureStorage.delete(key: 'TOKEN');
-              await secureStorage.delete(key: 'REFRESH_TOKEN');
-              return handler.reject(error);
+                final RequestOptions requestOptions = error.requestOptions;
+                requestOptions.headers["Authorization"] = "Bearer $newToken";
+
+                final response = await dio.fetch(requestOptions);
+                return handler.resolve(response);
+              } catch (e) {
+                log('Token refresh failed: $e');
+                // FIX: Clear tokens from secure storage on refresh failure
+                await secureStorage.delete(key: 'TOKEN');
+                await secureStorage.delete(key: 'REFRESH_TOKEN');
+                return handler.reject(error);
+              }
             }
           }
-        }
 
-        return handler.next(error);
-      },
-    ));
+          return handler.next(error);
+        },
+      ),
+    );
   }
 
   Future<Response> request(

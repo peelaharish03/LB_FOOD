@@ -7,13 +7,11 @@ class LocationHeader extends StatefulWidget {
   final double? latitude;
   final double? longitude;
   final VoidCallback onLocationChanged;
-  final bool isGuest;
 
   const LocationHeader({
     this.latitude,
     this.longitude,
     required this.onLocationChanged,
-    this.isGuest = false,
     super.key,
   });
 
@@ -169,9 +167,6 @@ class _LocationHeaderState extends State<LocationHeader>
     });
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -179,39 +174,40 @@ class _LocationHeaderState extends State<LocationHeader>
         const Icon(Icons.location_pin, color: Colors.white, size: 24),
         const SizedBox(width: 10),
         Expanded(
-          child: _isLoading && !_hasTriedFetchingLocation
-              ? _buildShimmer()
-              : GestureDetector(
-                  onTap: () {
-                    if (widget.latitude != null && widget.longitude != null) {
-                      _getAddress(widget.latitude!, widget.longitude!);
-                    }
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _city,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+          child:
+              _isLoading && !_hasTriedFetchingLocation
+                  ? _buildShimmer()
+                  : GestureDetector(
+                    onTap: () {
+                      if (widget.latitude != null && widget.longitude != null) {
+                        _getAddress(widget.latitude!, widget.longitude!);
+                      }
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _city,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _area,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white70,
+                        const SizedBox(height: 2),
+                        Text(
+                          _area,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white70,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
         ),
       ],
     );

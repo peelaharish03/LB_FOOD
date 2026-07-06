@@ -75,18 +75,25 @@ class _AddressScreenState extends State<AddressScreen>
       return;
     }
     final payload = {
-      "addressLine1": houseController.text.trim(),
-      "addressLine2": landmarkController.text.trim(),
-      "street": streetController.text.trim(),
-      "city": cityController.text.trim(),
-      "state": stateController.text.trim(),
-      "country": countryController.text.trim(),
-      "latitude": _selectedLatLng?.latitude ?? 0.0,
-      "longitude": _selectedLatLng?.longitude ?? 0.0,
-      "postalCode": pincodeController.text.trim(),
-      "name": nameController.text.trim(),
-      "phone": phoneController.text.trim(),
-    };
+    "addressLine1": houseController.text.trim() + landmarkController.text.trim() + streetController.text.trim(),
+    "cityId": "629ea4fa-d5a8-4226-8f73-9af84e47ed83",
+    "stateId": "b202962e-e7ee-43e5-adce-4de972c4f3ba",
+    "country": "IN",
+    "postalCode": pincodeController.text.trim()
+};
+    // {
+    //   "addressLine1": houseController.text.trim(),
+    //   "addressLine2": landmarkController.text.trim(),
+    //   "street": streetController.text.trim(),
+    //   "city": cityController.text.trim(),
+    //   "state": stateController.text.trim(),
+    //   "country": countryController.text.trim(),
+    //   "latitude": _selectedLatLng?.latitude ?? 0.0,
+    //   "longitude": _selectedLatLng?.longitude ?? 0.0,
+    //   "postalCode": pincodeController.text.trim(),
+    //   "name": nameController.text.trim(),
+    //   "phone": phoneController.text.trim(),
+    // };
     context.read<SaveAddressCubit>().saveAddress(payload, context);
   }
 

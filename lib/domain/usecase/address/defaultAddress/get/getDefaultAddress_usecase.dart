@@ -6,7 +6,7 @@ class AddressSavetoCartUseCase {
 
   AddressSavetoCartUseCase({required this.repository});
 
-  Future<AddressSavetoCartModel> call(int addressId) {
+  Future<AddressSavetoCartModel> call(String addressId) {
     return repository.addressSavetoCart(addressId);
   }
 }

@@ -1,5 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
+import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
+import 'package:local_basket/data/model/payment/checkout_model.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
@@ -9,7 +10,6 @@ import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dar
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_basket/core/constants/colors.dart';
@@ -21,10 +21,12 @@ import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cu
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_state.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
+import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
+import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
 // FIX: Import Razorpay keys from api_constants instead of hardcoding them here.
 import 'package:local_basket/core/constants/api_constants.dart';
 
@@ -62,12 +64,11 @@ class _CartScreenState extends State<CartScreen> {
 
   final Map<String, int> cart = {};
   final List<Map<String, dynamic>> selectedItems = [];
-  int? cartId;
+  String? cartId;
+  String? _pendingCheckoutOrderId;
   bool loading = false;
   String selectedAddress = "Add Address";
   bool selfOrder = false;
-
-  bool? _hasAnySavedAddress;
 
   double _subtotal = 0.0;
   double _gstAmount = 0.0;
@@ -78,10 +79,11 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay()
-      ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess)
-      ..on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentFailure)
-      ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+    _razorpay =
+        Razorpay()
+          ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess)
+          ..on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentFailure)
+          ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
 
     context.read<GetCartCubit>().fetchCart(context);
     _loadSavedAddress();
@@ -102,47 +104,61 @@ class _CartScreenState extends State<CartScreen> {
 
   // Refresh checkout from API
   void _refreshCheckout() {
-    if (_hasAnySavedAddress == false) return;
-    if (selectedAddress == "Add Address") return;
-    if (selectedItems.isNotEmpty) {
-      context.read<CheckoutCubit>().fetchCheckout();
+    if (!mounted) return;
+    if (selectedItems.isEmpty) {
+      setState(() {
+        _subtotal = 0;
+        _gstAmount = 0;
+        _deliveryCharge = 0;
+        _grandTotal = 0;
+      });
     }
   }
 
   void _onPaymentSuccess(PaymentSuccessResponse response) async {
     final payload = {
-      "cartId": cartId ?? 0,
+      "orderId": _pendingCheckoutOrderId,
+      "cartId": cartId ?? "",
       "amount": _grandTotal,
       "paymentId": response.paymentId,
       "razorpayOrderId": response.orderId,
       "razorpaySignature": response.signature,
-      "status": "SUCCESS"
+      "status": "SUCCESS",
     };
     setState(() => loading = true);
     await context.read<PaymentCubit>().makePayment(
-          context: context,
-          paymentType: 'ONLINE',
-          paymentPayload: payload,
-        );
+      context: context,
+      paymentType: 'ONLINE',
+      paymentPayload: payload,
+    );
     setState(() => loading = false);
   }
 
   void _onPaymentFailure(_) {
     CustomSnackbars.showErrorSnack(
-        context: context, title: 'Failed', message: 'Payment failed');
+      context: context,
+      title: 'Failed',
+      message: 'Payment failed',
+    );
     setState(() => loading = false);
   }
 
   void _onExternalWallet(_) {
     CustomSnackbars.showInfoSnack(
-        context: context, title: 'Info', message: 'Check payment status later');
+      context: context,
+      title: 'Info',
+      message: 'Check payment status later',
+    );
     setState(() => loading = false);
   }
 
   Future<void> _loadSavedAddress() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() =>
-        selectedAddress = prefs.getString('delivery_address') ?? "Add Address");
+    setState(
+      () =>
+          selectedAddress =
+              prefs.getString('delivery_address') ?? "Add Address",
+    );
   }
 
   Future<void> _clearSavedAddress() async {
@@ -203,24 +219,207 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  void _syncCartFromGetCart(GetCartModel loadedCart) {
+    cart.clear();
+    selectedItems.clear();
+
+    for (final cartItem in loadedCart.cartItems) {
+      final quantity = cartItem.quantity ?? 0;
+      final name =
+          (cartItem.productName ?? cartItem.productCode ?? '')
+              .toString()
+              .trim();
+
+      if (name.isEmpty || quantity <= 0) continue;
+
+      final productId = cartItem.productId?.toString();
+      final unitPrice =
+          cartItem.unitPrice ??
+          cartItem.price ??
+          (quantity > 0 && cartItem.totalPrice != null
+              ? cartItem.totalPrice! / quantity
+              : cartItem.totalPrice) ??
+          0;
+
+      cart[name] = quantity;
+      selectedItems.add({
+        'id': productId,
+        'cartItemId': cartItem.id,
+        'productId': productId,
+        'productCode': cartItem.productCode,
+        'name': name,
+        'quantity': quantity,
+        'price': unitPrice,
+        'unitPrice': cartItem.unitPrice,
+        'totalPrice': cartItem.totalPrice,
+        'discountPrice': cartItem.discountPrice,
+        'taxAmount': cartItem.taxAmount,
+        'media': cartItem.media.map((media) => media.toJson()).toList(),
+      });
+    }
+
+    _subtotal = (loadedCart.subTotal ?? 0).toDouble();
+    _gstAmount = (loadedCart.totalTax ?? 0).toDouble();
+    _grandTotal = (loadedCart.grandTotal ?? 0).toDouble();
+  }
+
+  Future<String?> _ensureCartId() async {
+    final currentCartId = cartId;
+    if (_hasValidCartId(currentCartId)) {
+      return currentCartId;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final storedCartId = prefs.get('cart_id')?.toString();
+    if (_hasValidCartId(storedCartId)) {
+      if (mounted) setState(() => cartId = storedCartId);
+      return storedCartId;
+    }
+
+    final cartState = context.read<GetCartCubit>().state;
+    if (cartState is GetCartLoaded) {
+      final loadedCartId = cartState.cart.id;
+      if (_hasValidCartId(loadedCartId)) {
+        if (mounted) setState(() => cartId = loadedCartId);
+        return loadedCartId;
+      }
+    }
+
+    await context.read<GetCartCubit>().fetchCart(context);
+    final refreshedCartState = context.read<GetCartCubit>().state;
+    if (refreshedCartState is GetCartLoaded) {
+      final refreshedCartId = refreshedCartState.cart.id;
+      if (_hasValidCartId(refreshedCartId)) {
+        if (mounted) setState(() => cartId = refreshedCartId);
+        return refreshedCartId;
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasValidCartId(String? id) {
+    final normalized = id?.trim();
+    return normalized != null &&
+        normalized.isNotEmpty &&
+        normalized != '0' &&
+        normalized.toLowerCase() != 'null';
+  }
+
+  String? _productIdForPayload(Map<String, dynamic> item) {
+    final productId = (item['productId'] ?? item['id'])?.toString();
+    if (productId == null || productId.isEmpty || productId == '0') {
+      return null;
+    }
+    return productId;
+  }
+
+  Map<String, dynamic>? _singleItemCartPayload(
+    Map<String, dynamic> item,
+    int quantity,
+  ) {
+    final productId = _productIdForPayload(item);
+    if (productId == null) return null;
+    return {"productId": productId, "quantity": quantity};
+  }
+
+  String? _cartItemIdFromState(dynamic productId) {
+    final cartState = context.read<GetCartCubit>().state;
+    if (cartState is! GetCartLoaded) return null;
+
+    for (final cartItem in cartState.cart.cartItems) {
+      if (cartItem.productId?.toString() == productId?.toString()) {
+        return cartItem.id;
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _cartItemIdForProduct(Map<String, dynamic> item) async {
+    final existingItemId =
+        (item['cartItemId'] ?? item['cartItemID'] ?? item['lineItemId'])
+            ?.toString();
+    if (_hasValidCartId(existingItemId)) return existingItemId;
+
+    final productId = item['productId'] ?? item['id'];
+    var cartItemId = _cartItemIdFromState(productId);
+    if (_hasValidCartId(cartItemId)) return cartItemId;
+
+    await context.read<GetCartCubit>().fetchCart(context);
+    cartItemId = _cartItemIdFromState(productId);
+    return _hasValidCartId(cartItemId) ? cartItemId : null;
+  }
+
+  Future<void> _updateExistingCartItemQuantity(
+    String activeCartId,
+    Map<String, dynamic> item,
+    int quantity,
+  ) async {
+    final cartItemId = await _cartItemIdForProduct(item);
+    if (!_hasValidCartId(cartItemId)) {
+      debugPrint('Cart item id unavailable. Skipping cart item update.');
+      return;
+    }
+
+    await context.read<UpdateCartItemsCubit>().updateCartItem(
+      {"quantity": quantity},
+      activeCartId,
+      cartItemId!,
+      context,
+    );
+  }
+
   int getCartItemCount() => cart.values.fold(0, (sum, q) => sum + q);
 
-  Future<Map<String, dynamic>> _createOrder(int amount) async {
-    // FIX: razorPayKey and razorPaySecret now come from api_constants.dart
-    final auth =
-        'Basic ${base64Encode(utf8.encode('$razorPayKey:$razorPaySecret'))}';
-    final headers = {'content-type': 'application/json', 'Authorization': auth};
-    final data = {"amount": amount, "currency": "INR", "receipt": "rcptid_11"};
-    final request =
-        http.Request('POST', Uri.parse('https://api.razorpay.com/v1/orders'))
-          ..body = json.encode(data)
-          ..headers.addAll(headers);
-    final response = await request.send();
-    final body = jsonDecode(await response.stream.bytesToString());
-    return {
-      "status": response.statusCode == 200 ? "success" : "fail",
-      "body": body
+  Future<CheckoutModel?> _submitCartCheckout(String paymentMethod) async {
+    final activeCartId = await _ensureCartId();
+    if (!mounted) return null;
+
+    if (!_hasValidCartId(activeCartId)) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: 'ERROR',
+        message: 'Cart id not found',
+      );
+      return null;
+    }
+
+    final payload = {
+      "cartId": activeCartId,
+      "shippingMethod": "STANDARD",
+      "paymentMethod": paymentMethod,
     };
+
+    setState(() => loading = true);
+    final checkout = await context.read<CheckoutCubit>().fetchCheckout(payload);
+    if (mounted) setState(() => loading = false);
+
+    if (checkout != null) {
+      _pendingCheckoutOrderId = checkout.orderId;
+    }
+
+    return checkout;
+  }
+
+  Future<void> _completeCheckoutOrder(CheckoutModel checkout) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('offer_applied');
+    await prefs.remove('is_offer_flow');
+    await prefs.remove('offer_id');
+    await prefs.remove('offer_coupon');
+    await prefs.remove('offer_started_at');
+
+    if (!mounted) return;
+
+    CustomSnackbars.showSuccessSnack(
+      context: context,
+      title: 'Success',
+      message: 'Order placed successfully',
+    );
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
+    );
   }
 
   Future<void> openCheckOut() async {
@@ -239,15 +438,19 @@ class _CartScreenState extends State<CartScreen> {
       builder: (context) {
         return Dialog(
           backgroundColor: AppColor.White,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.payment_rounded,
-                    color: Colors.orange, size: 60),
+                const Icon(
+                  Icons.payment_rounded,
+                  color: Colors.orange,
+                  size: 60,
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   "Select Payment Method",
@@ -259,8 +462,10 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 const SizedBox(height: 20),
                 ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_outlined,
-                      color: Colors.green),
+                  leading: const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Colors.green,
+                  ),
                   title: const Text("Pay Online"),
                   onTap: () => Navigator.pop(context, "ONLINE"),
                 ),
@@ -301,8 +506,11 @@ class _CartScreenState extends State<CartScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange, size: 60),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 60,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     "Confirm COD Order",
@@ -350,22 +558,10 @@ class _CartScreenState extends State<CartScreen> {
       );
 
       if (confirmCOD == true) {
-        final payload = {
-          "cartId": cartId ?? 0,
-          "amount": _grandTotal,
-          "paymentId": null,
-          "razorpayOrderId": null,
-          "razorpaySignature": null,
-          "status": "COD"
-        };
-
-        setState(() => loading = true);
-        await context.read<PaymentCubit>().makePayment(
-              context: context,
-              paymentType: 'CASH',
-              paymentPayload: payload,
-            );
-        setState(() => loading = false);
+        final checkout = await _submitCartCheckout("COD");
+        if (checkout != null) {
+          await _completeCheckoutOrder(checkout);
+        }
       }
       return;
     }
@@ -384,8 +580,11 @@ class _CartScreenState extends State<CartScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: Colors.orange, size: 60),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 60,
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   "Before You Proceed",
@@ -440,26 +639,20 @@ class _CartScreenState extends State<CartScreen> {
 
     if (proceed != true) return;
 
-    final amountInPaise = (_grandTotal * 100).toInt();
-    final orderResp = await _createOrder(amountInPaise);
-    if (orderResp["status"] != "success") {
+    final checkout = await _submitCartCheckout("ONLINE");
+    if (checkout == null) return;
+
+    final razorpayOrderId = checkout.razorpayOrderId;
+    if (!_hasValidCartId(razorpayOrderId)) {
       CustomSnackbars.showErrorSnack(
         context: context,
         title: 'ERROR',
-        message: 'Payment gateway error',
+        message: 'Payment order id not received',
       );
       return;
     }
 
-    final orderId = orderResp['body']?['id']?.toString();
-    if (orderId == null || orderId.isEmpty) {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: 'ERROR',
-        message: 'Invalid order id',
-      );
-      return;
-    }
+    final amountInPaise = ((checkout.totalAmount ?? _grandTotal) * 100).toInt();
 
     try {
       if (!mounted) return;
@@ -467,25 +660,22 @@ class _CartScreenState extends State<CartScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
           _razorpay.open({
-            'key': razorPayKey,
+            'key': checkout.razorpayKeyId ?? razorPayKey,
             'amount': amountInPaise,
             'name': 'Local Basket',
-            'order_id': orderId,
+            'order_id': razorpayOrderId,
             'description': 'Cart Payment',
             // FIX: Removed hardcoded developer contact/email from prefill.
             // These were pre-filling the developer's personal details for ALL users.
             // TODO: Populate from the logged-in user's profile if needed.
-            'prefill': {
-              'contact': '',
-              'email': '',
-            },
+            'prefill': {'contact': '', 'email': ''},
             'method': {
               'card': false,
               'netbanking': true,
               'upi': true,
               'wallet': true,
             },
-            'theme': {'color': '#081724'}
+            'theme': {'color': '#081724'},
           });
         } catch (e) {
           if (!mounted) return;
@@ -514,9 +704,10 @@ class _CartScreenState extends State<CartScreen> {
             if (state is ProductsAddToCartFailure) {
               if ((state.message).isNotEmpty) {
                 CustomSnackbars.showErrorSnack(
-                    context: context,
-                    title: "Failed",
-                    message: "Something went wrong");
+                  context: context,
+                  title: "Failed",
+                  message: "Something went wrong",
+                );
               }
               setState(() => loading = false);
             } else if (state is ProductsAddToCartSuccess) {
@@ -532,6 +723,7 @@ class _CartScreenState extends State<CartScreen> {
                 cartId = state.cart.id;
                 notesController.text = state.cart.notes ?? "";
                 selfOrder = false;
+                _syncCartFromGetCart(state.cart);
               });
               _maybeAutoValidateOffer();
               _refreshCheckout();
@@ -558,16 +750,13 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<GetAddressCubit, GetAddressState>(
           listener: (context, state) {
             if (state is GetAddressSuccess) {
-              final addresses = state.addressModel.data?.content ?? [];
+              final addresses = state.addressModel.content;
               final hasAny = addresses.isNotEmpty;
-              _hasAnySavedAddress = hasAny;
               if (!hasAny) {
                 _clearSavedAddress();
                 return;
               }
               _refreshCheckout();
-            } else if (state is GetAddressFailure) {
-              _hasAnySavedAddress = null;
             }
           },
         ),
@@ -600,7 +789,8 @@ class _CartScreenState extends State<CartScreen> {
               final res = state.validateOfferModel;
 
               final isSuccess = (res.status ?? '').toUpperCase() == 'SUCCESS';
-              final saysTrue = (res.data ?? '').toLowerCase() == 'true' ||
+              final saysTrue =
+                  (res.data ?? '').toLowerCase() == 'true' ||
                   (res.message ?? '').toLowerCase() == 'true';
 
               if (isSuccess && saysTrue) {
@@ -679,9 +869,7 @@ class _CartScreenState extends State<CartScreen> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => const DashboardScreen(isGuest: false),
-                  ),
+                  MaterialPageRoute(builder: (_) => const DashboardScreen()),
                   (route) => false,
                 );
               });
@@ -705,7 +893,7 @@ class _CartScreenState extends State<CartScreen> {
             await prefs.remove('offer_started_at');
           }();
 
-          final updatedCart = <int, int>{};
+          final updatedCart = <dynamic, int>{};
           for (var item in selectedItems) {
             final productId = item['productId'] ?? item['id'];
             final qty = cart[item['name']] ?? 0;
@@ -714,7 +902,7 @@ class _CartScreenState extends State<CartScreen> {
 
           Navigator.pop(context, {
             'updatedCart': updatedCart,
-            'cartItemsLength': getCartItemCount()
+            'cartItemsLength': getCartItemCount(),
           });
           return false;
         },
@@ -730,7 +918,7 @@ class _CartScreenState extends State<CartScreen> {
                 await prefs.remove('offer_coupon');
                 await prefs.remove('offer_started_at');
               }();
-              final updatedCart = <int, int>{};
+              final updatedCart = <dynamic, int>{};
               for (var item in selectedItems) {
                 final productId = item['productId'] ?? item['id'];
                 final qty = cart[item['name']] ?? 0;
@@ -739,7 +927,7 @@ class _CartScreenState extends State<CartScreen> {
 
               Navigator.pop(context, {
                 'updatedCart': updatedCart,
-                'cartItemsLength': getCartItemCount()
+                'cartItemsLength': getCartItemCount(),
               });
 
               widget.onBottomSheetVisibilityChanged?.call(cart.isNotEmpty);
@@ -758,83 +946,47 @@ class _CartScreenState extends State<CartScreen> {
                   if (address != null) {
                     await _saveAddress(address);
                     setState(() => selectedAddress = address);
-
-                    final itemsPayload = selectedItems.map((item) {
-                      final name = item['name'];
-                      final quantity = cart[name] ?? 1;
-                      return {
-                        "productId": item['productId'] ?? item['id'],
-                        "quantity": quantity,
-                        "price": item['price'] ?? 0,
-                      };
-                    }).toList();
-
-                    final payload = {
-                      "notes": notesController.text.trim(),
-                      "selfOrder": false,
-                      "isOffer": _isCouponApplied,
-                      "items": itemsPayload,
-                    };
-
-                    await context
-                        .read<ProductsAddToCartCubit>()
-                        .addToCart(payload);
-
                     _refreshCheckout();
                   }
                 },
               ),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: InkWell(
                   onTap: () async {
                     final newNote = await showDialog<String>(
                       context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text("📝 Add Notes"),
-                        content: TextField(
-                          controller: notesController,
-                          decoration: const InputDecoration(
-                            hintText: "e.g. Deliver between 5–6 PM",
+                      builder:
+                          (context) => AlertDialog(
+                            title: const Text("📝 Add Notes"),
+                            content: TextField(
+                              controller: notesController,
+                              decoration: const InputDecoration(
+                                hintText: "e.g. Deliver between 5–6 PM",
+                              ),
+                              maxLines: 3,
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text("Cancel"),
+                              ),
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.pop(
+                                      context,
+                                      notesController.text.trim(),
+                                    ),
+                                child: const Text("OK"),
+                              ),
+                            ],
                           ),
-                          maxLines: 3,
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(
-                                context, notesController.text.trim()),
-                            child: const Text("OK"),
-                          ),
-                        ],
-                      ),
                     );
                     if (newNote != null) {
                       setState(() => notesController.text = newNote);
-
-                      final List<Map<String, dynamic>> itemsPayload =
-                          selectedItems.map((item) {
-                        final name = item['name'];
-                        final quantity = cart[name] ?? 1;
-                        return {
-                          "productId": item['productId'] ?? item['id'],
-                          "quantity": quantity,
-                          "price": item['price'] ?? 0,
-                        };
-                      }).toList();
-
-                      final Map<String, dynamic> payload = {
-                        "notes": notesController.text.trim(),
-                        "selfOrder": false,
-                        "isOffer": _isCouponApplied,
-                        "items": itemsPayload,
-                      };
-
-                      context.read<ProductsAddToCartCubit>().addToCart(payload);
                     }
                   },
                   child: Container(
@@ -847,7 +999,7 @@ class _CartScreenState extends State<CartScreen> {
                           color: Colors.black.withOpacity(0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ],
                     ),
                     child: Row(
@@ -860,12 +1012,14 @@ class _CartScreenState extends State<CartScreen> {
                                 ? "Add notes"
                                 : notesController.text,
                             style: TextStyle(
-                              color: notesController.text.isEmpty
-                                  ? Colors.grey
-                                  : Colors.black,
-                              fontStyle: notesController.text.isEmpty
-                                  ? FontStyle.italic
-                                  : FontStyle.normal,
+                              color:
+                                  notesController.text.isEmpty
+                                      ? Colors.grey
+                                      : Colors.black,
+                              fontStyle:
+                                  notesController.text.isEmpty
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
                             ),
                           ),
                         ),
@@ -876,126 +1030,147 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               Expanded(
-                child: selectedItems.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                "Your cart is empty",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                onPressed: () {
-                                  widget.onBottomSheetVisibilityChanged
-                                      ?.call(false);
-                                  Navigator.of(context).pop();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColor.PrimaryColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                child: const Text(
-                                  "Add items",
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 16),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: selectedItems.length + 1,
-                        itemBuilder: (ctx, i) {
-                          if (i < selectedItems.length) {
-                            final item = selectedItems[i];
-                            return CartItemCard(
-                              item: item,
-                              quantity: cart[item['name']] ?? 1,
-                              enableIncrement:
-                                  widget.orderId == null && !_isCouponApplied,
-                              onQuantityChanged: (q) async {
-                                final name = item['name'];
-                                if (name == null) return;
-
-                                if (q <= 0) {
-                                  setState(() {
-                                    cart.remove(name);
-                                    selectedItems.removeAt(i);
-                                  });
-                                } else {
-                                  setState(() {
-                                    cart[name] = q;
-                                  });
-                                }
-
-                                final List<Map<String, dynamic>> itemsPayload =
-                                    selectedItems.map((itm) {
-                                  final n = itm['name'];
-                                  final quantity = cart[n] ?? 1;
-                                  return {
-                                    "productId": itm['productId'] ?? itm['id'],
-                                    "quantity": quantity,
-                                    "price": itm['price'] ?? 0,
-                                  };
-                                }).toList();
-
-                                final Map<String, dynamic> payload = {
-                                  "notes": notesController.text.trim(),
-                                  "selfOrder": false,
-                                  "isOffer": _isCouponApplied,
-                                  "items": itemsPayload,
-                                };
-
-                                await context
-                                    .read<ProductsAddToCartCubit>()
-                                    .addToCart(payload, context: context);
-                                await context
-                                    .read<GetCartCubit>()
-                                    .fetchCart(context);
-                                _refreshCheckout();
-
-                                widget.onBottomSheetVisibilityChanged
-                                    ?.call(cart.isNotEmpty);
-                              },
-                            );
-                          }
-
-                          return Padding(
+                child:
+                    selectedItems.isEmpty
+                        ? Center(
+                          child: Padding(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 20, horizontal: 16),
-                            child: _checkoutLoading
-                                ? const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(20.0),
-                                      child: CupertinoActivityIndicator(),
-                                    ),
-                                  )
-                                : CheckoutBottomBar(
-                                    subtotal: _isCouponApplied ? 0 : _subtotal,
-                                    gst: _isCouponApplied ? 0 : _gstAmount,
-                                    deliveryCharge:
-                                        _isCouponApplied ? 0 : _deliveryCharge,
-                                    total: _isCouponApplied ? 1.0 : _grandTotal,
-                                    loading: loading,
-                                    onPlaceOrder: openCheckOut,
+                              horizontal: 24.0,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  "Your cart is empty",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                          );
-                        },
-                      ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    widget.onBottomSheetVisibilityChanged?.call(
+                                      false,
+                                    );
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColor.PrimaryColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "Add items",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        : ListView.builder(
+                          itemCount: selectedItems.length + 1,
+                          itemBuilder: (ctx, i) {
+                            if (i < selectedItems.length) {
+                              final item = selectedItems[i];
+                              final currentQuantity = cart[item['name']] ?? 1;
+                              return CartItemCard(
+                                item: item,
+                                quantity: currentQuantity,
+                                enableIncrement:
+                                    widget.orderId == null && !_isCouponApplied,
+                                onQuantityChanged: (q) async {
+                                  final name = item['name'];
+                                  if (name == null) return;
+
+                                  if (q == currentQuantity) return;
+
+                                  if (q <= 0) {
+                                    setState(() {
+                                      cart.remove(name);
+                                      selectedItems.removeAt(i);
+                                    });
+                                  } else {
+                                    setState(() {
+                                      cart[name] = q;
+                                    });
+                                  }
+
+                                  final activeCartId = await _ensureCartId();
+                                  if (!_hasValidCartId(activeCartId)) return;
+
+                                  if (currentQuantity <= 0 && q > 0) {
+                                    final payload = _singleItemCartPayload(
+                                      item,
+                                      1,
+                                    );
+                                    if (payload == null) return;
+                                    await context
+                                        .read<ProductsAddToCartCubit>()
+                                        .addToCart(
+                                          activeCartId,
+                                          payload,
+                                          context: context,
+                                        );
+                                  } else {
+                                    await _updateExistingCartItemQuantity(
+                                      activeCartId!,
+                                      item,
+                                      q,
+                                    );
+                                  }
+                                  await context.read<GetCartCubit>().fetchCart(
+                                    context,
+                                  );
+                                  _refreshCheckout();
+
+                                  widget.onBottomSheetVisibilityChanged?.call(
+                                    cart.isNotEmpty,
+                                  );
+                                },
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 20,
+                                horizontal: 16,
+                              ),
+                              child:
+                                  _checkoutLoading
+                                      ? const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(20.0),
+                                          child: CupertinoActivityIndicator(),
+                                        ),
+                                      )
+                                      : CheckoutBottomBar(
+                                        subtotal:
+                                            _isCouponApplied ? 0 : _subtotal,
+                                        gst: _isCouponApplied ? 0 : _gstAmount,
+                                        deliveryCharge:
+                                            _isCouponApplied
+                                                ? 0
+                                                : _deliveryCharge,
+                                        total:
+                                            _isCouponApplied
+                                                ? 1.0
+                                                : _grandTotal,
+                                        loading: loading,
+                                        onPlaceOrder: openCheckOut,
+                                      ),
+                            );
+                          },
+                        ),
               ),
             ],
           ),

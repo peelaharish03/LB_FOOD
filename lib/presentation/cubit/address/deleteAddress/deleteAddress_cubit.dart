@@ -8,9 +8,9 @@ class DeleteAddressCubit extends Cubit<DeleteAddressState> {
   final DeleteAddressUseCase usecase;
   final NetworkService networkService;
   DeleteAddressCubit(this.usecase, this.networkService)
-      : super(DeleteAddressInitial());
+    : super(DeleteAddressInitial());
 
-  Future<void> deleteAddress(int addressId, context) async {
+  Future<void> deleteAddress(String addressId, context) async {
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {

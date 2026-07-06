@@ -1,10 +1,6 @@
 import 'package:local_basket/core/constants/colors.dart';
-import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
-import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:flutter/material.dart';
-import 'package:local_basket/data/model/restaurants/guestMenuByRestaurantId/menu_content_model.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/data/model/restaurants/menu_content_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -16,8 +12,6 @@ class MenuItemWidget extends StatefulWidget {
   final dynamic restaurantId;
   final String? restaurantName;
   final Function(int) onQuantityChanged;
-  final bool isGuest;
-  final VoidCallback? onGuestAttempt;
 
   const MenuItemWidget({
     super.key,
@@ -26,8 +20,6 @@ class MenuItemWidget extends StatefulWidget {
     required this.onQuantityChanged,
     required this.restaurantId,
     this.restaurantName,
-    this.isGuest = false,
-    this.onGuestAttempt,
     this.isCouponFlow = false,
   });
 
@@ -46,6 +38,14 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
   void initState() {
     super.initState();
     quantity = widget.quantity;
+  }
+
+  @override
+  void didUpdateWidget(covariant MenuItemWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quantity != widget.quantity && quantity != widget.quantity) {
+      quantity = widget.quantity;
+    }
   }
 
   bool computeVisibility(Content item) {
@@ -116,49 +116,24 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
   void updateQuantity(int newQty) async {
     setState(() => quantity = newQty);
     widget.onQuantityChanged(newQty);
-
-    if (newQty == 0) {
-      final cartState = context.read<GetCartCubit>().state;
-      final cartData = cartState is GetCartLoaded ? cartState.cart : null;
-      final totalItems = cartData?.cartItems
-              .fold<int>(0, (sum, item) => sum + (item.quantity ?? 0)) ??
-          0;
-
-      if (totalItems <= 1) {
-        await context.read<ClearCartCubit>().clearCart(context);
-        await context.read<GetCartCubit>().fetchCart(context);
-      }
-    }
   }
 
-  void _handleAdd(cartData, String? cartBusinessId) async {
-    if (widget.isGuest) {
-      widget.onGuestAttempt?.call();
-      return;
-    }
+  void _handleAdd() {
+    updateQuantity(quantity + 1);
+  }
 
-    if (cartData != null &&
-        cartData.cartItems?.isNotEmpty == true &&
-        widget.restaurantId.toString() != cartBusinessId) {
-      final shouldReplace = await showReplaceCartDialog(
-        context: context,
-        currentRestaurant: cartData.businessName ?? '',
-        newRestaurant: widget.restaurantName ?? '',
-      );
-      if (shouldReplace != true) return;
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
 
-      try {
-        await context.read<ClearCartCubit>().clearCart(context);
-        await context.read<GetCartCubit>().fetchCart(context);
-        updateQuantity(1);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to clear cart: ${e.toString()}')),
-        );
-      }
-    } else {
-      updateQuantity(quantity + 1);
-    }
+  String _formatPrice(dynamic value) {
+    final price = _toDouble(value);
+    if (price == null) return '0';
+    if (price % 1 == 0) return price.toStringAsFixed(0);
+    return price.toStringAsFixed(2);
   }
 
   @override
@@ -172,23 +147,19 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
 
     final typeAttr = item.attributes.firstWhere(
       (attr) => attr.attributeName?.toLowerCase() == 'type',
-      orElse: () =>
-          Attribute(id: null, attributeName: null, attributeValue: null),
+      orElse:
+          () => Attribute(id: null, attributeName: null, attributeValue: null),
     );
     final isVeg = typeAttr.attributeValue?.toLowerCase() == 'veg';
 
     final onlinePriceAttr = item.attributes.firstWhere(
       (attr) => attr.attributeName?.toLowerCase() == 'onlineprice',
-      orElse: () =>
-          Attribute(id: null, attributeName: null, attributeValue: null),
+      orElse:
+          () => Attribute(id: null, attributeName: null, attributeValue: null),
     );
-    final priceText = onlinePriceAttr.attributeValue != null
-        ? "₹${onlinePriceAttr.attributeValue}"
-        : "₹${item.price ?? '0'}";
-
-    final cartState = context.watch<GetCartCubit>().state;
-    final cartData = cartState is GetCartLoaded ? cartState.cart : null;
-    final cartBusinessId = cartData?.businessId?.toString();
+    final priceValue =
+        _toDouble(onlinePriceAttr.attributeValue) ?? _toDouble(item.price);
+    final priceText = "₹${_formatPrice(priceValue)}";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -265,105 +236,113 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                       ),
                     ),
                   Align(
-                    alignment: mediaUrl == null
-                        ? Alignment.center
-                        : Alignment.bottomCenter,
+                    alignment:
+                        mediaUrl == null
+                            ? Alignment.center
+                            : Alignment.bottomCenter,
                     child: Padding(
-                      padding: mediaUrl != null
-                          ? const EdgeInsets.only(bottom: 8.0)
-                          : EdgeInsets.zero,
-                      child: isBeforeStartTime || !(item.available ?? true)
-                          ? Container(
-                              height: 36,
-                              alignment: Alignment.center,
-                              child: Text(
-                                comingSoonText ?? "Unavailable",
-                                style: GoogleFonts.poppins(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                      padding:
+                          mediaUrl != null
+                              ? const EdgeInsets.only(bottom: 8.0)
+                              : EdgeInsets.zero,
+                      child:
+                          isBeforeStartTime || !(item.available ?? true)
+                              ? Container(
+                                height: 36,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  comingSoonText ?? "Unavailable",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                            )
-                          : quantity == 0
+                              )
+                              : quantity == 0
                               ? ElevatedButton(
-                                  onPressed: () {
-                                    if (widget.isCouponFlow) {
-                                      // Coupon flow → force qty=1
-                                      updateQuantity(1);
-                                    } else {
-                                      _handleAdd(cartData, cartBusinessId);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    "ADD",
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: AppColor.White,
+                                onPressed: () {
+                                  if (widget.isCouponFlow) {
+                                    // Coupon flow → force qty=1
+                                    updateQuantity(1);
+                                  } else {
+                                    _handleAdd();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 6),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () {
-                                          if (quantity > 0) {
-                                            updateQuantity(quantity - 1);
-                                          }
-                                        },
-                                        child: const Icon(Icons.remove,
-                                            color: Colors.redAccent, size: 18),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12),
-                                        child: Text(
-                                          '$quantity',
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          print(
-                                              "><><<><<${widget.isCouponFlow}");
-                                          if (widget.isCouponFlow) {
-                                            // 🚫 disable increment beyond 1 in coupon flow
-                                            return;
-                                          }
-                                          _handleAdd(cartData, cartBusinessId);
-                                        },
-                                        child: Icon(
-                                          Icons.add,
-                                          color: widget.isCouponFlow
-                                              ? Colors
-                                                  .grey // greyed out in coupon flow
-                                              : AppColor.PrimaryColor,
-                                          size: 18,
-                                        ),
-                                      ),
-                                    ],
+                                ),
+                                child: Text(
+                                  "ADD",
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.green,
                                   ),
                                 ),
+                              )
+                              : Container(
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: AppColor.White,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () {
+                                        if (quantity > 0) {
+                                          updateQuantity(quantity - 1);
+                                        }
+                                      },
+                                      child: const Icon(
+                                        Icons.remove,
+                                        color: Colors.redAccent,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Text(
+                                        '$quantity',
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        print("><><<><<${widget.isCouponFlow}");
+                                        if (widget.isCouponFlow) {
+                                          // 🚫 disable increment beyond 1 in coupon flow
+                                          return;
+                                        }
+                                        _handleAdd();
+                                      },
+                                      child: Icon(
+                                        Icons.add,
+                                        color:
+                                            widget.isCouponFlow
+                                                ? Colors
+                                                    .grey // greyed out in coupon flow
+                                                : AppColor.PrimaryColor,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                     ),
                   ),
                 ],
@@ -403,10 +382,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                   children: [
                     const Icon(Icons.star, color: Colors.green, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      "4.5",
-                      style: GoogleFonts.poppins(fontSize: 12),
-                    ),
+                    Text("4.5", style: GoogleFonts.poppins(fontSize: 12)),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -437,87 +413,101 @@ Future<bool?> showReplaceCartDialog({
   return showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.shopping_cart_outlined,
-                size: 48, color: Colors.deepOrange),
-            const SizedBox(height: 16),
-            Text(
-              'Replace items in your cart?',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(text: 'Your cart contains dishes from '),
-                  TextSpan(
-                    text: currentRestaurant,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.black),
-                  ),
-                  const TextSpan(
-                      text: '.\n\nDo you want to discard and add items from '),
-                  TextSpan(
-                    text: newRestaurant,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.black),
-                  ),
-                  const TextSpan(text: '?'),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 24),
-            Row(
+    builder:
+        (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      side: const BorderSide(color: Colors.black26),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text("No"),
+                const Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 48,
+                  color: Colors.deepOrange,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Replace items in your cart?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 12),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: 'Your cart contains dishes from '),
+                      TextSpan(
+                        text: currentRestaurant,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text("Replace"),
+                      const TextSpan(
+                        text: '.\n\nDo you want to discard and add items from ',
+                      ),
+                      TextSpan(
+                        text: newRestaurant,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const TextSpan(text: '?'),
+                    ],
                   ),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          side: const BorderSide(color: Colors.black26),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text("No"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text("Replace"),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
-    ),
   );
 }
 

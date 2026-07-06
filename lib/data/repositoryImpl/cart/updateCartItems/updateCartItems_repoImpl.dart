@@ -8,7 +8,11 @@ class UpdateCartItemsRepositoryImpl implements UpdateCartItemsRepository {
   UpdateCartItemsRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<UpdateCartItemsModel> updateCartItems(Map<String, dynamic> payload, String cartId) {
-    return remoteDataSource.updateCartItems(payload, cartId);
+  Future<UpdateCartItemsModel> updateCartItems(
+    Map<String, dynamic> payload,
+    String cartId,
+    String itemId,
+  ) {
+    return remoteDataSource.updateCartItems(payload, cartId, itemId);
   }
 }

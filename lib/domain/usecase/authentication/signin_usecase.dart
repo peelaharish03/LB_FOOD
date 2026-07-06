@@ -6,8 +6,8 @@ class SignInValidationUseCase {
 
   SignInValidationUseCase({required this.repository});
 
-  Future<SignInModel> call(String mobileNumber, String otp,String fullName) async {
-    return await repository.logIn(mobileNumber, otp,fullName);
+  Future<SignInModel> call(String mobileNumber, String otp,String fullName,String deviceId) async {
+    return await repository.logIn(mobileNumber, otp,fullName,deviceId);
   }
 }
 

@@ -19,6 +19,7 @@ class GetAddressRemoteDataSourceImpl
         '$baseUrl2$getAddressUrl',
         options: Options(method: 'GET'),
       );
+      print('$baseUrl2$getAddressUrl');
       if (response.statusCode == 200) {
         print('responce of GetAddress:: $response');
         return GetAddressModel.fromJson(response.data);
@@ -27,6 +28,7 @@ class GetAddressRemoteDataSourceImpl
             'Failed to load GetAddress data: ${response.statusCode}');
       }
     } catch (e) {
+      print(e);
       throw Exception('Failed to load GetAddress data: ${e.toString()}');
     }
   }

@@ -20,9 +20,9 @@ class GetNearbyRestaurantsCubit extends Cubit<GetNearbyRestaurantsState> {
     // Try to get cached data first (unless force refresh)
     if (!forceRefresh) {
       print('🔍 Checking repository cache for restaurants data...');
-      final cachedData = await _repositoryCache.getData<GetNearByRestaurantsModel>(
+      final cachedData = await _repositoryCache.getData<GetNearByStoresModel>(
         cacheKey,
-        (json) => GetNearByRestaurantsModel.fromJson(json),
+        (json) => GetNearByStoresModel.fromJson(json),
       );
       
       if (cachedData != null) {
