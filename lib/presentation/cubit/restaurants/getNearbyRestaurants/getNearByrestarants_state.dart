@@ -7,7 +7,7 @@ class GetNearbyRestaurantsInitial extends GetNearbyRestaurantsState {}
 class GetNearbyRestaurantsLoading extends GetNearbyRestaurantsState {}
 
 class GetNearbyRestaurantsLoaded extends GetNearbyRestaurantsState {
-  final GetNearByRestaurantsModel model;
+  final GetNearByStoresModel model;
 
   GetNearbyRestaurantsLoaded(this.model);
 }

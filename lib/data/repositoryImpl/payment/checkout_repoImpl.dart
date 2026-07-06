@@ -8,7 +8,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   CheckoutRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<CheckoutModel> getDeliveryCharge() async {
-    return await remoteDataSource.checkout();
+  Future<CheckoutModel> checkout(Map<String, dynamic> payload) async {
+    return await remoteDataSource.checkout(payload);
   }
 }

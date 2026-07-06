@@ -8,7 +8,7 @@ class DeleteAddressRepositoryImpl implements DeleteAddressRepository {
   DeleteAddressRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<DeleteAddressModel> deleteAddress(int addressId) async {
+  Future<DeleteAddressModel> deleteAddress(String addressId) async {
     return await remoteDataSource.DeleteAddress(addressId);
   }
 }

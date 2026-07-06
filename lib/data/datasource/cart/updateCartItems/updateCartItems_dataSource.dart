@@ -4,7 +4,10 @@ import 'package:local_basket/data/model/cart/updateCartItems/updateCartItems_mod
 
 abstract class UpdateCartItemsRemoteDataSource {
   Future<UpdateCartItemsModel> updateCartItems(
-      Map<String, dynamic> payload, String cartId);
+    Map<String, dynamic> payload,
+    String cartId,
+    String itemId,
+  );
 }
 
 class UpdateCartItemsRemoteDataSourceImpl
@@ -15,10 +18,13 @@ class UpdateCartItemsRemoteDataSourceImpl
 
   @override
   Future<UpdateCartItemsModel> updateCartItems(
-      Map<String, dynamic> payload, String cartId) async {
+    Map<String, dynamic> payload,
+    String cartId,
+    String itemId,
+  ) async {
     try {
-      final response = await client.post(
-        '$baseUrl${updateCartItemsUrl(cartId)}',
+      final response = await client.put(
+        '$baseUrl${updateCartItemsUrl(cartId, itemId)}',
         data: payload,
         options: Options(
           headers: {
@@ -34,7 +40,8 @@ class UpdateCartItemsRemoteDataSourceImpl
         return UpdateCartItemsModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed to UpdateCartItems. Status code: ${response.statusCode}');
+          'Failed to UpdateCartItems. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('UpdateCartItems Error: $e');

@@ -7,16 +7,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
+import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
-import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_state.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_cubit.dart';
-import 'package:local_basket/presentation/cubit/restaurants/guestNearbyRestaurants/guestNearbyRestaurants_state.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
@@ -28,10 +26,8 @@ import 'package:local_basket/presentation/screen/widgets/dashboard/foodCatagoryI
 import 'package:local_basket/presentation/screen/widgets/dashboard/foodItemCard.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/locationHeader.dart';
 import 'package:local_basket/components/searchBar.dart';
-import 'package:local_basket/presentation/screen/widgets/loginPrompt.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
-import 'dart:math';
 
 const double ANAKAPALLI_LATITUDE = 17.6869;
 const double ANAKAPALLI_LONGITUDE = 82.8580;
@@ -48,7 +44,8 @@ class LocationValidator {
     const R = 6371; // Earth radius in kilometers
     final dLat = _toRad(lat2 - lat1);
     final dLon = _toRad(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_toRad(lat1)) *
             math.cos(_toRad(lat2)) *
             math.sin(dLon / 2) *
@@ -74,9 +71,8 @@ class LocationValidator {
 }
 
 class DashboardScreen extends StatefulWidget {
-  final bool isGuest;
   final String? couponCode;
-  const DashboardScreen({super.key, this.isGuest = false, this.couponCode});
+  const DashboardScreen({super.key, this.couponCode});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -101,57 +97,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _outOfServiceMessage = '';
   bool _restaurantsLoaded = false;
   bool _isDataCached = false;
-  List<Map<String, dynamic>>? _cachedRestaurants; // Store restaurant data as maps
+  List<Map<String, dynamic>>?
+  _cachedRestaurants; // Store restaurant data as maps
   static const String _cacheTimestampKey = 'restaurants_cache_timestamp';
   static const String _cacheLatKey = 'restaurants_cache_lat';
   static const String _cacheLngKey = 'restaurants_cache_lng';
   static const String _cacheDataKey = 'restaurants_cache_data';
-  static const String _cacheUserTypeKey = 'restaurants_cache_user_type';
   static const Duration _cacheExpiry = Duration(hours: 1); // Cache for 1 hour
 
   @override
   void initState() {
     super.initState();
     _searchFocusNode = FocusNode();
-    context.read<CreateCartCubit>().createCart(context);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _fetchCart();
       await Future.delayed(const Duration(milliseconds: 1000));
       await _requestLocationPermission();
       await _maybeClearCartForOfferFlow();
     });
 
     _scrollController.addListener(_scrollListener);
-    
+
     // Check if we have cached data on init
     _checkCachedState();
   }
 
   Future<void> _checkCachedState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cachedUserType = prefs.getString(_cacheUserTypeKey);
-    final currentUserType = widget.isGuest ? 'guest' : 'user';
-    
-    // Only restore cache if user type matches
-    if (cachedUserType == currentUserType && await _hasValidCache()) {
+    if (await _hasValidCache()) {
       setState(() {
         _restaurantsLoaded = true;
         _isDataCached = true;
       });
       debugPrint("📦 Restored cached state on init");
     }
-  }
-
-  void showLoginPromptSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (context) => const LoginPromptSheet(),
-    );
   }
 
   Future<void> _requestLocationPermission() async {
@@ -188,9 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await LocationPermissionDialog.show(context);
       }
 
-      if (!widget.isGuest) {
-        await _fetchCart();
-      }
+      await _fetchCart();
     } catch (e) {
       debugPrint("❌ Location permission check failed: $e");
     } finally {
@@ -217,12 +194,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await prefs.setBool('is_offer_flow', true);
         await prefs.setString('offer_coupon', couponFromParam);
         await prefs.setInt(
-            'offer_started_at', DateTime.now().millisecondsSinceEpoch);
+          'offer_started_at',
+          DateTime.now().millisecondsSinceEpoch,
+        );
       }
 
       final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
 
-      if (!isOfferFlow || widget.isGuest) return;
+      if (!isOfferFlow) return;
 
       final cartCubit = context.read<GetCartCubit>();
       if (cartCubit.state is! GetCartLoaded) {
@@ -351,44 +330,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final params = {
       "latitude": latitude,
       "longitude": longitude,
-      "postalCode": "531001",
+      "radius": 5,
       "page": page,
       "size": size,
-      "searchTerm": ""
     };
 
     debugPrint(" Fetching restaurants with lat=$latitude, lon=$longitude");
 
-    if (widget.isGuest) {
-      context
-          .read<GuestNearByRestaurantsCubit>()
-          .fetchGuestNearbyRestaurants(params);
-    } else {
-      context.read<GetNearbyRestaurantsCubit>().fetchNearbyRestaurants(params);
-    }
+    context.read<GetNearbyRestaurantsCubit>().fetchNearbyRestaurants(params);
   }
 
   // Cache management methods
   Future<bool> _hasValidCache() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     final cachedTimestamp = prefs.getInt(_cacheTimestampKey);
     final cachedLat = prefs.getDouble(_cacheLatKey);
     final cachedLng = prefs.getDouble(_cacheLngKey);
-    final cachedUserType = prefs.getString(_cacheUserTypeKey);
-    
-    if (cachedTimestamp == null || cachedLat == null || cachedLng == null || cachedUserType == null) {
+
+    if (cachedTimestamp == null || cachedLat == null || cachedLng == null) {
       debugPrint("📦 No cache metadata found");
       return false;
     }
-    
-    // Check if user type matches (guest vs user)
-    final currentUserType = widget.isGuest ? 'guest' : 'user';
-    if (cachedUserType != currentUserType) {
-      debugPrint("📦 User type changed, invalidating cache");
-      return false;
-    }
-    
+
     // Check if cache is expired
     final now = DateTime.now().millisecondsSinceEpoch;
     final cacheAge = now - cachedTimestamp;
@@ -396,7 +360,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint("📦 Cache expired");
       return false;
     }
-    
+
     // Check if location has significantly changed (more than 1km)
     if (latitude != null && longitude != null) {
       final distance = LocationValidator.calculateDistance(
@@ -405,19 +369,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         cachedLat,
         cachedLng,
       );
-      if (distance > 1.0) { // 1km threshold
+      if (distance > 1.0) {
+        // 1km threshold
         debugPrint("📦 Location changed significantly, invalidating cache");
         return false;
       }
     }
-    
+
     // Load and validate cached restaurant data
     final cachedDataString = prefs.getString(_cacheDataKey);
     if (cachedDataString == null) {
       debugPrint("📦 No cached restaurant data found");
       return false;
     }
-    
+
     try {
       final List<dynamic> decodedData = jsonDecode(cachedDataString);
       _cachedRestaurants = decodedData.cast<Map<String, dynamic>>();
@@ -425,7 +390,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         debugPrint("📦 Cached restaurant data is empty");
         return false;
       }
-      debugPrint("📦 Loaded ${_cachedRestaurants!.length} restaurants from cache");
+      debugPrint(
+        "📦 Loaded ${_cachedRestaurants!.length} restaurants from cache",
+      );
       return true;
     } catch (e) {
       debugPrint("📦 Failed to decode cached restaurant data: $e");
@@ -435,43 +402,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _saveCache() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (latitude != null && longitude != null) {
-      await prefs.setInt(_cacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+        _cacheTimestampKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       await prefs.setDouble(_cacheLatKey, latitude!);
       await prefs.setDouble(_cacheLngKey, longitude!);
-      await prefs.setString(_cacheUserTypeKey, widget.isGuest ? 'guest' : 'user');
       debugPrint("📦 Saved restaurant cache");
     }
   }
 
-  Future<void> _saveRestaurantData(List<dynamic> restaurants) async {
+  Future<void> _saveRestaurantData(List<StoreContent> restaurants) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     try {
-      // Convert restaurant list to JSON for storage
-      final restaurantJson = restaurants.map((r) {
-        // Handle different restaurant object types
-        if (r.runtimeType.toString().contains('Guest')) {
-          return {
-            'id': r.id,
-            'businessName': r.businessName,
-            'categoryName': r.categoryName,
-            'mediaList': r.mediaList?.map((m) => {'url': m.url}).toList() ?? [],
-          };
-        } else {
-          return {
-            'id': r.id,
-            'businessName': r.businessName,
-            'categoryName': r.categoryName,
-            'mediaList': r.mediaList?.map((m) => {'url': m.url}).toList() ?? [],
-          };
-        }
-      }).toList();
-      
+      final restaurantJson =
+          restaurants.map((r) {
+            return {
+              'id': r.id,
+              'name': r.name,
+              'code': r.code,
+              'distanceKm': r.distanceKm,
+              'latitude': r.latitude,
+              'longitude': r.longitude,
+            };
+          }).toList();
+
       await prefs.setString(_cacheDataKey, jsonEncode(restaurantJson));
       _cachedRestaurants = restaurantJson.cast<Map<String, dynamic>>();
-      debugPrint("📦 Saved ${restaurantJson.length} restaurants to local storage");
+      debugPrint(
+        "📦 Saved ${restaurantJson.length} restaurants to local storage",
+      );
     } catch (e) {
       debugPrint("❌ Failed to save restaurant data: $e");
     }
@@ -483,7 +446,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await prefs.remove(_cacheLatKey);
     await prefs.remove(_cacheLngKey);
     await prefs.remove(_cacheDataKey);
-    await prefs.remove(_cacheUserTypeKey);
     _cachedRestaurants = null;
     debugPrint("📦 Cleared restaurant cache");
   }
@@ -512,11 +474,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RestaurantMenuScreen(
-            restaurantName: name,
-            restaurantId: id,
-            isGuest: widget.isGuest,
-            couponCode: widget.couponCode),
+        builder:
+            (_) => RestaurantMenuScreen(
+              restaurantName: name,
+              restaurantId: id,
+              couponCode: widget.couponCode,
+            ),
       ),
     );
 
@@ -529,23 +492,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String Function(T) getName,
     required String Function(T) getCategory,
     required String Function(T) getId,
-    required List<String> Function(T) getMediaList,
+    // required List<String> Function(T) getMediaList,
   }) {
     return Column(
-      children: restaurants.map((restaurant) {
-        return FoodItemCard(
-          data: {
-            "Restaurant": getName(restaurant),
-            "Items": getCategory(restaurant),
-            "mediaList": getMediaList(restaurant),
-            "time": "20 - 25 MINS"
-          },
-          mediaUrls: getMediaList(restaurant),
-          onRestaurantTap: (name) =>
-              _navigateToRestaurantMenu(name, getId(restaurant)),
-        );
-      }).toList(),
+      children:
+          restaurants.map((restaurant) {
+            return FoodItemCard(
+              data: {
+                "Restaurant": getName(restaurant),
+                "Items": getCategory(restaurant),
+                "time": "20 - 25 MINS",
+              },
+              // mediaUrls: getMediaList(restaurant),
+              onRestaurantTap:
+                  (name) => _navigateToRestaurantMenu(name, getId(restaurant)),
+            );
+          }).toList(),
     );
+  }
+
+  String _formatDistance(double? distanceKm) {
+    if (distanceKm == null) return '';
+    return '${distanceKm.toStringAsFixed(2)} km away';
   }
 
   Widget _buildCachedRestaurantList() {
@@ -558,159 +526,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildRestaurantListFromMaps(List<Map<String, dynamic>> restaurants) {
     return Column(
-      children: restaurants.map((restaurant) {
-        return FoodItemCard(
-          data: {
-            "Restaurant": restaurant['businessName'] ?? "Unknown",
-            "Items": restaurant['categoryName'] ?? "",
-            "mediaList": (restaurant['mediaList'] as List<dynamic>?)
-                ?.map((m) => m['url'] as String? ?? '')
-                .toList() ?? [],
-            "time": "20 - 25 MINS"
-          },
-          mediaUrls: (restaurant['mediaList'] as List<dynamic>?)
-              ?.map((m) => m['url'] as String? ?? '')
-              .toList() ?? [],
-          onRestaurantTap: (name) =>
-              _navigateToRestaurantMenu(name, restaurant['id']?.toString() ?? ""),
-        );
-      }).toList(),
+      children:
+          restaurants.map((restaurant) {
+            return FoodItemCard(
+              data: {
+                "Restaurant": restaurant['name'] ?? "Unknown",
+                "Items":
+                    restaurant['distanceKm'] is num
+                        ? _formatDistance(
+                          (restaurant['distanceKm'] as num).toDouble(),
+                        )
+                        : "",
+                "time": "20 - 25 MINS",
+              },
+              onRestaurantTap:
+                  (name) => _navigateToRestaurantMenu(
+                    name,
+                    restaurant['id']?.toString() ?? "",
+                  ),
+            );
+          }).toList(),
     );
   }
 
   Widget _buildNearbyRestaurants() {
     // If we have cached data, show it immediately without any loading
-    if (_isDataCached && _cachedRestaurants != null && _cachedRestaurants!.isNotEmpty) {
+    if (_isDataCached &&
+        _cachedRestaurants != null &&
+        _cachedRestaurants!.isNotEmpty) {
       debugPrint("📦 Displaying cached restaurants - no loading");
       return _buildCachedRestaurantList();
     }
-    
+
     if (isLocationInitializing) {
       return _buildShimmerRestaurants();
     }
-    
-    return widget.isGuest
-        ? BlocBuilder<GuestNearByRestaurantsCubit, GuestNearByRestaurantsState>(
-            builder: (context, state) {
-              if (state is GuestNearByRestaurantsLoading) {
-                return const Center(child: CupertinoActivityIndicator());
-              } else if (state is GuestNearByRestaurantsSuccess) {
-                // Mark restaurants as loaded and save cache
-                if (!_restaurantsLoaded) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    if (mounted) {
-                      setState(() {
-                        _restaurantsLoaded = true;
-                        _isDataCached = true;
-                      });
-                      await _saveCache();
-                      await _saveRestaurantData(state.data.content);
-                    }
-                  });
-                }
-                return _buildRestaurantList(
-                  restaurants: state.data.content,
-                  getName: (r) => r.businessName ?? "Unknown",
-                  getCategory: (r) => r.categoryName ?? "",
-                  getId: (r) => (r.id ?? "").toString(),
-                  getMediaList: (r) =>
-                      r.mediaList.map((e) => e.url ?? '').toList(),
-                );
-              } else {
-                return const Center(
-                    child: Text("Failed to load guest restaurants"));
+
+    return BlocBuilder<GetNearbyRestaurantsCubit, GetNearbyRestaurantsState>(
+      builder: (context, state) {
+        if (state is GetNearbyRestaurantsLoading) {
+          return const Center(child: CupertinoActivityIndicator());
+        } else if (state is GetNearbyRestaurantsLoaded) {
+          // Mark restaurants as loaded and save cache
+          if (!_restaurantsLoaded) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (mounted) {
+                setState(() {
+                  _restaurantsLoaded = true;
+                  _isDataCached = true;
+                });
+                await _saveCache();
+                await _saveRestaurantData(state.model.content);
               }
-            },
-          )
-        : BlocBuilder<GetNearbyRestaurantsCubit, GetNearbyRestaurantsState>(
-            builder: (context, state) {
-              if (state is GetNearbyRestaurantsLoading) {
-                return const Center(child: CupertinoActivityIndicator());
-              } else if (state is GetNearbyRestaurantsLoaded) {
-                // Mark restaurants as loaded and save cache
-                if (!_restaurantsLoaded) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) async {
-                    if (mounted) {
-                      setState(() {
-                        _restaurantsLoaded = true;
-                        _isDataCached = true;
-                      });
-                      await _saveCache();
-                      await _saveRestaurantData(state.model.content);
-                    }
-                  });
-                }
-                return _buildRestaurantList(
-                  restaurants: state.model.content,
-                  getName: (r) => r.businessName ?? "Unknown",
-                  getCategory: (r) => r.categoryName ?? "",
-                  getId: (r) => (r.id ?? "").toString(),
-                  getMediaList: (r) =>
-                      r.mediaList.map((e) => e.url ?? '').toList(),
-                );
-              } else {
-                return const Center(child: Text("Failed loading restaurants"));
-              }
-            },
+            });
+          }
+          if (state.model.content.isEmpty) {
+            return const Center(child: Text("No restaurants found"));
+          }
+          return _buildRestaurantList(
+            restaurants: state.model.content,
+            getName: (r) => r.name ?? "Unknown",
+            getCategory: (r) => _formatDistance(r.distanceKm),
+            getId: (r) => (r.id ?? "").toString(),
           );
+        } else {
+          return const Center(child: Text("Failed loading restaurants"));
+        }
+      },
+    );
   }
 
   Widget _buildSearchResults() {
-    if (widget.isGuest) {
-      return BlocBuilder<GuestNearByRestaurantsCubit,
-          GuestNearByRestaurantsState>(
-        builder: (context, state) {
-          if (state is GuestNearByRestaurantsLoading) {
-            return const Center(child: CupertinoActivityIndicator());
-          } else if (state is GuestNearByRestaurantsSuccess) {
-            final filteredList = state.data.content;
+    return BlocBuilder<
+      GetRestaurantsByProductNameCubit,
+      GetRestaurantsByProductNameState
+    >(
+      builder: (context, state) {
+        if (state is GetRestaurantsByProductNameLoading) {
+          return const Center(child: CupertinoActivityIndicator());
+        } else if (state is GetRestaurantsByProductNameSuccess) {
+          final query = searchQuery.trim().toLowerCase();
+          final restaurants =
+              state.model.content.where((store) {
+                if (query.isEmpty) return true;
+                return (store.name ?? '').toLowerCase().contains(query);
+              }).toList();
 
-            if (filteredList.isEmpty) {
-              return const Center(child: Text("No restaurants found"));
-            }
-
-            return _buildRestaurantList(
-              restaurants: filteredList,
-              getName: (r) => r.businessName ?? "Unknown",
-              getCategory: (r) => r.categoryName ?? "",
-              getId: (r) => (r.id ?? "").toString(),
-              getMediaList: (r) => r.mediaList.map((e) => e.url ?? '').toList(),
-            );
-          } else {
-            return const Center(
-                child: Text("Failed to load guest restaurants"));
+          if (restaurants.isEmpty) {
+            return const Center(child: Text("No restaurants found"));
           }
-        },
-      );
-    } else {
-      return BlocBuilder<GetRestaurantsByProductNameCubit,
-          GetRestaurantsByProductNameState>(
-        builder: (context, state) {
-          if (state is GetRestaurantsByProductNameLoading) {
-            return const Center(child: CupertinoActivityIndicator());
-          } else if (state is GetRestaurantsByProductNameSuccess) {
-            final contentList = state.model.content;
 
-            if (contentList.isEmpty) {
-              return const Center(child: Text("No restaurants found"));
-            }
-
-            // contentList already contains restaurant-like objects; use it directly.
-            final allProducts = contentList;
-
-            return _buildRestaurantList(
-              restaurants: allProducts,
-              getName: (p) => p.businessName ?? "Unknown",
-              getCategory: (p) => p.categoryName ?? "",
-              getId: (p) => (p.id ?? "").toString(),
-              getMediaList: (p) => p.mediaList.map((e) => e.url ?? '').toList(),
-            );
-          } else {
-            return const SizedBox();
-          }
-        },
-      );
-    }
+          return _buildRestaurantList(
+            restaurants: restaurants,
+            getName: (store) => store.name ?? "Unknown",
+            getCategory: (store) => _formatDistance(store.distanceKm),
+            getId: (store) => (store.id ?? "").toString(),
+          );
+        } else if (state is GetRestaurantsByProductNameFailure) {
+          return Center(child: Text(state.error));
+        }
+        return const SizedBox();
+      },
+    );
   }
 
   Widget _buildOutOfServiceWidget() {
@@ -816,239 +733,240 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-          // 🔻 Collapsible AppBar
-          SliverAppBar(
-            automaticallyImplyLeading: false,
-            expandedHeight: 260,
-            pinned: false,
-            floating: false,
-            backgroundColor: AppColor.PrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF6B00), Color(0xFFFF1E00)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+            // 🔻 Collapsible AppBar
+            SliverAppBar(
+              automaticallyImplyLeading: false,
+              expandedHeight: 260,
+              pinned: false,
+              floating: false,
+              backgroundColor: AppColor.PrimaryColor,
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.parallax,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFF6B00), Color(0xFFFF1E00)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
                   ),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 🔙 Top Row
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back_ios,
-                                  color: Colors.white),
-                              onPressed: () => Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const MainDashboard(isGuest: false)),
-                                  (route) => false),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: (isLocationInitializing ||
-                                      latitude == null ||
-                                      longitude == null)
-                                  ? Shimmer.fromColors(
-                                      baseColor: Colors.grey.shade300,
-                                      highlightColor: Colors.grey.shade100,
-                                      child: Container(
-                                        height: 20,
-                                        width: 200,
-                                        color: Colors.white,
+                  child: SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🔙 Top Row
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.arrow_back_ios,
+                                  color: Colors.white,
+                                ),
+                                onPressed:
+                                    () => Navigator.pushAndRemoveUntil(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const MainDashboard(),
                                       ),
-                                    )
-                                  : LocationHeader(
-                                      key: ValueKey('$latitude$longitude'),
-                                      latitude: latitude,
-                                      longitude: longitude,
-                                      onLocationChanged: _onLocationChanged,
-                                      isGuest: widget.isGuest,
+                                      (route) => false,
                                     ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.person,
-                                  color: Colors.white, size: 26),
-                              onPressed: () {
-                                if (widget.isGuest) {
-                                  showLoginPromptSheet(context);
-                                } else {
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child:
+                                    (isLocationInitializing ||
+                                            latitude == null ||
+                                            longitude == null)
+                                        ? Shimmer.fromColors(
+                                          baseColor: Colors.grey.shade300,
+                                          highlightColor: Colors.grey.shade100,
+                                          child: Container(
+                                            height: 20,
+                                            width: 200,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                        : LocationHeader(
+                                          key: ValueKey('$latitude$longitude'),
+                                          latitude: latitude,
+                                          longitude: longitude,
+                                          onLocationChanged: _onLocationChanged,
+                                        ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                                onPressed: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => ProfileScreen(
-                                          isGuest: widget.isGuest),
+                                      builder: (_) => const ProfileScreen(),
                                     ),
                                   );
-                                }
-                              },
-                            ),
-                          ],
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
-                      // 🔍 Search Bar
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: CategorySearchBar(
-                          focusNode: _searchFocusNode,
-                          hintText:
-                              "Search for restaurants, dishes, and cuisines",
-                          onChanged: (query) async {
-                            if (_isOutOfServiceArea) return;
-                            setState(() => searchQuery = query);
-                            // Clear cache when searching to get fresh results
-                            await _clearCache();
-                            final prefs = await SharedPreferences.getInstance();
-                            final lat =
-                                prefs.getDouble('saved_latitude') ?? 17.385044;
-                            final lon =
-                                prefs.getDouble('saved_longitude') ?? 78.486671;
-                            final params = {
-                              "productName": query,
-                              "latitude": lat,
-                              "longitude": lon,
-                              "postalCode": "531001",
-                              "page": 0,
-                              "size": 10,
-                              "searchTerm": query,
-                            };
-                            if (widget.isGuest) {
-                              context
-                                  .read<GuestNearByRestaurantsCubit>()
-                                  .fetchGuestNearbyRestaurants(params);
-                            } else {
-                              context
-                                  .read<GetRestaurantsByProductNameCubit>()
-                                  .fetchRestaurantsByProductName(params);
-                            }
-                          },
-                        ),
-                      ),
-                      if (!_isOutOfServiceArea)
+                        // 🔍 Search Bar
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: FoodCategoryIcons(
-                            onCategoryTap: (label) async {
-                              setState(() => searchQuery = label);
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: CategorySearchBar(
+                            focusNode: _searchFocusNode,
+                            hintText: "Search restaurants",
+                            onChanged: (query) async {
+                              if (_isOutOfServiceArea) return;
+                              setState(() => searchQuery = query);
                               // Clear cache when searching to get fresh results
                               await _clearCache();
                               final prefs =
                                   await SharedPreferences.getInstance();
-                              final lat = prefs.getDouble('saved_latitude') ??
+                              final lat =
+                                  prefs.getDouble('saved_latitude') ??
                                   17.385044;
-                              final lon = prefs.getDouble('saved_longitude') ??
+                              final lon =
+                                  prefs.getDouble('saved_longitude') ??
                                   78.486671;
                               final params = {
-                                "productName": label,
+                                "productName": query,
                                 "latitude": lat,
                                 "longitude": lon,
-                                "postalCode": "531001",
+                                "radius": 5,
                                 "page": 0,
                                 "size": 10,
-                                "searchTerm": label,
                               };
-                              if (widget.isGuest) {
-                                context
-                                    .read<GuestNearByRestaurantsCubit>()
-                                    .fetchGuestNearbyRestaurants(params);
-                              } else {
-                                context
-                                    .read<GetRestaurantsByProductNameCubit>()
-                                    .fetchRestaurantsByProductName(params);
-                              }
+                              context
+                                  .read<GetRestaurantsByProductNameCubit>()
+                                  .fetchRestaurantsByProductName(params);
                             },
                           ),
                         ),
-                      const SizedBox(height: 10),
-                    ],
+                        if (!_isOutOfServiceArea)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: FoodCategoryIcons(
+                              onCategoryTap: (label) async {
+                                setState(() => searchQuery = label);
+                                // Clear cache when searching to get fresh results
+                                await _clearCache();
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                final lat =
+                                    prefs.getDouble('saved_latitude') ??
+                                    17.385044;
+                                final lon =
+                                    prefs.getDouble('saved_longitude') ??
+                                    78.486671;
+                                final params = {
+                                  "productName": label,
+                                  "latitude": lat,
+                                  "longitude": lon,
+                                  "radius": 5,
+                                  "page": 0,
+                                  "size": 10,
+                                };
+                                context
+                                    .read<GetRestaurantsByProductNameCubit>()
+                                    .fetchRestaurantsByProductName(params);
+                              },
+                            ),
+                          ),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // 🧾 Scrollable Content
-          if (_isOutOfServiceArea)
-            _buildOutOfServiceWidget()
-          else
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    Text(
-                      "Restaurants to Explore",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: AppColor.Black,
+            // 🧾 Scrollable Content
+            if (_isOutOfServiceArea)
+              _buildOutOfServiceWidget()
+            else
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      Text(
+                        "Restaurants to Explore",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: AppColor.Black,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    searchQuery.isEmpty
-                        ? _buildNearbyRestaurants()
-                        : _buildSearchResults(),
-                    const SizedBox(height: 120),
-                  ],
+                      const SizedBox(height: 10),
+                      searchQuery.isEmpty
+                          ? _buildNearbyRestaurants()
+                          : _buildSearchResults(),
+                      const SizedBox(height: 120),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-          // ✅ Spacer for Bottom Cart
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-        ],
+            // ✅ Spacer for Bottom Cart
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          ],
         ),
       ),
       bottomNavigationBar:
           (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
               ? BottomCartCard(
-                  itemCount: cartData?.totalCount ?? 0,
-                  onDeletePressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => ClearCartDialog(
-                        onClear: () async => await _clearCart(),
-                      ),
-                    );
-                  },
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CartScreen(
-                          cartItems: cartList
-                              .map((cartItem) => {
-                                    'productId': cartItem.productId,
-                                    'quantity': cartItem.quantity ?? 0,
-                                    'price': cartItem.price ?? 0,
-                                    'name': cartItem.productName ?? '',
-                                    'media': cartItem.media.isNotEmpty
-                                        ? cartItem.media[0].url
-                                        : null,
-                                  })
-                              .toList(),
+                itemCount: cartData?.totalCount ?? 0,
+                onDeletePressed: () {
+                  showDialog(
+                    context: context,
+                    builder:
+                        (context) => ClearCartDialog(
+                          onClear: () async => await _clearCart(),
                         ),
-                      ),
-                    );
-                    if (!mounted) return;
-                    await _fetchCart();
-                  },
-                )
+                  );
+                },
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => CartScreen(
+                            cartItems:
+                                cartList
+                                    .map(
+                                      (cartItem) => {
+                                        'cartItemId': cartItem.id,
+                                        'productId': cartItem.productId,
+                                        'quantity': cartItem.quantity ?? 0,
+                                        'price': cartItem.price ?? 0,
+                                        'name': cartItem.productName ?? '',
+                                        'media':
+                                            cartItem.media.isNotEmpty
+                                                ? cartItem.media[0].url
+                                                : null,
+                                      },
+                                    )
+                                    .toList(),
+                          ),
+                    ),
+                  );
+                  if (!mounted) return;
+                  await _fetchCart();
+                },
+              )
               : null,
     );
   }
-Widget _buildShimmerRestaurants() {
+
+  Widget _buildShimmerRestaurants() {
     return Column(
       children: List.generate(4, (index) {
         return Padding(

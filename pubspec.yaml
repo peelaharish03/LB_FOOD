@@ -44,7 +44,7 @@ dependencies:
   shimmer: ^3.0.0
   carousel_slider: ^5.1.1
   video_player: ^2.10.0
-  device_info_plus: ^11.5.0
+  device_info_plus: ^10.1.0
   infinite_carousel: ^1.1.1
   flutter_slidable: ^3.0.1
   url_launcher: ^6.3.0

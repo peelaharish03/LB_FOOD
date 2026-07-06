@@ -6,7 +6,7 @@ class CheckoutUseCase {
 
   CheckoutUseCase({required this.repository});
 
-  Future<CheckoutModel> call() async {
-    return await repository.getDeliveryCharge();
+  Future<CheckoutModel> call(Map<String, dynamic> payload) async {
+    return await repository.checkout(payload);
   }
 }

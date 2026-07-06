@@ -3,8 +3,9 @@ import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 
 abstract class GetNearByRestaurantsRemoteDataSource {
-  Future<GetNearByRestaurantsModel> getNearByRestaurants(
-      Map<String, dynamic> params);
+  Future<GetNearByStoresModel> getNearByRestaurants(
+    Map<String, dynamic> params,
+  );
 }
 
 class GetNearByRestaurantsRemoteDataSourceImpl
@@ -14,17 +15,18 @@ class GetNearByRestaurantsRemoteDataSourceImpl
   GetNearByRestaurantsRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<GetNearByRestaurantsModel> getNearByRestaurants(
-      Map<String, dynamic> params) async {
+  Future<GetNearByStoresModel> getNearByRestaurants(
+    Map<String, dynamic> params,
+  ) async {
     try {
-      final double latitude = params['latitude'];
-      final double longitude = params['longitude'];
-      final String postalCode = params['postalCode'];
-      final int page = params['page'];
-      final int size = params['size'];
+      final double latitude = (params['latitude'] as num).toDouble();
+      final double longitude = (params['longitude'] as num).toDouble();
+      final double radius = ((params['radius'] ?? 5) as num).toDouble();
+      final int page = params['page'] ?? 0;
+      final int size = params['size'] ?? 20;
 
       final url =
-          '$baseUrl2${getNearbyRestaurantsUrl(latitude, longitude, postalCode, page, size)}';
+          '$baseUrl2${getNearbyRestaurantsUrl(latitude, longitude, radius, page, size)}';
 
       final response = await client.request(
         url,
@@ -33,14 +35,16 @@ class GetNearByRestaurantsRemoteDataSourceImpl
 
       if (response.statusCode == 200) {
         print('response of getNearByRestaurants:: $response');
-        return GetNearByRestaurantsModel.fromJson(response.data);
+        return GetNearByStoresModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed to load getNearByRestaurants data: ${response.statusCode}');
+          'Failed to load getNearByRestaurants data: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception(
-          'Failed to load getNearByRestaurants data: ${e.toString()}');
+        'Failed to load getNearByRestaurants data: ${e.toString()}',
+      );
     }
   }
 }

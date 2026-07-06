@@ -9,16 +9,17 @@ import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OffersCarousel extends StatefulWidget {
-  final bool isGuest;
-  const OffersCarousel({super.key, this.isGuest = false});
+  const OffersCarousel({super.key});
 
   @override
   State<OffersCarousel> createState() => _OffersCarouselState();
 }
 
 class _OffersCarouselState extends State<OffersCarousel> {
-  final PageController _pageController =
-      PageController(viewportFraction: 1, initialPage: 1000);
+  final PageController _pageController = PageController(
+    viewportFraction: 1,
+    initialPage: 1000,
+  );
 
   double _currentPage = 1000.0;
   Timer? _autoScrollTimer;
@@ -33,14 +34,12 @@ class _OffersCarouselState extends State<OffersCarousel> {
   void initState() {
     super.initState();
 
-    if (!widget.isGuest) {
+    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+    _offersPollTimer?.cancel();
+    _offersPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!mounted) return;
       context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
-      _offersPollTimer?.cancel();
-      _offersPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-        if (!mounted) return;
-        context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
-      });
-    }
+    });
 
     _pageController.addListener(() {
       if (mounted) {
@@ -77,8 +76,6 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isGuest) return _buildComingSoonCarousel();
-
     return BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
       builder: (context, state) {
         if (state is RestaurantOffersLoading) {
@@ -104,13 +101,15 @@ class _OffersCarouselState extends State<OffersCarousel> {
                     itemBuilder: (context, index) {
                       final Content offer = offers[index % offers.length];
 
-                      final gradientColors =
-                          _getGradientColors(offer.offerType);
+                      final gradientColors = _getGradientColors(
+                        offer.offerType,
+                      );
                       final accentColor = gradientColors.last;
 
-                      final double scale = (_currentPage - index).abs() < 1.0
-                          ? 1 - (_currentPage - index).abs() * 0.1
-                          : 0.9;
+                      final double scale =
+                          (_currentPage - index).abs() < 1.0
+                              ? 1 - (_currentPage - index).abs() * 0.1
+                              : 0.9;
 
                       return Transform.scale(
                         scale: scale,
@@ -123,28 +122,35 @@ class _OffersCarouselState extends State<OffersCarousel> {
                             title: offer.name ?? "",
                             subtitle: offer.description ?? "",
                             onPressed: () async {
-                              await context
-                                  .read<ClearCartCubit>()
-                                  .clearCart(context);
+                              await context.read<ClearCartCubit>().clearCart(
+                                context,
+                              );
 
                               // Flag the special offer flow globally
                               final prefs =
                                   await SharedPreferences.getInstance();
                               await prefs.setBool('is_offer_flow', true);
                               await prefs.setString(
-                                  'offer_id', (offer.id ?? '').toString());
+                                'offer_id',
+                                (offer.id ?? '').toString(),
+                              );
                               await prefs.setString(
-                                  'offer_coupon', offer.couponCode ?? '');
-                              await prefs.setInt('offer_started_at',
-                                  DateTime.now().millisecondsSinceEpoch);
+                                'offer_coupon',
+                                offer.couponCode ?? '',
+                              );
+                              await prefs.setInt(
+                                'offer_started_at',
+                                DateTime.now().millisecondsSinceEpoch,
+                              );
 
                               if (!context.mounted) return;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => DashboardScreen(
-                                    couponCode: offer.couponCode,
-                                  ),
+                                  builder:
+                                      (_) => DashboardScreen(
+                                        couponCode: offer.couponCode,
+                                      ),
                                 ),
                               );
                             },
@@ -155,11 +161,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
                       );
                     },
                   ),
-                  Positioned(
-                    right: 12,
-                    top: 6,
-                    child: _buildCountdownChip(),
-                  ),
+                  Positioned(right: 12, top: 6, child: _buildCountdownChip()),
                 ],
               ),
             ),
@@ -252,9 +254,10 @@ class _OffersCarouselState extends State<OffersCarousel> {
         controller: _pageController,
         itemBuilder: (context, index) {
           final image = images[index % images.length];
-          final double scale = (_currentPage - index).abs() < 1.0
-              ? 1 - (_currentPage - index).abs() * 0.1
-              : 0.9;
+          final double scale =
+              (_currentPage - index).abs() < 1.0
+                  ? 1 - (_currentPage - index).abs() * 0.1
+                  : 0.9;
 
           final bool isNetwork = image.startsWith("http");
 
@@ -265,9 +268,10 @@ class _OffersCarouselState extends State<OffersCarousel> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 image: DecorationImage(
-                  image: isNetwork
-                      ? NetworkImage(image)
-                      : AssetImage(image) as ImageProvider,
+                  image:
+                      isNetwork
+                          ? NetworkImage(image)
+                          : AssetImage(image) as ImageProvider,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -285,27 +289,28 @@ class _OffersCarouselState extends State<OffersCarousel> {
                 ),
 
                 // Show message only for network images
-                child: isNetwork
-                    ? const Center(
-                        child: Text(
-                          "Local Basket Coming Soon",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 4,
-                                color: Colors.black54,
-                                offset: Offset(1, 2),
-                              ),
-                            ],
+                child:
+                    isNetwork
+                        ? const Center(
+                          child: Text(
+                            "Local Basket Coming Soon",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 4,
+                                  color: Colors.black54,
+                                  offset: Offset(1, 2),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      )
-                    : const SizedBox(),
+                        )
+                        : const SizedBox(),
               ),
             ),
           );
@@ -377,8 +382,10 @@ class OffersCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: accentColor,
                     borderRadius: BorderRadius.circular(10),
@@ -408,10 +415,7 @@ class OffersCard extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 8),
                 SizedBox(

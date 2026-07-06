@@ -2,20 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/address/defaultAddress/post/defaultAddress_model.dart';
 
-
 abstract class DefaultAddressRemoteDataSource {
-  Future<DefaultAddressModel> defaultAddress(
-int addressId
-  );
+  Future<DefaultAddressModel> defaultAddress(String addressId);
 }
 
-class DefaultAddressRemoteDataSourceImpl implements DefaultAddressRemoteDataSource {
+class DefaultAddressRemoteDataSourceImpl
+    implements DefaultAddressRemoteDataSource {
   final Dio client;
 
   DefaultAddressRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<DefaultAddressModel> defaultAddress(int addressId) async {
+  Future<DefaultAddressModel> defaultAddress(String addressId) async {
     try {
       final response = await client.post(
         '$baseUrl${'$defaultAddressUrl/$addressId'}',
@@ -26,7 +24,9 @@ class DefaultAddressRemoteDataSourceImpl implements DefaultAddressRemoteDataSour
       if (response.statusCode == 200 || response.statusCode == 201) {
         return DefaultAddressModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to create cart. Status code: ${response.statusCode}');
+        throw Exception(
+          'Failed to create cart. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('DefaultAddress Error: $e');

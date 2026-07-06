@@ -8,7 +8,7 @@ class DefaultAddressRepositoryImpl implements DefaultAddressRepository {
   DefaultAddressRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<DefaultAddressModel> setDefaultAddress(int addressId) {
+  Future<DefaultAddressModel> setDefaultAddress(String addressId) {
     return remoteDataSource.defaultAddress(addressId);
   }
 }

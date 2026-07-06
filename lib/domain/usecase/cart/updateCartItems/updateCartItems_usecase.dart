@@ -6,7 +6,11 @@ class UpdateCartItemsUseCase {
 
   UpdateCartItemsUseCase({required this.repository});
 
-  Future<UpdateCartItemsModel> call(Map<String, dynamic> payload, String cartId) {
-    return repository.updateCartItems(payload, cartId);
+  Future<UpdateCartItemsModel> call(
+    Map<String, dynamic> payload,
+    String cartId,
+    String itemId,
+  ) {
+    return repository.updateCartItems(payload, cartId, itemId);
   }
 }

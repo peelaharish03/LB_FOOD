@@ -8,9 +8,9 @@ class AddressSavetoCartCubit extends Cubit<AddressSavetoCartState> {
   final AddressSavetoCartUseCase useCase;
   final NetworkService networkService;
   AddressSavetoCartCubit(this.useCase, this.networkService)
-      : super(AddressSavetoCartInitial());
+    : super(AddressSavetoCartInitial());
 
-  Future<void> addressSavetoCart(int addressId, context) async {
+  Future<void> addressSavetoCart(String addressId, context) async {
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {

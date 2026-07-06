@@ -25,14 +25,12 @@ class SavedAddressesView extends StatelessWidget {
       builder: (context, state) {
         if (state is GetAddressLoading) {
           return Center(
-            child: CupertinoActivityIndicator(
-              color: AppColor.PrimaryColor,
-            ),
+            child: CupertinoActivityIndicator(color: AppColor.PrimaryColor),
           );
         }
 
         if (state is GetAddressSuccess) {
-          final addresses = state.addressModel.data?.content ?? [];
+          final addresses = state.addressModel.content;
           return _buildAddressList(context, addresses);
         }
 
@@ -41,37 +39,31 @@ class SavedAddressesView extends StatelessWidget {
         }
 
         return Center(
-          child: CupertinoActivityIndicator(
-            color: AppColor.PrimaryColor,
-          ),
+          child: CupertinoActivityIndicator(color: AppColor.PrimaryColor),
         );
       },
     );
   }
 
   Widget _buildAddressList(BuildContext context, List<Content> addresses) {
-    final sortedAddresses = List<Content>.from(addresses)
-      ..sort((a, b) {
-        if (a.isDefault == true && b.isDefault != true) return -1;
-        if (a.isDefault != true && b.isDefault == true) return 1;
-        return 0;
-      });
+    final sortedAddresses = List<Content>.from(addresses);
 
     if (sortedAddresses.isEmpty) {
       return _buildEmptyView(context);
     }
 
     return RefreshIndicator(
-      onRefresh: () async =>
-          context.read<GetAddressCubit>().fetchAddress(context),
+      onRefresh:
+          () async => context.read<GetAddressCubit>().fetchAddress(context),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: sortedAddresses.length,
-        itemBuilder: (context, index) => _buildAddressCard(
-          context,
-          sortedAddresses[index],
-          isDefault: sortedAddresses[index].isDefault ?? false,
-        ),
+        itemBuilder:
+            (context, index) => _buildAddressCard(
+              context,
+              sortedAddresses[index],
+              isDefault: sortedAddresses[index].isDefault ?? false,
+            ),
       ),
     );
   }
@@ -83,13 +75,17 @@ class SavedAddressesView extends StatelessWidget {
         children: [
           Icon(Icons.location_off, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 16),
-          const Text("No saved addresses yet",
-              style: TextStyle(fontSize: 16, color: Colors.grey)),
+          const Text(
+            "No saved addresses yet",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: onAddNewAddressTap,
-            child: Text("Add New Address",
-                style: TextStyle(color: AppColor.PrimaryColor)),
+            child: Text(
+              "Add New Address",
+              style: TextStyle(color: AppColor.PrimaryColor),
+            ),
           ),
         ],
       ),
@@ -103,24 +99,32 @@ class SavedAddressesView extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
           const SizedBox(height: 16),
-          Text("Failed to load addresses",
-              style: TextStyle(fontSize: 16, color: Colors.red.shade700)),
+          Text(
+            "Failed to load addresses",
+            style: TextStyle(fontSize: 16, color: Colors.red.shade700),
+          ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: () =>
-                context.read<GetAddressCubit>().fetchAddress(context),
+            onPressed:
+                () => context.read<GetAddressCubit>().fetchAddress(context),
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppColor.PrimaryColor),
-            child: const Text("Retry",
-                style: TextStyle(fontSize: 16, color: Colors.white)),
+              backgroundColor: AppColor.PrimaryColor,
+            ),
+            child: const Text(
+              "Retry",
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAddressCard(BuildContext context, Content address,
-      {bool isDefault = false}) {
+  Widget _buildAddressCard(
+    BuildContext context,
+    Content address, {
+    bool isDefault = false,
+  }) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       elevation: 1,
@@ -137,14 +141,17 @@ class SavedAddressesView extends StatelessWidget {
           if (onAddressSelected != null) {
             onAddressSelected!(address);
           } else {
-            final addressId = address.id!;
-            final addressString = '${address.addressLine1}, ${address.city}';
-            context
-                .read<DefaultAddressCubit>()
-                .setDefaultAddress(addressId, context);
-            context
-                .read<AddressSavetoCartCubit>()
-                .addressSavetoCart(addressId, context);
+            final addressId = address.id;
+            if (addressId == null || addressId.isEmpty) return;
+            final addressString = _formatAddress(address);
+            context.read<DefaultAddressCubit>().setDefaultAddress(
+              addressId,
+              context,
+            );
+            context.read<AddressSavetoCartCubit>().addressSavetoCart(
+              addressId,
+              context,
+            );
             Navigator.pop(context, addressString);
           }
         },
@@ -155,65 +162,91 @@ class SavedAddressesView extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.location_on,
-                      color: AppColor.PrimaryColor, size: 20),
+                  Icon(
+                    Icons.location_on,
+                    color: AppColor.PrimaryColor,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     isDefault ? "Default Address" : "Saved Address",
                     style: TextStyle(
-                      color: isDefault
-                          ? AppColor.PrimaryColor
-                          : Colors.grey.shade600,
+                      color:
+                          isDefault
+                              ? AppColor.PrimaryColor
+                              : Colors.grey.shade600,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (isDefault) ...[
                     const SizedBox(width: 8),
-                    Icon(Icons.check_circle,
-                        color: AppColor.PrimaryColor, size: 18),
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColor.PrimaryColor,
+                      size: 18,
+                    ),
                   ],
                 ],
               ),
               const SizedBox(height: 12),
-              if (address.addressLine1?.isNotEmpty ?? false)
+              if (address.address?.line1?.isNotEmpty ?? false)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(address.addressLine1!,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    address.address!.line1!,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              if (address.addressLine2?.isNotEmpty ?? false)
+              if (address.address?.line2?.isNotEmpty ?? false)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(address.addressLine2!,
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  child: Text(
+                    address.address!.line2!,
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
                 ),
-              if (address.street?.isNotEmpty ?? false)
+              if (address.address?.fullText?.isNotEmpty ?? false)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(address.street!,
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  child: Text(
+                    address.address!.fullText!,
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
                 ),
-              Text('${address.city}, ${address.state} - ${address.postalCode}',
-                  style: TextStyle(color: Colors.grey.shade600)),
+              Text(
+                _formatCityState(address),
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton.icon(
                     icon: Icon(Icons.delete, size: 18, color: Colors.red),
-                    label: const Text("DELETE",
-                        style: TextStyle(color: Colors.red)),
+                    label: const Text(
+                      "DELETE",
+                      style: TextStyle(color: Colors.red),
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                      side: BorderSide(
+                        color: Colors.red.withValues(alpha: 0.5),
+                      ),
                     ),
-                    onPressed: () =>
-                        _showDeleteConfirmation(context, address.id!),
+                    onPressed: () {
+                      final addressId = address.id;
+                      if (addressId == null || addressId.isEmpty) return;
+                      _showDeleteConfirmation(context, addressId);
+                    },
                   ),
                 ],
               ),
@@ -224,27 +257,62 @@ class SavedAddressesView extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, int addressId) {
+  String _formatAddress(Content address) {
+    final item = address.address;
+    if (item == null) return '';
+    return [
+      item.line1,
+      item.line2,
+      item.city,
+      item.state,
+      item.country,
+      item.postalCode,
+    ].where((part) => part?.trim().isNotEmpty ?? false).join(', ');
+  }
+
+  String _formatCityState(Content address) {
+    final item = address.address;
+    if (item == null) return '';
+    final cityState = [
+      item.city,
+      item.state,
+      item.country,
+    ].where((part) => part?.trim().isNotEmpty ?? false).join(', ');
+    final postalCode = item.postalCode;
+    if (postalCode == null || postalCode.trim().isEmpty) return cityState;
+    if (cityState.isEmpty) return postalCode;
+    return '$cityState - $postalCode';
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String addressId) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Address"),
-        content: const Text("Are you sure you want to delete this address?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("CANCEL")),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context
-                  .read<DeleteAddressCubit>()
-                  .deleteAddress(addressId, context);
-            },
-            child: const Text("DELETE", style: TextStyle(color: Colors.red)),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Delete Address"),
+            content: const Text(
+              "Are you sure you want to delete this address?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("CANCEL"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.read<DeleteAddressCubit>().deleteAddress(
+                    addressId,
+                    context,
+                  );
+                },
+                child: const Text(
+                  "DELETE",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

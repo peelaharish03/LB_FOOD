@@ -28,6 +28,7 @@ class SaveAddressCubit extends Cubit<SaveAddressState> {
         final result = await useCase.call(payload);
         emit(SaveAddressSuccess(result));
       } catch (e) {
+        print(e);
         emit(SaveAddressFailure(e.toString()));
       }
     }

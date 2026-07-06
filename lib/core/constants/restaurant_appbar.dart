@@ -13,6 +13,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
   final Map<String, int> cart;
   final int totalItems;
   final bool showBackButton;
+  final Future<void> Function()? onBackPressed;
 
   const SwiggyStyleAppBar({
     super.key,
@@ -27,6 +28,7 @@ class SwiggyStyleAppBar extends StatelessWidget {
     required this.cart,
     required this.totalItems,
     this.showBackButton = true,
+    this.onBackPressed,
   });
 
   @override
@@ -63,16 +65,23 @@ class SwiggyStyleAppBar extends StatelessWidget {
             left: 16,
             child: GestureDetector(
               onTap: () async {
+                if (onBackPressed != null) {
+                  await onBackPressed!();
+                  return;
+                }
+
                 if (isBottomSheetVisible && bottomSheetController != null) {
                   bottomSheetController?.close();
                   await Future.delayed(const Duration(milliseconds: 300));
                 }
 
-                final updatedCart = <int, int>{};
+                final updatedCart = <dynamic, int>{};
                 for (var item in selectedItems) {
                   final productId = item.id;
                   final qty = cart[item.name] ?? 0;
-                  if (qty > 0) updatedCart[productId ?? 0] = qty;
+                  if (qty > 0 && productId != null) {
+                    updatedCart[productId] = qty;
+                  }
                 }
 
                 if (context.mounted) {

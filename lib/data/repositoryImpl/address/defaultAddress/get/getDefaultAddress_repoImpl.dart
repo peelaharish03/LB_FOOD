@@ -8,7 +8,7 @@ class AddressSavetoCartRepositoryImpl implements AddressSavetoCartRepository {
   AddressSavetoCartRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<AddressSavetoCartModel> addressSavetoCart(int addressId) {
+  Future<AddressSavetoCartModel> addressSavetoCart(String addressId) {
     return remoteDataSource.addressSavetoCart(addressId);
   }
 }

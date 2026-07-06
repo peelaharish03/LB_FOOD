@@ -13,8 +13,7 @@
 // import 'package:flutter_bloc/flutter_bloc.dart';
 
 // class OrderHistoryScreen extends StatefulWidget {
-//   final bool isGuest;
-//   const OrderHistoryScreen({super.key, this.isGuest = false});
+//   const OrderHistoryScreen({super.key});
 //   @override
 //   _OrderHistoryScreenState createState() => _OrderHistoryScreenState();
 // }

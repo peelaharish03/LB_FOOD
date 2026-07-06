@@ -6,7 +6,7 @@ class DefaultAddressUseCase {
 
   DefaultAddressUseCase({required this.repository});
 
-  Future<DefaultAddressModel> call(int addressId) {
+  Future<DefaultAddressModel> call(String addressId) {
     return repository.setDefaultAddress(addressId);
   }
 }

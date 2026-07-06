@@ -9,9 +9,9 @@ class DefaultAddressCubit extends Cubit<DefaultAddressState> {
   final NetworkService networkService;
 
   DefaultAddressCubit(this.useCase, this.networkService)
-      : super(DefaultAddressInitial());
+    : super(DefaultAddressInitial());
 
-  Future<void> setDefaultAddress(int addressId, context) async {
+  Future<void> setDefaultAddress(String addressId, context) async {
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {

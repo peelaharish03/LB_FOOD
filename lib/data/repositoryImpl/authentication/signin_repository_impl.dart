@@ -9,15 +9,13 @@ class SignInRepositoryImpl implements SignInRepository {
   SignInRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<SignInModel> logIn(String mobileNumber, String otp,String fullName) async {
-    final model = await remoteDataSource.signIn(mobileNumber, otp,fullName);
+  Future<SignInModel> logIn(String mobileNumber, String otp,String fullName, String deviceId) async {
+    final model = await remoteDataSource.signIn(mobileNumber, otp,fullName, deviceId);
     return SignInModel(
-      token: model.token,
+      accessToken: model.accessToken,
       refreshToken: model.refreshToken,
-      type: model.type,
-      id: model.id,
-      roles: model.roles,
-      primaryContact: model.primaryContact,
+      expiresIn: model.expiresIn,
+      tokenType: model.tokenType,
     );
   }
 }

@@ -3,7 +3,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../model/authentication/signin_model.dart';
 
 abstract class SignInRemoteDataSource {
-  Future<SignInModel> signIn(String mobileNumber, String otp,String fullName);
+  Future<SignInModel> signIn(String mobileNumber, String otp, String fullName, String deviceId);
 }
 
 class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
@@ -12,11 +12,17 @@ class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
   SignInRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<SignInModel> signIn(String mobileNumber, String otp,String fullName) async {
+  Future<SignInModel> signIn(
+    String mobileNumber,
+    String otp,
+    String fullName,
+    String deviceId,
+  ) async {
     final payload = {
       "otp": otp,
       "primaryContact": mobileNumber,
       "fullName": fullName,
+      "deviceId": deviceId,
     };
 
     try {
@@ -24,7 +30,7 @@ class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
 
       final response = await client.request(
         '$baseUrl2$SigninUrl',
-        options: Options(method: 'POST'),
+        options: Options(method: 'POST', extra: {'requiresAuth': false}),
         data: payload,
       );
       print('url $baseUrl2$SigninUrl');

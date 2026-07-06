@@ -18,8 +18,7 @@ import 'package:local_basket/presentation/screen/widgets/logout.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final bool isGuest;
-  const ProfileScreen({super.key, this.isGuest = false});
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -36,9 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColor.White,
-      appBar: CustomAppBar(
-        title: "My Profile",
-      ),
+      appBar: CustomAppBar(title: "My Profile"),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -51,7 +48,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-//
+
+  //
   Widget _buildUserProfile(BuildContext context) {
     return BlocBuilder<CurrentCustomerCubit, CurrentCustomerState>(
       builder: (context, state) {
@@ -75,8 +73,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: AppColor.PrimaryColor.withOpacity(0.1),
-                  child: Icon(Icons.person,
-                      size: 40, color: AppColor.PrimaryColor),
+                  child: Icon(
+                    Icons.person,
+                    size: 40,
+                    color: AppColor.PrimaryColor,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -84,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        customer.fullName ?? 'No Name',
+                        customer.username ?? 'No Name',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -92,15 +93,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        customer.primaryContact ?? 'No Phone Number',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        customer.mobile ?? 'No Phone Number',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           );
@@ -113,9 +111,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(state.message, style: const TextStyle(color: Colors.red)),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => context
-                    .read<CurrentCustomerCubit>()
-                    .GetCurrentCustomer(context),
+                onPressed:
+                    () => context
+                        .read<CurrentCustomerCubit>()
+                        .GetCurrentCustomer(context),
                 child: const Text("Retry"),
               ),
             ],
@@ -130,77 +129,117 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildBasicOptions(BuildContext context) {
     final List<_Option> options = [
-      _Option(Icons.shopping_bag_outlined, "My Orders", onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrders()));
-      }),
-      _Option(Icons.location_on_outlined, "Saved Addresses", onTap: () {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => AddressScreen()));
-      }),
-      _Option(Icons.report_problem_outlined, "Complaints", onTap: () {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ComplaintsScreen()));
-      }),
-      _Option(Icons.help_outline, "FAQs", onTap: () {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const FaqsScreen()));
-      }),
-      _Option(Icons.logout, "Logout", onTap: () {
-        showModalBottomSheet(
-          context: context,
-          builder: (_) => const LogOutCnfrmBottomSheet(),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-        );
-      }),
-      _Option(Icons.delete_forever_outlined, "Delete Account", onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          useRootNavigator: true,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (_) => _buildDeleteConfirmation(context),
-        );
-      }),
+      _Option(
+        Icons.shopping_bag_outlined,
+        "My Orders",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => MyOrders()),
+          );
+        },
+      ),
+      _Option(
+        Icons.location_on_outlined,
+        "Saved Addresses",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => AddressScreen()),
+          );
+        },
+      ),
+      _Option(
+        Icons.report_problem_outlined,
+        "Complaints",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ComplaintsScreen()),
+          );
+        },
+      ),
+      _Option(
+        Icons.help_outline,
+        "FAQs",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FaqsScreen()),
+          );
+        },
+      ),
+      _Option(
+        Icons.logout,
+        "Logout",
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (_) => const LogOutCnfrmBottomSheet(),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+          );
+        },
+      ),
+      _Option(
+        Icons.delete_forever_outlined,
+        "Delete Account",
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            useRootNavigator: true,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => _buildDeleteConfirmation(context),
+          );
+        },
+      ),
     ];
 
     return Column(
-      children: options.map((opt) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
-                blurRadius: 8,
-                offset: Offset(0, 4),
+      children:
+          options.map((opt) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            leading: Icon(opt.icon,
-                color: opt.isDestructive ? Colors.red : AppColor.PrimaryColor),
-            title: Text(
-              opt.title,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-                color: opt.isDestructive ? Colors.red : Colors.black,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                leading: Icon(
+                  opt.icon,
+                  color: opt.isDestructive ? Colors.red : AppColor.PrimaryColor,
+                ),
+                title: Text(
+                  opt.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    color: opt.isDestructive ? Colors.red : Colors.black,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: opt.isDestructive ? Colors.red : Colors.grey,
+                ),
+                onTap: opt.onTap,
               ),
-            ),
-            trailing: Icon(Icons.chevron_right,
-                color: opt.isDestructive ? Colors.red : Colors.grey),
-            onTap: opt.onTap,
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -212,14 +251,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber_rounded,
-                color: AppColor.PrimaryColor, size: 48),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColor.PrimaryColor,
+              size: 48,
+            ),
             const SizedBox(height: 16),
-            Text("Are you sure?",
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColor.PrimaryColor)),
+            Text(
+              "Are you sure?",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColor.PrimaryColor,
+              ),
+            ),
             const SizedBox(height: 12),
             const Text(
               "This will permanently delete your account and all associated data.",
@@ -251,7 +296,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         prefs.clear();
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
+                            builder: (_) => const LoginScreen(),
+                          ),
                           (route) => false,
                         );
                       } else if (state is DeleteAccountFailure) {
@@ -264,26 +310,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                     builder: (context, state) {
                       return ElevatedButton(
-                        onPressed: state is DeleteAccountLoading
-                            ? null
-                            : () {
-                                context
-                                    .read<DeleteAccountCubit>()
-                                    .deleteAccount();
-                              },
+                        onPressed:
+                            state is DeleteAccountLoading
+                                ? null
+                                : () {
+                                  context
+                                      .read<DeleteAccountCubit>()
+                                      .deleteAccount();
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.redAccent,
                         ),
-                        child: state is DeleteAccountLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text("Delete"),
+                        child:
+                            state is DeleteAccountLoading
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Text("Delete"),
                       );
                     },
                   ),

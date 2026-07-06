@@ -11,14 +11,19 @@ class LocationPickerPage extends StatefulWidget {
   const LocationPickerPage({super.key, this.onLocationSelected});
 
   @override
-  _LocationPickerPageState createState() => _LocationPickerPageState();
+  State<LocationPickerPage> createState() => _LocationPickerPageState();
 }
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
+  static const LatLng _defaultLocation = LatLng(20.5937, 78.9629);
+  static const double _defaultZoom = 5.0;
+  static const double _selectedZoom = 15.0;
+
   LatLng? _selectedLocation;
   String _address = 'Fetching address...';
   Placemark? _currentPlacemark;
   bool _isLoading = false;
+  bool _isMapReady = false;
 
   final MapController _mapController = MapController();
 
@@ -29,23 +34,19 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   Future<void> _fetchCurrentLocation() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Location services are disabled')),
-        );
+        _showSnackBar('Location services are disabled');
         return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Location permissions are permanently denied')),
-        );
+        _showSnackBar('Location permissions are permanently denied');
         return;
       }
 
@@ -53,39 +54,49 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         permission = await Geolocator.requestPermission();
         if (permission != LocationPermission.whileInUse &&
             permission != LocationPermission.always) {
+          _showSnackBar('Location permission is required to detect your place');
           return;
         }
       }
 
       Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
       final currentLocation = LatLng(position.latitude, position.longitude);
 
+      if (!mounted) return;
       setState(() {
         _selectedLocation = currentLocation;
       });
 
-      _mapController.move(currentLocation, 15.0);
+      _moveMap(currentLocation, _selectedZoom);
       await _getAddressFromLatLng(currentLocation);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error getting location: ${e.toString()}')),
-      );
+      _showSnackBar('Error getting location: ${e.toString()}');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _getAddressFromLatLng(LatLng latLng) async {
+    if (!mounted) return;
     setState(() {
       _address = 'Fetching address...';
+      _currentPlacemark = null;
       _isLoading = true;
     });
 
     try {
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(latLng.latitude, latLng.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        latLng.latitude,
+        latLng.longitude,
+      );
 
+      if (!mounted) return;
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
         setState(() {
@@ -94,14 +105,20 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             place.street,
             place.locality,
             place.administrativeArea,
-            place.country
+            place.country,
           ].where((part) => part?.isNotEmpty ?? false).join(', ');
         });
+      } else {
+        setState(() => _address = 'No address found for this location');
       }
     } catch (e) {
-      setState(() => _address = 'Failed to fetch address');
+      if (mounted) {
+        setState(() => _address = 'Failed to fetch address');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -111,6 +128,19 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       _address = 'Fetching address...';
     });
     _getAddressFromLatLng(point);
+  }
+
+  void _moveMap(LatLng point, double zoom) {
+    if (_isMapReady) {
+      _mapController.move(point, zoom);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -124,8 +154,10 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               icon: Icon(Icons.check),
               onPressed: () {
                 if (_selectedLocation != null && _currentPlacemark != null) {
-                  widget.onLocationSelected
-                      ?.call(_selectedLocation!, _currentPlacemark!);
+                  widget.onLocationSelected?.call(
+                    _selectedLocation!,
+                    _currentPlacemark!,
+                  );
                   Navigator.pop(context, true);
                 }
               },
@@ -137,15 +169,26 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              center: _selectedLocation ?? LatLng(20.5937, 78.9629),
-              zoom: 5.0,
+              initialCenter: _selectedLocation ?? _defaultLocation,
+              initialZoom:
+                  _selectedLocation == null ? _defaultZoom : _selectedZoom,
+              onMapReady: () {
+                _isMapReady = true;
+                final selectedLocation = _selectedLocation;
+                if (selectedLocation != null) {
+                  _moveMap(selectedLocation, _selectedZoom);
+                }
+              },
               onTap: (tapPosition, point) => _onMapTap(point),
             ),
             children: [
               TileLayer(
                 urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                subdomains: ['a', 'b', 'c'],
+                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                retinaMode: RetinaMode.isHighDensity(context),
+                userAgentPackageName: 'com.localbaskethd',
+                maxNativeZoom: 20,
               ),
               if (_selectedLocation != null)
                 MarkerLayer(
@@ -162,6 +205,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                     ),
                   ],
                 ),
+              SimpleAttributionWidget(
+                alignment: Alignment.bottomLeft,
+                backgroundColor: Colors.white.withValues(alpha: 0.8),
+                source: const Text('OpenStreetMap contributors, CARTO'),
+              ),
             ],
           ),
           if (_isLoading) Center(child: CircularProgressIndicator()),
@@ -198,19 +246,21 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                       Container(
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColor.PrimaryColor.withOpacity(0.1),
+                          color: AppColor.PrimaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildDetailRow('Latitude:',
-                                _selectedLocation!.latitude.toStringAsFixed(6)),
+                            _buildDetailRow(
+                              'Latitude:',
+                              _selectedLocation!.latitude.toStringAsFixed(6),
+                            ),
                             SizedBox(height: 6),
                             _buildDetailRow(
-                                'Longitude:',
-                                _selectedLocation!.longitude
-                                    .toStringAsFixed(6)),
+                              'Longitude:',
+                              _selectedLocation!.longitude.toStringAsFixed(6),
+                            ),
                             SizedBox(height: 8),
                             Divider(height: 1),
                             SizedBox(height: 8),
@@ -222,10 +272,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                               ),
                             ),
                             SizedBox(height: 4),
-                            Text(
-                              _address,
-                              style: TextStyle(fontSize: 14),
-                            ),
+                            Text(_address, style: TextStyle(fontSize: 14)),
                           ],
                         ),
                       ),
@@ -244,16 +291,19 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                             if (_selectedLocation != null &&
                                 _currentPlacemark != null) {
                               widget.onLocationSelected?.call(
-                                  _selectedLocation!, _currentPlacemark!);
+                                _selectedLocation!,
+                                _currentPlacemark!,
+                              );
                               Navigator.pop(context, true);
                             }
                           },
                           child: Text(
                             'Use This Location',
                             style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -281,12 +331,7 @@ Widget _buildDetailRow(String label, String value) {
         ),
       ),
       SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          value,
-          style: TextStyle(fontSize: 14),
-        ),
-      ),
+      Expanded(child: Text(value, style: TextStyle(fontSize: 14))),
     ],
   );
 }

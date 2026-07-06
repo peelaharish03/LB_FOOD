@@ -121,7 +121,7 @@
     },
     {
       "name": "device_info_plus",
-      "version": "11.5.0",
+      "version": "10.1.2",
       "dependencies": [
         "device_info_plus_platform_interface",
         "ffi",
@@ -698,10 +698,9 @@
     },
     {
       "name": "win32_registry",
-      "version": "2.1.0",
+      "version": "1.1.5",
       "dependencies": [
         "ffi",
-        "meta",
         "win32"
       ]
     },

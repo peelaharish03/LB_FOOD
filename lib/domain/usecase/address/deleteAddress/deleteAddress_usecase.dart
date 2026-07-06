@@ -6,7 +6,7 @@ class DeleteAddressUseCase {
 
   DeleteAddressUseCase({required this.repository});
 
-  Future<DeleteAddressModel> execute(int addressId) async {
+  Future<DeleteAddressModel> execute(String addressId) async {
     return await repository.deleteAddress(addressId);
   }
 }

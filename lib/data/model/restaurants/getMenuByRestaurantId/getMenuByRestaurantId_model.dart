@@ -1,5 +1,5 @@
-
-import 'package:local_basket/data/model/restaurants/guestMenuByRestaurantId/menu_content_model.dart';
+import 'package:local_basket/data/model/restaurants/menu_content_model.dart'
+    show Content;
 
 class GetMenuByRestaurantIdModel {
   GetMenuByRestaurantIdModel({
@@ -32,20 +32,50 @@ class GetMenuByRestaurantIdModel {
     return GetMenuByRestaurantIdModel(
       content: json["content"] == null
           ? []
-          : List<Content>.from(json["content"].map((x) => Content.fromJson(x))),
-      pageable:
-          json["pageable"] == null ? null : Pageable.fromJson(json["pageable"]),
+          : List<Content>.from(
+              json["content"].map((x) => Content.fromJson(x)),
+            ),
+      pageable: json["pageable"] == null
+          ? null
+          : Pageable.fromJson(json["pageable"]),
       totalPages: json["totalPages"],
       totalElements: json["totalElements"],
       last: json["last"],
       size: json["size"],
       number: json["number"],
-      sort: json["sort"] == null
-          ? []
-          : List<dynamic>.from(json["sort"].map((x) => x)),
+      sort: json["sort"] == null ? [] : List<dynamic>.from(json["sort"]),
       numberOfElements: json["numberOfElements"],
       first: json["first"],
       empty: json["empty"],
+    );
+  }
+}
+
+class Pageable {
+  Pageable({
+    this.pageNumber,
+    this.pageSize,
+    this.sort,
+    this.offset,
+    this.paged,
+    this.unpaged,
+  });
+
+  final int? pageNumber;
+  final int? pageSize;
+  final List<dynamic>? sort;
+  final int? offset;
+  final bool? paged;
+  final bool? unpaged;
+
+  factory Pageable.fromJson(Map<String, dynamic> json) {
+    return Pageable(
+      pageNumber: json["pageNumber"],
+      pageSize: json["pageSize"],
+      sort: json["sort"] == null ? [] : List<dynamic>.from(json["sort"]),
+      offset: json["offset"],
+      paged: json["paged"],
+      unpaged: json["unpaged"],
     );
   }
 }

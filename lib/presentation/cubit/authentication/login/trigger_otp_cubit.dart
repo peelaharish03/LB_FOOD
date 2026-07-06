@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:bloc/bloc.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+
 import '../../../../components/custom_snackbar.dart';
 import '../../../../core/network/network_helper.dart';
 import '../../../../core/network/network_service.dart';
@@ -11,83 +15,123 @@ class TriggerOtpCubit extends Cubit<TriggerOtpState> {
   final TriggerOtpValidationUseCase useCase;
   final NetworkService networkService;
 
-  TriggerOtpCubit({required this.useCase, required this.networkService})
-      : super(TriggerOtpInitial());
+  TriggerOtpCubit({
+    required this.useCase,
+    required this.networkService,
+  }) : super(TriggerOtpInitial());
 
-  Future<void> fetchOtp(BuildContext context, String mobileNumber) async {
+  /// Get Device ID
+  Future<String> getDeviceId() async {
+    try {
+      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+
+        // You can use fingerprint, id, model, etc.
+        return androidInfo.fingerprint;
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor ?? '';
+      }
+    } catch (e) {
+      debugPrint("Error fetching device id: $e");
+    }
+
+    return '';
+  }
+
+  Future<void> fetchOtp(
+    BuildContext context,
+    String primaryContact,
+  ) async {
     bool isConnected = await networkService.hasInternetConnection();
-    print(isConnected);
 
     if (!isConnected) {
-      print("No Internet Connection");
-
       CustomSnackbars.showErrorSnack(
         context: context,
         title: 'Alert',
         message: 'Please check Internet Connection',
       );
-
       return;
     }
 
-    if (mobileNumber.isEmpty) {
+    if (primaryContact.isEmpty) {
       CustomSnackbars.showErrorSnack(
         context: context,
         title: 'Attention',
         message: 'Please enter a mobile number',
       );
       return;
-    } else if (mobileNumber.length < 10) {
+    }
+
+    if (primaryContact.length < 10) {
       CustomSnackbars.showErrorSnack(
         context: context,
-        message: 'Please enter a valid mobile number',
         title: 'Attention',
+        message: 'Please enter a valid mobile number',
       );
       return;
     }
 
     try {
       emit(TriggerOtpLoading());
-      final otpEntity = await useCase(mobileNumber);
+
+      final otpEntity = await useCase(primaryContact);
+
       emit(TriggerOtpLoaded(otpEntity));
 
-      final otpValue =
-          otpEntity.otp?.isNotEmpty == true ? otpEntity.otp! : 'true';
+      final otpValue = otpEntity.otp ?? '';
+
+      /// Fetch actual device id
+      final String deviceId = await getDeviceId();
+
+      debugPrint("Device ID: $deviceId");
 
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (context) => OtpScreen(
-            mobileNumber: mobileNumber,
+            primaryContact: primaryContact,
             otp: otpValue,
             fullName: '',
-            otpValue: otpValue,
+            deviceId: deviceId,
           ),
         ),
         (route) => false,
       );
 
-      print('OTP response received and stored in state');
+      debugPrint('OTP response received and stored in state');
     } catch (e) {
-      print('error in trigger otp: $e');
-      emit(TriggerOtpError('Failed to load OTP data: ${e.toString()}'));
+      debugPrint('Error in trigger otp: $e');
+
+      emit(
+        TriggerOtpError(
+          'Failed to load OTP data: ${e.toString()}',
+        ),
+      );
     }
   }
 
-  Future<void> resendOtp(BuildContext context, String mobileNumber) async {
+  Future<void> resendOtp(
+    BuildContext context,
+    String mobileNumber,
+  ) async {
     bool isConnected = await NetworkHelper.checkInternetAndShowSnackbar(
       context: context,
       networkService: networkService,
     );
+
     if (!isConnected) return;
 
     try {
       final otpEntity = await useCase(mobileNumber);
+
       emit(ResendOtpLoaded(otpEntity));
-      if (otpEntity.creationTime?.isNotEmpty == true) {
-        final otpValue =
-            otpEntity.otp?.isNotEmpty == true ? otpEntity.otp! : 'true';
-        print(otpValue);
+
+      if (otpEntity.otp?.isNotEmpty == true) {
+        final otpValue = otpEntity.otp!;
+        debugPrint("Resend OTP: $otpValue");
       } else {
         CustomSnackbars.showErrorSnack(
           context: context,
@@ -96,7 +140,7 @@ class TriggerOtpCubit extends Cubit<TriggerOtpState> {
         );
       }
     } catch (e) {
-      print(e);
+      debugPrint("Resend OTP Error: $e");
     }
   }
 }

@@ -39,10 +39,6 @@ class GetMenuByRestaurantIdCubit extends Cubit<GetMenuByRestaurantIdState> {
     emit(GetMenuByRestaurantIdLoading());
     try {
       final result = await useCase(params);
-      
-      // Cache the raw JSON response for future use (20 minutes for menu data)
-      // We'll need to get the raw JSON from the usecase response
-      // For now, let's skip caching for menu until we can get the raw JSON
       print('📦 Menu data fetched (caching disabled for this model)');
       
       emit(GetMenuByRestaurantIdLoaded(result));

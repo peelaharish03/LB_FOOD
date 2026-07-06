@@ -58,10 +58,10 @@ class SignUpCubit extends Cubit<SignUpState> {
         context,
         MaterialPageRoute(
           builder: (context) => OtpScreen(
-            mobileNumber: mobileNumber,
+            primaryContact: mobileNumber,
             otp: otpValue,
             fullName: fullName,
-            otpValue: otpValue,
+            deviceId: '',
           ),
         ),
         (route) => false,

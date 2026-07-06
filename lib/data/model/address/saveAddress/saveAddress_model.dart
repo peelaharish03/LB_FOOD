@@ -1,65 +1,92 @@
 class SaveAddressModel {
-    SaveAddressModel({
-        required this.id,
-        required this.userId,
-        required this.status,
-        required this.shopifyCartId,
-        required this.cartItems,
-        required this.createdAt,
-        required this.updatedAt,
-        required this.shippingAddressId,
-    });
+  SaveAddressModel({
+    required this.userId,
+    required this.userName,
+    required this.address,
+  });
 
-    final int? id;
-    final int? userId;
-    final String? status;
-    final String? shopifyCartId;
-    final List<CartItem> cartItems;
-    final DateTime? createdAt;
-    final DateTime? updatedAt;
-    final int? shippingAddressId;
+  final String? userId;
+  final String? userName;
+  final SavedAddress? address;
 
-    factory SaveAddressModel.fromJson(Map<String, dynamic> json){ 
-        return SaveAddressModel(
-            id: json["id"],
-            userId: json["userId"],
-            status: json["status"],
-            shopifyCartId: json["shopifyCartId"],
-            cartItems: json["cartItems"] == null ? [] : List<CartItem>.from(json["cartItems"]!.map((x) => CartItem.fromJson(x))),
-            createdAt: DateTime.tryParse(json["createdAt"] ?? ""),
-            updatedAt: DateTime.tryParse(json["updatedAt"] ?? ""),
-            shippingAddressId: json["shippingAddressId"],
-        );
-    }
+  factory SaveAddressModel.fromJson(Map<String, dynamic> json) {
+    return SaveAddressModel(
+      userId: json["userId"]?.toString(),
+      userName: json["userName"]?.toString(),
+      address:
+          json["address"] == null
+              ? null
+              : SavedAddress.fromJson(
+                Map<String, dynamic>.from(json["address"]),
+              ),
+    );
+  }
 
+  Map<String, dynamic> toJson() {
+    return {
+      "userId": userId,
+      "userName": userName,
+      "address": address?.toJson(),
+    };
+  }
 }
 
-class CartItem {
-    CartItem({
-        required this.id,
-        required this.productId,
-        required this.quantity,
-        required this.price,
-        required this.cartId,
-        required this.createdAt,
-    });
+class SavedAddress {
+  SavedAddress({
+    required this.id,
+    required this.name,
+    required this.addressType,
+    required this.mobileNumber,
+    required this.line1,
+    required this.line2,
+    required this.city,
+    required this.state,
+    required this.country,
+    required this.postalCode,
+    required this.fullText,
+  });
 
-    final int? id;
-    final int? productId;
-    final int? quantity;
-    final double? price;
-    final int? cartId;
-    final DateTime? createdAt;
+  final String? id;
+  final String? name;
+  final String? addressType;
+  final String? mobileNumber;
+  final String? line1;
+  final String? line2;
+  final String? city;
+  final String? state;
+  final String? country;
+  final String? postalCode;
+  final String? fullText;
 
-    factory CartItem.fromJson(Map<String, dynamic> json){ 
-        return CartItem(
-            id: json["id"],
-            productId: json["productId"],
-            quantity: json["quantity"],
-            price: json["price"],
-            cartId: json["cartId"],
-            createdAt: DateTime.tryParse(json["createdAt"] ?? ""),
-        );
-    }
+  factory SavedAddress.fromJson(Map<String, dynamic> json) {
+    return SavedAddress(
+      id: json["id"]?.toString(),
+      name: json["name"]?.toString(),
+      addressType: json["addressType"]?.toString(),
+      mobileNumber: json["mobileNumber"]?.toString(),
+      line1: json["line1"]?.toString(),
+      line2: json["line2"]?.toString(),
+      city: json["city"]?.toString(),
+      state: json["state"]?.toString(),
+      country: json["country"]?.toString(),
+      postalCode: json["postalCode"]?.toString(),
+      fullText: json["fullText"]?.toString(),
+    );
+  }
 
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "name": name,
+      "addressType": addressType,
+      "mobileNumber": mobileNumber,
+      "line1": line1,
+      "line2": line2,
+      "city": city,
+      "state": state,
+      "country": country,
+      "postalCode": postalCode,
+      "fullText": fullText,
+    };
+  }
 }

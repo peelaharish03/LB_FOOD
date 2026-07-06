@@ -6,7 +6,7 @@ class GetNearByRestaurantsUseCase {
 
   GetNearByRestaurantsUseCase({required this.repository});
 
-  Future<GetNearByRestaurantsModel> call(Map<String, dynamic> params) {
+  Future<GetNearByStoresModel> call(Map<String, dynamic> params) {
     return repository.getNearByRestaurants(params);
   }
 }

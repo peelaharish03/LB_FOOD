@@ -13,10 +13,10 @@ class SignInCubit extends Cubit<SignInState> {
   SignInCubit({required this.useCase, required this.networkService})
       : super(SignInInitial());
 
-  Future<void> signIn(BuildContext context, String mobileNumber, String otp,
+  Future<void> signIn(BuildContext context, String mobileNumber, String otp, String deviceId,
       String fullName) async {
     print(
-        'trigger otp 1 mobileNumber: $mobileNumber -- OTP: $otp -- fullName: $fullName');
+        'trigger otp 1 mobileNumber: $mobileNumber -- OTP: $otp -- fullName: $fullName -- deviceId: $deviceId');
     bool isConnected = await networkService.hasInternetConnection();
     if (!isConnected) {
       print("No Internet Connection");
@@ -47,12 +47,12 @@ class SignInCubit extends Cubit<SignInState> {
 
       try {
         emit(SignInLoading());
-        final signEntity = await useCase(mobileNumber, otp, fullName);
+        final signEntity = await useCase(mobileNumber, otp, fullName, 'device-uuid-123');
         print('signEntity: $signEntity');
 
-        if (signEntity.token != null && signEntity.token!.isNotEmpty) {
+        if (signEntity.accessToken != null && signEntity.accessToken!.isNotEmpty) {
           final storage = FlutterSecureStorage();
-          await storage.write(key: 'TOKEN', value: signEntity.token ?? '');
+          await storage.write(key: 'TOKEN', value: signEntity.accessToken ?? '');
           await storage.write(key: 'REFRESH_TOKEN', value: signEntity.refreshToken ?? '');
           context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
         } else {

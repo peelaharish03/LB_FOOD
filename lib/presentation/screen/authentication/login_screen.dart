@@ -7,9 +7,9 @@ import 'package:local_basket/core/constants/img_const.dart';
 import 'package:local_basket/components/custom_button.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_state.dart';
-import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:local_basket/presentation/screen/profile/terms&conditions_screen.dart';
 import '../../../core/injection.dart';
+import 'package:uuid/uuid.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,10 +24,26 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+    getUniqueDeviceId();
+  }
+
+  Future<String> getUniqueDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? id = prefs.getString('device_id');
+    print('id::-->> $id');
+
+    if (id == null) {
+      id = const Uuid().v4();
+      await prefs.setString('device_id', id);
+    }
+
+    return id;
   }
 
   @override
@@ -146,11 +162,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                        color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300,
+                                      width: 1,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 2),
+                                    horizontal: 12,
+                                    vertical: 2,
+                                  ),
                                   child: Row(
                                     children: [
                                       const Text(
@@ -168,11 +188,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                           keyboardType: TextInputType.phone,
                                           inputFormatters: [
                                             FilteringTextInputFormatter
-                                                .digitsOnly
+                                                .digitsOnly,
                                           ],
                                           style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           decoration: const InputDecoration(
                                             hintText: "Mobile number",
                                             border: InputBorder.none,
@@ -192,8 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     await Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) =>
-                                            const TermsAndConditionsScreen(),
+                                        builder:
+                                            (_) =>
+                                                const TermsAndConditionsScreen(),
                                       ),
                                     );
                                   },
@@ -227,7 +249,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   /// Sticky Button Section
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 20),
+                      horizontal: 24,
+                      vertical: 20,
+                    ),
                     child: Column(
                       children: [
                         BlocBuilder<TriggerOtpCubit, TriggerOtpState>(
@@ -239,42 +263,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (mobileController.text.length != 10) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content: Text(
-                                            "Please enter a valid 10-digit mobile number")),
+                                      content: Text(
+                                        "Please enter a valid 10-digit mobile number",
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
-                                context
-                                    .read<TriggerOtpCubit>()
-                                    .fetchOtp(context, mobileController.text);
+                                context.read<TriggerOtpCubit>().fetchOtp(
+                                  context,
+                                  mobileController.text,
+                                );
                               },
                             );
                           },
-                        ),
-                        const SizedBox(height: 14),
-                        GestureDetector(
-                          onTap: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setBool('isGuest', true);
-                            await prefs.remove('TOKEN');
-                            if (!mounted) return;
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const MainDashboard(isGuest: true),
-                              ),
-                              (route) => false,
-                            );
-                          },
-                          child: Text(
-                            "Continue as Guest",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
                         ),
                       ],
                     ),
