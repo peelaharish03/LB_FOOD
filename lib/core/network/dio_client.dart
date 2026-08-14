@@ -69,7 +69,11 @@ class DioClient {
             errorMessage = data.toString();
           }
 
-          log('ERROR[$statusCode] => MESSAGE: $errorMessage');
+          log(
+            'ERROR[$statusCode] => PATH: ${error.requestOptions.uri} '
+            '=> TYPE: ${error.type} => MESSAGE: $errorMessage '
+            '=> ERROR: ${error.error}',
+          );
 
           // Prevent infinite loop if refresh token request itself fails
           final isRefreshingToken = error.requestOptions.path.contains(

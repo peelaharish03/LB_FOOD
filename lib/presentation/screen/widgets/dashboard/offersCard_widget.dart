@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/data/model/offers/promotions/promotions_model.dart';
 import 'package:local_basket/data/model/offers/restaurant_offers/restaurant_offers_model.dart';
+import 'package:local_basket/presentation/cubit/offers/promotions/promotions_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/promotions/promotions_state.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
@@ -28,18 +31,13 @@ class _OffersCarouselState extends State<OffersCarousel> {
   int _secondsLeft = 0;
   String _countdownLabel = 'Offer ends in';
   List<Content> _offersCache = const [];
+  List<PromotionContent> _promotionsCache = const [];
+  List<Object> _combinedCache = const [];
   bool _isUserInteracting = false;
 
   @override
   void initState() {
     super.initState();
-
-    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
-    _offersPollTimer?.cancel();
-    _offersPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!mounted) return;
-      context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
-    });
 
     _pageController.addListener(() {
       if (mounted) {
@@ -51,6 +49,20 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
     _startAutoScroll();
     _startCountdown();
+
+    // OFFERS API DISABLED — show static sliders instead.
+    // _offersPollTimer?.cancel();
+    // _offersPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    //   if (!mounted) return;
+    //   context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+    //   context.read<PromotionsCubit>().fetchPromotions();
+    // });
+    //
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (!mounted) return;
+    //   context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+    //   context.read<PromotionsCubit>().fetchPromotions();
+    // });
   }
 
   void _startAutoScroll() {
@@ -76,99 +88,117 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
-      builder: (context, state) {
-        if (state is RestaurantOffersLoading) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (state is RestaurantOffersError) {
-          return _buildComingSoonCarousel();
-        } else if (state is RestaurantOffersLoaded) {
-          final offers = state.offers.data?.content ?? [];
-          _offersCache = offers;
+    final offersState = context.watch<RestaurantOffersCubit>().state;
+    final promotionsState = context.watch<PromotionsCubit>().state;
 
-          if (offers.isEmpty) return _buildComingSoonCarousel();
+    if (offersState is RestaurantOffersLoaded) {
+      _offersCache = offersState.offers.data?.content ?? [];
+    }
+    if (promotionsState is PromotionsLoaded) {
+      _promotionsCache = promotionsState.promotions.content;
+    }
 
-          return GestureDetector(
-            onPanDown: (_) => _isUserInteracting = true,
-            onPanCancel: () => _isUserInteracting = false,
-            onPanEnd: (_) => _isUserInteracting = false,
-            child: SizedBox(
-              height: 180,
-              child: Stack(
-                children: [
-                  PageView.builder(
-                    controller: _pageController,
-                    itemBuilder: (context, index) {
-                      final Content offer = offers[index % offers.length];
+    _combinedCache = [..._promotionsCache, ..._offersCache];
 
-                      final gradientColors = _getGradientColors(
-                        offer.offerType,
+    final bool isLoading =
+        offersState is RestaurantOffersLoading ||
+        promotionsState is PromotionsLoading;
+
+    if (_combinedCache.isEmpty) {
+      if (isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (offersState is RestaurantOffersError &&
+          promotionsState is PromotionsError) {
+        return _buildRetryCarousel();
+      }
+      return _buildComingSoonCarousel();
+    }
+
+    return GestureDetector(
+      onPanDown: (_) => _isUserInteracting = true,
+      onPanCancel: () => _isUserInteracting = false,
+      onPanEnd: (_) => _isUserInteracting = false,
+      child: SizedBox(
+        height: 180,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemBuilder: (context, index) {
+                final item = _combinedCache[index % _combinedCache.length];
+
+                final double scale =
+                    (_currentPage - index).abs() < 1.0
+                        ? 1 - (_currentPage - index).abs() * 0.1
+                        : 0.9;
+
+                final Widget card;
+                if (item is PromotionContent) {
+                  final gradientColors = _getGradientColors(item.promoType);
+                  card = PromotionCard(
+                    promotion: item,
+                    gradientColors: gradientColors,
+                    accentColor: gradientColors.last,
+                  );
+                } else {
+                  final Content offer = item as Content;
+                  final gradientColors = _getGradientColors(offer.offerType);
+                  final accentColor = gradientColors.last;
+                  card = OffersCard(
+                    tag: offer.couponCode ?? "OFFER",
+                    title: offer.name ?? "",
+                    subtitle: offer.description ?? "",
+                    onPressed: () async {
+                      await context.read<ClearCartCubit>().clearCart(context);
+
+                      // Flag the special offer flow globally
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('is_offer_flow', true);
+                      await prefs.setString(
+                        'offer_id',
+                        (offer.id ?? '').toString(),
                       );
-                      final accentColor = gradientColors.last;
+                      await prefs.setString(
+                        'offer_coupon',
+                        offer.couponCode ?? '',
+                      );
+                      await prefs.setInt(
+                        'offer_started_at',
+                        DateTime.now().millisecondsSinceEpoch,
+                      );
 
-                      final double scale =
-                          (_currentPage - index).abs() < 1.0
-                              ? 1 - (_currentPage - index).abs() * 0.1
-                              : 0.9;
-
-                      return Transform.scale(
-                        scale: scale,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutQuint,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: OffersCard(
-                            tag: offer.couponCode ?? "OFFER",
-                            title: offer.name ?? "",
-                            subtitle: offer.description ?? "",
-                            onPressed: () async {
-                              await context.read<ClearCartCubit>().clearCart(
-                                context,
-                              );
-
-                              // Flag the special offer flow globally
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              await prefs.setBool('is_offer_flow', true);
-                              await prefs.setString(
-                                'offer_id',
-                                (offer.id ?? '').toString(),
-                              );
-                              await prefs.setString(
-                                'offer_coupon',
-                                offer.couponCode ?? '',
-                              );
-                              await prefs.setInt(
-                                'offer_started_at',
-                                DateTime.now().millisecondsSinceEpoch,
-                              );
-
-                              if (!context.mounted) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => DashboardScreen(
-                                        couponCode: offer.couponCode,
-                                      ),
-                                ),
-                              );
-                            },
-                            gradientColors: gradientColors,
-                            accentColor: accentColor,
-                          ),
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => DashboardScreen(
+                                couponCode: offer.couponCode,
+                              ),
                         ),
                       );
                     },
+                    gradientColors: gradientColors,
+                    accentColor: accentColor,
+                  );
+                }
+
+                return Transform.scale(
+                  scale: scale,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutQuint,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: card,
                   ),
-                  Positioned(right: 12, top: 6, child: _buildCountdownChip()),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
+            Positioned(right: 12, top: 6, child: _buildCountdownChip()),
+          ],
+        ),
+      ),
     );
   }
 
@@ -182,7 +212,7 @@ class _OffersCarouselState extends State<OffersCarousel> {
   }
 
   void _updateCountdown() {
-    if (_offersCache.isEmpty) {
+    if (_combinedCache.isEmpty) {
       _secondsLeft = 0;
       _countdownLabel = 'Offer ends in';
       return;
@@ -190,21 +220,38 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
     final now = DateTime.now();
     final currentIndex = _currentPage.round();
-    final offer = _offersCache[currentIndex % _offersCache.length];
+    final item = _combinedCache[currentIndex % _combinedCache.length];
 
-    final slotStart = offer.slotStartTime;
-    final slotEnd = offer.slotEndTime;
     DateTime? target;
 
-    if (slotStart != null && now.isBefore(slotStart)) {
-      _countdownLabel = 'Offer starts in';
-      target = slotStart;
-    } else if (slotEnd != null && now.isBefore(slotEnd)) {
-      _countdownLabel = 'Offer ends in';
-      target = slotEnd;
+    if (item is PromotionContent) {
+      final start = DateTime.tryParse(item.startsAt ?? '');
+      final end = DateTime.tryParse(item.endsAt ?? '');
+      if (start != null && now.isBefore(start)) {
+        _countdownLabel = 'Offer starts in';
+        target = start;
+      } else if (end != null && now.isBefore(end)) {
+        _countdownLabel = 'Offer ends in';
+        target = end;
+      } else {
+        _countdownLabel = 'Offer ends in';
+        target = null;
+      }
     } else {
-      _countdownLabel = 'Offer ends in';
-      target = offer.endDate;
+      final offer = item as Content;
+      final slotStart = offer.slotStartTime;
+      final slotEnd = offer.slotEndTime;
+
+      if (slotStart != null && now.isBefore(slotStart)) {
+        _countdownLabel = 'Offer starts in';
+        target = slotStart;
+      } else if (slotEnd != null && now.isBefore(slotEnd)) {
+        _countdownLabel = 'Offer ends in';
+        target = slotEnd;
+      } else {
+        _countdownLabel = 'Offer ends in';
+        target = offer.endDate;
+      }
     }
 
     if (target == null) {
@@ -235,6 +282,31 @@ class _OffersCarouselState extends State<OffersCarousel> {
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRetryCarousel() {
+    return SizedBox(
+      height: 180,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Could not load offers',
+              style: TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
+                context.read<PromotionsCubit>().fetchPromotions();
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -330,6 +402,91 @@ class _OffersCarouselState extends State<OffersCarousel> {
       default:
         return [Colors.grey.shade200, const Color.fromARGB(255, 109, 200, 233)];
     }
+  }
+}
+
+class PromotionCard extends StatelessWidget {
+  final PromotionContent promotion;
+  final List<Color> gradientColors;
+  final Color accentColor;
+
+  const PromotionCard({
+    super.key,
+    required this.promotion,
+    required this.gradientColors,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/images/jpg/userlogo.jpg',
+                width: 96,
+                height: 120,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    promotion.customerFacingLabel ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    promotion.name ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    promotion.internalDescription ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
+import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getRestaurantsByProductName/getRestaurantsByProductName_cubit.dart';
@@ -85,6 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<CartItem> cartList = [];
   GetCartModel? cartData;
   final ScrollController _scrollController = ScrollController();
+  final NotificationServices _notificationServices = NotificationServices();
   bool _showBottomCart = true;
   bool _isScrollingDown = false;
   double _scrollPosition = 0;
@@ -111,6 +115,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _searchFocusNode = FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      debugPrint('🔄 Dashboard appeared → fetching stored FCM token');
+      await context.read<FcmTokenCubit>().fetchFcmToken();
+      await _requestNotificationPermission();
       await _fetchCart();
       await Future.delayed(const Duration(milliseconds: 1000));
       await _requestLocationPermission();
@@ -130,6 +137,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isDataCached = true;
       });
       debugPrint("📦 Restored cached state on init");
+    }
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    // Ask for notification permission FIRST, then location permission
+    // will be requested in _requestLocationPermission() right after.
+    final token = await _notificationServices.getDeviceToken();
+    debugPrint('🔔 Notification permission handled → FCM token: $token');
+
+    if (token != null && token.isNotEmpty) {
+      final deviceType = Platform.isAndroid ? 'ANDROID' : 'IOS';
+      debugPrint('Storing FCM token via fcm-token API: $token');
+      context.read<FcmTokenCubit>().storeFcmToken(
+        fcmToken: token,
+        deviceType: deviceType,
+      );
     }
   }
 
@@ -181,7 +204,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _clearCart() async {
-    await context.read<ClearCartCubit>().clearCart(context);
+    await context
+        .read<ClearCartCubit>()
+        .clearCart(context, cartId: cartData?.id);
     await _fetchCart();
   }
 
@@ -212,7 +237,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (state is GetCartLoaded) {
         final hasItems = (state.cart.totalCount ?? 0) > 0;
         if (hasItems) {
-          await context.read<ClearCartCubit>().clearCart(context);
+          await context
+              .read<ClearCartCubit>()
+              .clearCart(context, cartId: state.cart.id);
           await cartCubit.fetchCart(context);
         }
       }
@@ -269,10 +296,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _clearCache();
     _restaurantsLoaded = false;
     _isDataCached = false;
-    await _loadCoordinatesAndFetchRestaurants();
+    await _loadCoordinatesAndFetchRestaurants(forceRefresh: true);
   }
 
-  Future<void> _loadCoordinatesAndFetchRestaurants() async {
+  Future<void> _loadCoordinatesAndFetchRestaurants({
+    bool forceRefresh = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     try {
@@ -337,7 +366,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     debugPrint(" Fetching restaurants with lat=$latitude, lon=$longitude");
 
-    context.read<GetNearbyRestaurantsCubit>().fetchNearbyRestaurants(params);
+    context
+        .read<GetNearbyRestaurantsCubit>()
+        .fetchNearbyRestaurants(params, forceRefresh: forceRefresh);
   }
 
   // Cache management methods
@@ -424,6 +455,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'id': r.id,
               'name': r.name,
               'code': r.code,
+              'b2bUnitId': r.b2bUnitId,
+              'active': r.active,
               'distanceKm': r.distanceKm,
               'latitude': r.latitude,
               'longitude': r.longitude,
@@ -470,7 +503,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _navigateToRestaurantMenu(String name, String id) async {
+  void _navigateToRestaurantMenu(
+    String name,
+    String id, {
+    String? b2bUnitId,
+  }) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -478,6 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             (_) => RestaurantMenuScreen(
               restaurantName: name,
               restaurantId: id,
+              b2bUnitId: b2bUnitId,
               couponCode: widget.couponCode,
             ),
       ),
@@ -492,6 +530,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String Function(T) getName,
     required String Function(T) getCategory,
     required String Function(T) getId,
+    String? Function(T)? getB2bUnitId,
+    bool Function(T)? getActive,
     // required List<String> Function(T) getMediaList,
   }) {
     return Column(
@@ -503,9 +543,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 "Items": getCategory(restaurant),
                 "time": "20 - 25 MINS",
               },
+              isActive: getActive?.call(restaurant) ?? true,
               // mediaUrls: getMediaList(restaurant),
               onRestaurantTap:
-                  (name) => _navigateToRestaurantMenu(name, getId(restaurant)),
+                  (name) => _navigateToRestaurantMenu(
+                    name,
+                    getId(restaurant),
+                    b2bUnitId: getB2bUnitId?.call(restaurant),
+                  ),
             );
           }).toList(),
     );
@@ -539,10 +584,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         : "",
                 "time": "20 - 25 MINS",
               },
+              isActive: restaurant['active'] != false,
               onRestaurantTap:
                   (name) => _navigateToRestaurantMenu(
                     name,
                     restaurant['id']?.toString() ?? "",
+                    b2bUnitId: restaurant['b2bUnitId']?.toString(),
                   ),
             );
           }).toList(),
@@ -588,6 +635,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getName: (r) => r.name ?? "Unknown",
             getCategory: (r) => _formatDistance(r.distanceKm),
             getId: (r) => (r.id ?? "").toString(),
+            getB2bUnitId: (r) => r.b2bUnitId,
+            getActive: (r) => r.active ?? true,
           );
         } else {
           return const Center(child: Text("Failed loading restaurants"));
@@ -621,6 +670,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getName: (store) => store.name ?? "Unknown",
             getCategory: (store) => _formatDistance(store.distanceKm),
             getId: (store) => (store.id ?? "").toString(),
+            getB2bUnitId: (store) => store.b2bUnitId,
+            getActive: (store) => store.active ?? true,
           );
         } else if (state is GetRestaurantsByProductNameFailure) {
           return Center(child: Text(state.error));
@@ -736,7 +787,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // 🔻 Collapsible AppBar
             SliverAppBar(
               automaticallyImplyLeading: false,
-              expandedHeight: 260,
+              expandedHeight: 180,
               pinned: false,
               floating: false,
               backgroundColor: AppColor.PrimaryColor,
@@ -848,37 +899,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             },
                           ),
                         ),
-                        if (!_isOutOfServiceArea)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: FoodCategoryIcons(
-                              onCategoryTap: (label) async {
-                                setState(() => searchQuery = label);
-                                // Clear cache when searching to get fresh results
-                                await _clearCache();
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                final lat =
-                                    prefs.getDouble('saved_latitude') ??
-                                    17.385044;
-                                final lon =
-                                    prefs.getDouble('saved_longitude') ??
-                                    78.486671;
-                                final params = {
-                                  "productName": label,
-                                  "latitude": lat,
-                                  "longitude": lon,
-                                  "radius": 5,
-                                  "page": 0,
-                                  "size": 10,
-                                };
-                                context
-                                    .read<GetRestaurantsByProductNameCubit>()
-                                    .fetchRestaurantsByProductName(params);
-                              },
-                            ),
-                          ),
-                        const SizedBox(height: 10),
+                        // if (!_isOutOfServiceArea)
+                        //   Padding(
+                        //     padding: const EdgeInsets.symmetric(horizontal: 16),
+                        //     child: FoodCategoryIcons(
+                        //       onCategoryTap: (label) async {
+                        //         setState(() => searchQuery = label);
+                        //         // Clear cache when searching to get fresh results
+                        //         await _clearCache();
+                        //         final prefs =
+                        //             await SharedPreferences.getInstance();
+                        //         final lat =
+                        //             prefs.getDouble('saved_latitude') ??
+                        //             17.385044;
+                        //         final lon =
+                        //             prefs.getDouble('saved_longitude') ??
+                        //             78.486671;
+                        //         final params = {
+                        //           "productName": label,
+                        //           "latitude": lat,
+                        //           "longitude": lon,
+                        //           "radius": 5,
+                        //           "page": 0,
+                        //           "size": 10,
+                        //         };
+                        //         context
+                        //             .read<GetRestaurantsByProductNameCubit>()
+                        //             .fetchRestaurantsByProductName(params);
+                        //       },
+                        //     ),
+                        //   ),
+                        // const SizedBox(height: 10),
                       ],
                     ),
                   ),

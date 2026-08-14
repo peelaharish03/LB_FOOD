@@ -68,6 +68,19 @@ class Content {
     this.status,
   });
 
+  String get foodType {
+    final text = '${categoryName ?? ''} ${shortCode ?? ''}'.toLowerCase();
+    if (text.contains('non-veg') ||
+        text.contains('nonveg') ||
+        text.contains('non veg')) {
+      return 'nonveg';
+    }
+    if (text.contains('veg')) {
+      return 'veg';
+    }
+    return 'unknown';
+  }
+
   factory Content.fromJson(Map<String, dynamic> json) {
     final categories = json["categories"];
 
@@ -79,16 +92,24 @@ class Content {
       discount: json["discount"] ?? true,
       description: json["description"] ?? json["shortDescription"],
       price: _parsePrice(json["price"]),
-      available: json["available"] ?? json["active"] ?? true,
+      available:
+          _toBool(json["active"]) ??
+          _toBool(json["isActive"]) ??
+          _toBool(json["available"]) ??
+          true,
       shopifyProductId: json["shopifyProductId"],
       shopifyVariantId: json["shopifyVariantId"],
-      businessId: json["businessId"] ?? json["storeId"],
+      businessId: json["businessId"] ?? json["storeId"] ?? _priceStoreId(json),
       businessName: json["businessName"],
-      categoryId: json["categoryId"] ?? _firstCategoryValue(categories, "id"),
+      categoryId:
+          json["categoryId"] ??
+          _firstCategoryValue(categories, "id") ??
+          _categoryMapValue(json, "id"),
       categoryName:
           json["categoryName"] ??
           _firstCategoryValue(categories, "name") ??
-          _firstCategoryValue(categories, "code"),
+          _categoryMapValue(json, "name") ??
+          _categoryMapValue(json, "code"),
       media: _parseMedia(json),
       attributes: _parseAttributes(json),
       status: json["status"] ?? json["approvalStatus"],
@@ -101,6 +122,12 @@ class Content {
       if (first is Map<String, dynamic>) return first[key];
       if (first is Map) return first[key];
     }
+    return null;
+  }
+
+  static dynamic _categoryMapValue(Map<String, dynamic> json, String key) {
+    final category = json["category"];
+    if (category is Map) return category[key];
     return null;
   }
 
@@ -125,6 +152,11 @@ class Content {
       }
     }
     if (json["thumbnail"] != null) urls.add(json["thumbnail"].toString());
+
+    final product = json["price"] is Map ? json["price"]["product"] : null;
+    if (product is Map && product["thumbnail"] != null) {
+      urls.add(product["thumbnail"].toString());
+    }
 
     return urls
         .where((url) => url.isNotEmpty)
@@ -165,6 +197,31 @@ class Content {
       final value = price["price"];
       if (value is num) return value.toDouble();
       if (value is String) return double.tryParse(value);
+    }
+    return null;
+  }
+
+  static dynamic _priceStoreId(Map<String, dynamic> json) {
+    final price = json["price"];
+    if (price is Map) return price["storeId"];
+    return null;
+  }
+
+  static bool? _toBool(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' ||
+          normalized == '0' ||
+          normalized == 'no' ||
+          normalized.isEmpty) {
+        return false;
+      }
     }
     return null;
   }

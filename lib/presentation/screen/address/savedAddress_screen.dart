@@ -1,4 +1,5 @@
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/core/utils/address_formatter.dart';
 import 'package:local_basket/data/model/address/getAddress/getAddress_model.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
@@ -125,6 +126,8 @@ class SavedAddressesView extends StatelessWidget {
     Content address, {
     bool isDefault = false,
   }) {
+    final addressString = _formatAddress(address);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       elevation: 1,
@@ -143,7 +146,6 @@ class SavedAddressesView extends StatelessWidget {
           } else {
             final addressId = address.id;
             if (addressId == null || addressId.isEmpty) return;
-            final addressString = _formatAddress(address);
             context.read<DefaultAddressCubit>().setDefaultAddress(
               addressId,
               context,
@@ -189,37 +191,17 @@ class SavedAddressesView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              if (address.address?.line1?.isNotEmpty ?? false)
+              if (addressString.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    address.address!.line1!,
+                    addressString,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              if (address.address?.line2?.isNotEmpty ?? false)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    address.address!.line2!,
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-              if (address.address?.fullText?.isNotEmpty ?? false)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    address.address!.fullText!,
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-              Text(
-                _formatCityState(address),
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -260,28 +242,15 @@ class SavedAddressesView extends StatelessWidget {
   String _formatAddress(Content address) {
     final item = address.address;
     if (item == null) return '';
-    return [
+    return joinAddressParts([
       item.line1,
       item.line2,
+      item.fullText,
       item.city,
       item.state,
       item.country,
       item.postalCode,
-    ].where((part) => part?.trim().isNotEmpty ?? false).join(', ');
-  }
-
-  String _formatCityState(Content address) {
-    final item = address.address;
-    if (item == null) return '';
-    final cityState = [
-      item.city,
-      item.state,
-      item.country,
-    ].where((part) => part?.trim().isNotEmpty ?? false).join(', ');
-    final postalCode = item.postalCode;
-    if (postalCode == null || postalCode.trim().isEmpty) return cityState;
-    if (cityState.isEmpty) return postalCode;
-    return '$cityState - $postalCode';
+    ]);
   }
 
   void _showDeleteConfirmation(BuildContext context, String addressId) {

@@ -1,7 +1,7 @@
 class SignInModel {
   String? accessToken;
   String? refreshToken;
-  int? expiresIn;
+  num? expiresIn;
   String? tokenType;
 
   SignInModel({

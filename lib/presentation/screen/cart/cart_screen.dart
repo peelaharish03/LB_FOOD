@@ -1,4 +1,6 @@
 import 'package:flutter/cupertino.dart';
+import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
+import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 import 'package:local_basket/data/model/payment/checkout_model.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
@@ -49,10 +51,6 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   late Razorpay _razorpay;
-
-  // FIX: Keys are now imported from api_constants.dart.
-  // In production pass --dart-define=IS_PRODUCTION=true --dart-define=RAZORPAY_KEY=xxx
-  // See api_constants.dart for full instructions.
 
   final TextEditingController notesController = TextEditingController();
 
@@ -116,6 +114,11 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _onPaymentSuccess(PaymentSuccessResponse response) async {
+    debugPrint(
+      '[Razorpay] success: paymentId=${response.paymentId}, '
+      'orderId=${response.orderId}, signaturePresent=${response.signature != null}',
+    );
+
     final payload = {
       "orderId": _pendingCheckoutOrderId,
       "cartId": cartId ?? "",
@@ -125,6 +128,7 @@ class _CartScreenState extends State<CartScreen> {
       "razorpaySignature": response.signature,
       "status": "SUCCESS",
     };
+    print('Payment success payload: $payload');
     setState(() => loading = true);
     await context.read<PaymentCubit>().makePayment(
       context: context,
@@ -134,16 +138,19 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => loading = false);
   }
 
-  void _onPaymentFailure(_) {
+  void _onPaymentFailure(dynamic response) {
+    if (!mounted) return;
+    debugPrint('[Razorpay] failure: ${_formatRazorpayFailure(response)}');
     CustomSnackbars.showErrorSnack(
       context: context,
       title: 'Failed',
-      message: 'Payment failed',
+      message: _formatRazorpayFailure(response),
     );
     setState(() => loading = false);
   }
 
   void _onExternalWallet(_) {
+    debugPrint('[Razorpay] external wallet selected');
     CustomSnackbars.showInfoSnack(
       context: context,
       title: 'Info',
@@ -306,6 +313,168 @@ class _CartScreenState extends State<CartScreen> {
         normalized.toLowerCase() != 'null';
   }
 
+  String? _firstNonEmpty(String? primary, String fallback) {
+    final primaryValue = primary?.trim();
+    if (primaryValue != null && primaryValue.isNotEmpty) return primaryValue;
+
+    final fallbackValue = fallback.trim();
+    return fallbackValue.isEmpty ? null : fallbackValue;
+  }
+
+  String? _trimmedValue(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? _formattedContact(String? value) {
+    final trimmed = _trimmedValue(value);
+    if (trimmed == null) return null;
+    if (trimmed.startsWith('+')) return trimmed;
+
+    final digitsOnly = trimmed.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length == 10) return '+91$digitsOnly';
+    if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
+      return '+$digitsOnly';
+    }
+    return digitsOnly.isEmpty ? trimmed : digitsOnly;
+  }
+
+  Map<String, dynamic> _razorpayPrefill() {
+    final prefill = <String, dynamic>{};
+
+    try {
+      final state = context.read<CurrentCustomerCubit>().state;
+      if (state is CurrentCustomerLoaded) {
+        final customer = state.currentCustomerModel;
+        final name =
+            _trimmedValue(
+              [customer.firstName, customer.lastName]
+                  .whereType<String>()
+                  .map((part) => part.trim())
+                  .where((part) => part.isNotEmpty)
+                  .join(' '),
+            ) ??
+            _trimmedValue(customer.username);
+        final email = _trimmedValue(customer.email);
+        final contact = _formattedContact(customer.mobile);
+
+        if (name != null) prefill['name'] = name;
+        if (email != null) prefill['email'] = email;
+        if (contact != null) prefill['contact'] = contact;
+      }
+    } catch (_) {}
+
+    return prefill;
+  }
+
+  Map<String, dynamic> _razorpayNotes(CheckoutModel checkout) {
+    final notes = <String, dynamic>{};
+
+    void addNote(String key, Object? value) {
+      final text = value?.toString().trim();
+      if (text != null && text.isNotEmpty) notes[key] = text;
+    }
+
+    addNote('appOrderId', checkout.orderId);
+    addNote('razorpayOrderId', checkout.razorpayOrderId);
+    addNote('orderStatus', checkout.orderStatus);
+    addNote('paymentStatus', checkout.paymentStatus);
+    addNote('fraudFlagged', checkout.fraudFlagged);
+    addNote('cartId', cartId);
+    if (checkout.crossSellProductIds.isNotEmpty) {
+      addNote('crossSellProductIds', checkout.crossSellProductIds.join(','));
+    }
+
+    return notes;
+  }
+
+  Map<String, dynamic> _razorpayUpiFirstConfig() {
+    return {
+      'display': {
+        'blocks': {
+          'upi_apps': {
+            'name': 'Pay via UPI',
+            'instruments': [
+              {'method': 'upi'},
+            ],
+          },
+          'other_methods': {
+            'name': 'Cards, Wallets & Netbanking',
+            'instruments': [
+              {'method': 'card'},
+              {'method': 'wallet'},
+              {'method': 'netbanking'},
+            ],
+          },
+        },
+        'sequence': ['block.upi_apps', 'block.other_methods'],
+        'preferences': {'show_default_blocks': true},
+      },
+    };
+  }
+
+  Map<String, dynamic> _razorpayCheckoutOptions({
+    required String key,
+    required int amountInPaise,
+    required String razorpayOrderId,
+    required CheckoutModel checkout,
+  }) {
+    return {
+      'key': key,
+      'amount': amountInPaise,
+      'currency': 'INR',
+      'name': 'Local Basket',
+      'order_id': razorpayOrderId,
+      'method': 'upi',
+      'description': 'Cart Payment',
+      'prefill': _razorpayPrefill(),
+      'notes': _razorpayNotes(checkout),
+      'config': _razorpayUpiFirstConfig(),
+      'retry': {'enabled': true, 'max_count': 1},
+      'timeout': 60,
+      'theme': {'color': '#081724'},
+    };
+  }
+
+  int _checkoutAmountInPaise(CheckoutModel checkout) {
+    final amount =
+        checkout.totalAmount ?? checkout.data?.grandTotal ?? _grandTotal;
+    return (amount * 100).round();
+  }
+
+  String _maskedRazorpayKey(String key) {
+    final trimmed = key.trim();
+    if (trimmed.length <= 8) return '****';
+    return '${trimmed.substring(0, 8)}...${trimmed.substring(trimmed.length - 4)}';
+  }
+
+  String _formatRazorpayFailure(dynamic response) {
+    if (response is PaymentFailureResponse) {
+      final details = <String>[];
+      final message = response.message?.trim();
+      final code = response.code;
+      final error = response.error;
+      final reason = error?['reason']?.toString().trim();
+      final description = error?['description']?.toString().trim();
+
+      if (message != null && message.isNotEmpty) details.add(message);
+      if (code != null) details.add('Code: $code');
+      if (reason != null && reason.isNotEmpty && reason != message) {
+        details.add('Reason: $reason');
+      }
+      if (description != null &&
+          description.isNotEmpty &&
+          description != message) {
+        details.add(description);
+      }
+
+      return details.isEmpty ? 'Payment failed' : details.join('\n');
+    }
+
+    final message = response?.toString().trim();
+    return message == null || message.isEmpty ? 'Payment failed' : message;
+  }
+
   String? _productIdForPayload(Map<String, dynamic> item) {
     final productId = (item['productId'] ?? item['id'])?.toString();
     if (productId == null || productId.isEmpty || productId == '0') {
@@ -388,14 +557,27 @@ class _CartScreenState extends State<CartScreen> {
       "cartId": activeCartId,
       "shippingMethod": "STANDARD",
       "paymentMethod": paymentMethod,
+      "shippingAddressId":"",
     };
 
+    debugPrint(
+      '[Checkout] submit: paymentMethod=$paymentMethod, cartId=$activeCartId',
+    );
     setState(() => loading = true);
     final checkout = await context.read<CheckoutCubit>().fetchCheckout(payload);
     if (mounted) setState(() => loading = false);
 
     if (checkout != null) {
       _pendingCheckoutOrderId = checkout.orderId;
+      debugPrint(
+        '[Checkout] success: orderId=${checkout.orderId}, '
+        'razorpayOrderId=${checkout.razorpayOrderId}, '
+        'totalAmount=${checkout.totalAmount}, '
+        'grandTotal=${checkout.data?.grandTotal}, '
+        'key=${checkout.razorpayKeyId == null ? null : _maskedRazorpayKey(checkout.razorpayKeyId!)}',
+      );
+    } else {
+      debugPrint('[Checkout] failed: checkout response is null');
     }
 
     return checkout;
@@ -467,7 +649,7 @@ class _CartScreenState extends State<CartScreen> {
                     color: Colors.green,
                   ),
                   title: const Text("Pay Online"),
-                  onTap: () => Navigator.pop(context, "ONLINE"),
+                  onTap: () => Navigator.pop(context, "RAZORPAY"),
                 ),
                 ListTile(
                   leading: const Icon(Icons.money, color: Colors.brown),
@@ -566,83 +748,11 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    final proceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: AppColor.White,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.orange,
-                  size: 60,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Before You Proceed",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "⚠️ Payments once made cannot be cancelled or refunded.\n\n"
-                  "Please review your order before proceeding.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black54,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text("Cancel"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColor.PrimaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text(
-                        "I Understand, Proceed",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (proceed != true) return;
-
-    final checkout = await _submitCartCheckout("ONLINE");
+    debugPrint('[Razorpay] Pay Online selected; creating checkout order');
+    final checkout = await _submitCartCheckout("RAZORPAY");
     if (checkout == null) return;
 
-    final razorpayOrderId = checkout.razorpayOrderId;
+    final razorpayOrderId = checkout.razorpayOrderId?.trim();
     if (!_hasValidCartId(razorpayOrderId)) {
       CustomSnackbars.showErrorSnack(
         context: context,
@@ -651,32 +761,46 @@ class _CartScreenState extends State<CartScreen> {
       );
       return;
     }
+    final validRazorpayOrderId = razorpayOrderId!;
 
-    final amountInPaise = ((checkout.totalAmount ?? _grandTotal) * 100).toInt();
+    final razorpayKeyId = _firstNonEmpty(checkout.razorpayKeyId, razorPayKey);
+    if (razorpayKeyId == null) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: 'ERROR',
+        message: 'Razorpay key not received',
+      );
+      return;
+    }
+
+    final amountInPaise = _checkoutAmountInPaise(checkout);
+    if (amountInPaise <= 0) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: 'ERROR',
+        message: 'Invalid payment amount',
+      );
+      return;
+    }
 
     try {
       if (!mounted) return;
       await Future<void>.delayed(const Duration(milliseconds: 200));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
-          _razorpay.open({
-            'key': checkout.razorpayKeyId ?? razorPayKey,
-            'amount': amountInPaise,
-            'name': 'Local Basket',
-            'order_id': razorpayOrderId,
-            'description': 'Cart Payment',
-            // FIX: Removed hardcoded developer contact/email from prefill.
-            // These were pre-filling the developer's personal details for ALL users.
-            // TODO: Populate from the logged-in user's profile if needed.
-            'prefill': {'contact': '', 'email': ''},
-            'method': {
-              'card': false,
-              'netbanking': true,
-              'upi': true,
-              'wallet': true,
-            },
-            'theme': {'color': '#081724'},
-          });
+          debugPrint(
+            'Opening Razorpay checkout: orderId=$validRazorpayOrderId, '
+            'amount=$amountInPaise, key=${_maskedRazorpayKey(razorpayKeyId)}',
+          );
+
+          _razorpay.open(
+            _razorpayCheckoutOptions(
+              key: razorpayKeyId,
+              amountInPaise: amountInPaise,
+              razorpayOrderId: validRazorpayOrderId,
+              checkout: checkout,
+            ),
+          );
         } catch (e) {
           if (!mounted) return;
           CustomSnackbars.showErrorSnack(
@@ -778,7 +902,10 @@ class _CartScreenState extends State<CartScreen> {
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Error",
-                message: "Failed to load checkout details",
+                message:
+                    state.error.isEmpty
+                        ? "Failed to load checkout details"
+                        : state.error,
               );
             }
           },
@@ -877,7 +1004,7 @@ class _CartScreenState extends State<CartScreen> {
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: 'Failed',
-                message: "Payment Failed",
+                message: state.error.isEmpty ? "Payment Failed" : state.error,
               );
             }
           },

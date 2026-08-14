@@ -37,7 +37,7 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
     };
 
     // Only add paymentTransactionId for online payments
-    if (paymentType == 'ONLINE' && paymentId != null) {
+    if (paymentType == 'RAZORPAY' && paymentId != null) {
       payload['paymentTransactionId'] = paymentId;
     }
 
@@ -53,14 +53,14 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
           MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
         );
         emit(CreateOrderLoaded(order));
-      } else if (paymentType == 'ONLINE' && paymentId != null) {
+      } else if (paymentType == 'RAZORPAY' && paymentId != null) {
         // Only attempt refund for failed online payments
         final paymentCubit = context.read<PaymentCubit>();
         await paymentCubit.paymentRefund(paymentId, context);
       }
     } catch (e) {
       // Only attempt refund for online payments if paymentId is available
-      if (paymentType == 'ONLINE' && paymentId != null) {
+      if (paymentType == 'RAZORPAY' && paymentId != null) {
         final paymentCubit = context.read<PaymentCubit>();
         await paymentCubit.paymentRefund(paymentId, context);
       }

@@ -16,8 +16,12 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: e.toString()));
+      emit(CheckoutFailure(error: _cleanError(e)));
       return null;
     }
+  }
+
+  String _cleanError(Object error) {
+    return error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
   }
 }

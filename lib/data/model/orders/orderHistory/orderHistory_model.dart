@@ -10,18 +10,26 @@ class OrderHistoryModel {
   final Data? data;
 
   factory OrderHistoryModel.fromJson(Map<String, dynamic> json) {
+    final wrappedData = json["data"];
+    final pageJson =
+        wrappedData is Map
+            ? _asStringKeyMap(wrappedData)
+            : _looksLikePagedResponse(json)
+                ? _asStringKeyMap(json)
+                : <String, dynamic>{};
+
     return OrderHistoryModel(
-      message: json["message"],
-      status: json["status"],
-      data: json["data"] == null ? null : Data.fromJson(json["data"]),
+      message: _asString(json["message"]),
+      status: _asString(json["status"]),
+      data: Data.fromJson(pageJson),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "message": message,
-        "status": status,
-        "data": data?.toJson(),
-      };
+    "message": message,
+    "status": status,
+    "data": data?.toJson(),
+  };
 }
 
 class Data {
@@ -53,39 +61,36 @@ class Data {
 
   factory Data.fromJson(Map<String, dynamic> json) {
     return Data(
-      content: json["content"] == null
-          ? []
-          : List<Content>.from(
-              json["content"]!.map((x) => Content.fromJson(x))),
+      content: _modelList(json["content"], Content.fromJson),
       pageable:
-          json["pageable"] == null ? null : Pageable.fromJson(json["pageable"]),
-      totalElements: json["totalElements"],
-      totalPages: json["totalPages"],
-      last: json["last"],
-      size: json["size"],
-      number: json["number"],
-      sort: json["sort"] == null
-          ? []
-          : List<Sort>.from(json["sort"]!.map((x) => Sort.fromJson(x))),
-      numberOfElements: json["numberOfElements"],
-      first: json["first"],
-      empty: json["empty"],
+          json["pageable"] is Map
+              ? Pageable.fromJson(_asStringKeyMap(json["pageable"]))
+              : null,
+      totalElements: _asInt(json["totalElements"]),
+      totalPages: _asInt(json["totalPages"]),
+      last: _asBool(json["last"]),
+      size: _asInt(json["size"]),
+      number: _asInt(json["number"]),
+      sort: _modelList(json["sort"], Sort.fromJson),
+      numberOfElements: _asInt(json["numberOfElements"]),
+      first: _asBool(json["first"]),
+      empty: _asBool(json["empty"]),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "content": content.map((x) => x.toJson()).toList(),
-        "pageable": pageable?.toJson(),
-        "totalElements": totalElements,
-        "totalPages": totalPages,
-        "last": last,
-        "size": size,
-        "number": number,
-        "sort": sort.map((x) => x.toJson()).toList(),
-        "numberOfElements": numberOfElements,
-        "first": first,
-        "empty": empty,
-      };
+    "content": content.map((x) => x.toJson()).toList(),
+    "pageable": pageable?.toJson(),
+    "totalElements": totalElements,
+    "totalPages": totalPages,
+    "last": last,
+    "size": size,
+    "number": number,
+    "sort": sort.map((x) => x.toJson()).toList(),
+    "numberOfElements": numberOfElements,
+    "first": first,
+    "empty": empty,
+  };
 }
 
 class Content {
@@ -98,6 +103,8 @@ class Content {
     required this.address,
     required this.businessId,
     required this.businessName,
+    required this.storeId,
+    required this.b2bUnitId,
     required this.shippingAddressId,
     required this.totalAmount,
     required this.totalTaxAmount,
@@ -110,15 +117,17 @@ class Content {
     required this.orderItems,
   });
 
-  final int? id;
+  final String? id;
   final String? orderNumber;
-  final int? userId;
+  final String? userId;
   final String? username;
   final String? mobileNumber;
   final Address? address;
-  final int? businessId;
+  final String? businessId;
   final String? businessName;
-  final int? shippingAddressId;
+  final String? storeId;
+  final String? b2bUnitId;
+  final String? shippingAddressId;
   final num? totalAmount;
   final num? totalTaxAmount;
   final bool? taxInclusive;
@@ -130,52 +139,67 @@ class Content {
   final List<OrderItem> orderItems;
 
   factory Content.fromJson(Map<String, dynamic> json) {
+    final orderItemsJson = json["orderItems"] ?? json["lineItems"];
+    final b2bUnitId = _asString(json["b2bUnitId"]);
+    final storeId = _asString(json["storeId"]);
+
     return Content(
-      id: json["id"],
-      orderNumber: json["orderNumber"],
-      userId: json["userId"],
-      username: json["username"],
-      mobileNumber: json["mobileNumber"],
+      id: _asString(json["id"]),
+      orderNumber:
+          _asString(json["orderNumber"] ?? json["orderNo"]) ??
+          _asString(json["id"]),
+      userId: _asString(json["userId"]),
+      username: _asString(json["username"]),
+      mobileNumber: _asString(json["mobileNumber"] ?? json["mobile"]),
       address:
-          json["address"] == null ? null : Address.fromJson(json["address"]),
-      businessId: json["businessId"],
-      businessName: json["businessName"],
-      shippingAddressId: json["shippingAddressId"],
-      totalAmount: json["totalAmount"],
-      totalTaxAmount: json["totalTaxAmount"],
-      taxInclusive: json["taxInclusive"],
-      paymentStatus: json["paymentStatus"],
-      paymentTransactionId: json["paymentTransactionId"],
-      orderStatus: json["orderStatus"],
-      createdDate: DateTime.tryParse(json["createdDate"] ?? ""),
-      updatedDate: DateTime.tryParse(json["updatedDate"] ?? ""),
-      orderItems: json["orderItems"] == null
-          ? []
-          : List<OrderItem>.from(
-              json["orderItems"]!.map((x) => OrderItem.fromJson(x))),
+          json["address"] is Map
+              ? Address.fromJson(_asStringKeyMap(json["address"]))
+              : null,
+      businessId: _asString(json["businessId"]) ?? b2bUnitId ?? storeId,
+      businessName: _asString(
+        json["businessName"] ?? json["storeName"] ?? json["b2bUnitName"],
+      ),
+      storeId: storeId,
+      b2bUnitId: b2bUnitId,
+      shippingAddressId: _asString(json["shippingAddressId"]),
+      totalAmount: _asNum(
+        json["totalAmount"] ?? json["totalPrice"] ?? json["grandTotal"],
+      ),
+      totalTaxAmount: _asNum(json["totalTaxAmount"] ?? json["totalTax"]),
+      taxInclusive: _asBool(json["taxInclusive"]),
+      paymentStatus: _asString(json["paymentStatus"]),
+      paymentTransactionId: _asString(
+        json["paymentTransactionId"] ?? json["transactionId"],
+      ),
+      orderStatus: _asString(json["orderStatus"] ?? json["status"]),
+      createdDate: _asDateTime(json["createdDate"]),
+      updatedDate: _asDateTime(json["updatedDate"]),
+      orderItems: _modelList(orderItemsJson, OrderItem.fromJson),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "id": id,
-        "orderNumber": orderNumber,
-        "userId": userId,
-        "username": username,
-        "mobileNumber": mobileNumber,
-        "address": address?.toJson(),
-        "businessId": businessId,
-        "businessName": businessName,
-        "shippingAddressId": shippingAddressId,
-        "totalAmount": totalAmount,
-        "totalTaxAmount": totalTaxAmount,
-        "taxInclusive": taxInclusive,
-        "paymentStatus": paymentStatus,
-        "paymentTransactionId": paymentTransactionId,
-        "orderStatus": orderStatus,
-        "createdDate": createdDate?.toIso8601String(),
-        "updatedDate": updatedDate?.toIso8601String(),
-        "orderItems": orderItems.map((x) => x.toJson()).toList(),
-      };
+    "id": id,
+    "orderNumber": orderNumber,
+    "userId": userId,
+    "username": username,
+    "mobileNumber": mobileNumber,
+    "address": address?.toJson(),
+    "businessId": businessId,
+    "businessName": businessName,
+    "storeId": storeId,
+    "b2bUnitId": b2bUnitId,
+    "shippingAddressId": shippingAddressId,
+    "totalAmount": totalAmount,
+    "totalTaxAmount": totalTaxAmount,
+    "taxInclusive": taxInclusive,
+    "paymentStatus": paymentStatus,
+    "paymentTransactionId": paymentTransactionId,
+    "orderStatus": orderStatus,
+    "createdDate": createdDate?.toIso8601String(),
+    "updatedDate": updatedDate?.toIso8601String(),
+    "orderItems": orderItems.map((x) => x.toJson()).toList(),
+  };
 }
 
 class Address {
@@ -194,7 +218,7 @@ class Address {
     required this.isDefault,
   });
 
-  final int? id;
+  final String? id;
   final String? addressLine1;
   final String? addressLine2;
   final String? street;
@@ -204,46 +228,47 @@ class Address {
   final num? latitude;
   final num? longitude;
   final String? postalCode;
-  final int? userId;
+  final String? userId;
   final bool? isDefault;
 
   factory Address.fromJson(Map<String, dynamic> json) {
     return Address(
-      id: json["id"],
-      addressLine1: json["addressLine1"],
-      addressLine2: json["addressLine2"],
-      street: json["street"],
-      city: json["city"],
-      state: json["state"],
-      country: json["country"],
-      latitude: json["latitude"],
-      longitude: json["longitude"],
-      postalCode: json["postalCode"],
-      userId: json["userId"],
-      isDefault: json["isDefault"],
+      id: _asString(json["id"]),
+      addressLine1: _asString(json["addressLine1"]),
+      addressLine2: _asString(json["addressLine2"]),
+      street: _asString(json["street"]),
+      city: _asString(json["city"]),
+      state: _asString(json["state"]),
+      country: _asString(json["country"]),
+      latitude: _asNum(json["latitude"]),
+      longitude: _asNum(json["longitude"]),
+      postalCode: _asString(json["postalCode"]),
+      userId: _asString(json["userId"]),
+      isDefault: _asBool(json["isDefault"]),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "id": id,
-        "addressLine1": addressLine1,
-        "addressLine2": addressLine2,
-        "street": street,
-        "city": city,
-        "state": state,
-        "country": country,
-        "latitude": latitude,
-        "longitude": longitude,
-        "postalCode": postalCode,
-        "userId": userId,
-        "isDefault": isDefault,
-      };
+    "id": id,
+    "addressLine1": addressLine1,
+    "addressLine2": addressLine2,
+    "street": street,
+    "city": city,
+    "state": state,
+    "country": country,
+    "latitude": latitude,
+    "longitude": longitude,
+    "postalCode": postalCode,
+    "userId": userId,
+    "isDefault": isDefault,
+  };
 }
 
 class OrderItem {
   OrderItem({
     required this.id,
     required this.productId,
+    required this.productCode,
     required this.quantity,
     required this.price,
     required this.entryNumber,
@@ -253,10 +278,13 @@ class OrderItem {
     required this.taxPercentage,
     required this.totalAmount,
     required this.taxIgnored,
+    required this.status,
+    required this.fulfillmentStatus,
   });
 
-  final int? id;
-  final int? productId;
+  final String? id;
+  final String? productId;
+  final String? productCode;
   final int? quantity;
   final num? price;
   final int? entryNumber;
@@ -266,60 +294,60 @@ class OrderItem {
   final int? taxPercentage;
   final num? totalAmount;
   final bool? taxIgnored;
+  final String? status;
+  final String? fulfillmentStatus;
 
-factory OrderItem.fromJson(Map<String, dynamic> json) {
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: (json["id"] as num?)?.toInt(),
-      productId: (json["productId"] as num?)?.toInt(),
-      quantity: (json["quantity"] as num?)?.toInt(),
-      price: json["price"],
-      entryNumber: (json["entryNumber"] as num?)?.toInt(),
-      productName: json["productName"],
-      media: json["media"] == null
-          ? []
-          : List<Media>.from(json["media"]!.map((x) => Media.fromJson(x))),
-      taxAmount: json["taxAmount"],
-      taxPercentage: (json["taxPercentage"] as num?)?.toInt(),
-      totalAmount: json["totalAmount"],
-      taxIgnored: json["taxIgnored"],
+      id: _asString(json["id"]),
+      productId: _asString(json["productId"]),
+      productCode: _asString(json["productCode"]),
+      quantity: _asInt(json["quantity"]),
+      price: _asNum(json["price"] ?? json["unitPrice"]),
+      entryNumber: _asInt(json["entryNumber"]),
+      productName: _asString(json["productName"] ?? json["name"]),
+      media: _modelList(json["media"] ?? json["mediaList"], Media.fromJson),
+      taxAmount: _asNum(json["taxAmount"]),
+      taxPercentage: _asInt(json["taxPercentage"]),
+      totalAmount: _asNum(json["totalAmount"] ?? json["totalPrice"]),
+      taxIgnored: _asBool(json["taxIgnored"]),
+      status: _asString(json["status"]),
+      fulfillmentStatus: _asString(json["fulfillmentStatus"]),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "id": id,
-        "productId": productId,
-        "quantity": quantity,
-        "price": price,
-        "entryNumber": entryNumber,
-        "productName": productName,
-        "media": media.map((x) => x.toJson()).toList(),
-        "taxAmount": taxAmount,
-        "taxPercentage": taxPercentage,
-        "totalAmount": totalAmount,
-        "taxIgnored": taxIgnored,
-      };
+    "id": id,
+    "productId": productId,
+    "productCode": productCode,
+    "quantity": quantity,
+    "price": price,
+    "entryNumber": entryNumber,
+    "productName": productName,
+    "media": media.map((x) => x.toJson()).toList(),
+    "taxAmount": taxAmount,
+    "taxPercentage": taxPercentage,
+    "totalAmount": totalAmount,
+    "taxIgnored": taxIgnored,
+    "status": status,
+    "fulfillmentStatus": fulfillmentStatus,
+  };
 }
 
 class Media {
-  Media({
-    required this.mediaType,
-    required this.url,
-  });
+  Media({required this.mediaType, required this.url});
 
   final String? mediaType;
   final String? url;
 
   factory Media.fromJson(Map<String, dynamic> json) {
     return Media(
-      mediaType: json["mediaType"],
-      url: json["url"],
+      mediaType: _asString(json["mediaType"]),
+      url: _asString(json["url"]),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        "mediaType": mediaType,
-        "url": url,
-      };
+  Map<String, dynamic> toJson() => {"mediaType": mediaType, "url": url};
 }
 
 class Pageable {
@@ -341,25 +369,23 @@ class Pageable {
 
   factory Pageable.fromJson(Map<String, dynamic> json) {
     return Pageable(
-      sort: json["sort"] == null
-          ? []
-          : List<Sort>.from(json["sort"]!.map((x) => Sort.fromJson(x))),
-      pageNumber: json["pageNumber"],
-      pageSize: json["pageSize"],
-      offset: json["offset"],
-      paged: json["paged"],
-      unpaged: json["unpaged"],
+      sort: _modelList(json["sort"], Sort.fromJson),
+      pageNumber: _asInt(json["pageNumber"]),
+      pageSize: _asInt(json["pageSize"]),
+      offset: _asNum(json["offset"]),
+      paged: _asBool(json["paged"]),
+      unpaged: _asBool(json["unpaged"]),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "sort": sort.map((x) => x.toJson()).toList(),
-        "pageNumber": pageNumber,
-        "pageSize": pageSize,
-        "offset": offset,
-        "paged": paged,
-        "unpaged": unpaged,
-      };
+    "sort": sort.map((x) => x.toJson()).toList(),
+    "pageNumber": pageNumber,
+    "pageSize": pageSize,
+    "offset": offset,
+    "paged": paged,
+    "unpaged": unpaged,
+  };
 }
 
 class Sort {
@@ -381,21 +407,80 @@ class Sort {
 
   factory Sort.fromJson(Map<String, dynamic> json) {
     return Sort(
-      direction: json["direction"],
-      property: json["property"],
-      ignoreCase: json["ignoreCase"],
-      nullHandling: json["nullHandling"],
-      ascending: json["ascending"],
-      descending: json["descending"],
+      direction: _asString(json["direction"]),
+      property: _asString(json["property"]),
+      ignoreCase: _asBool(json["ignoreCase"]),
+      nullHandling: _asString(json["nullHandling"]),
+      ascending: _asBool(json["ascending"]),
+      descending: _asBool(json["descending"]),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        "direction": direction,
-        "property": property,
-        "ignoreCase": ignoreCase,
-        "nullHandling": nullHandling,
-        "ascending": ascending,
-        "descending": descending,
-      };
+    "direction": direction,
+    "property": property,
+    "ignoreCase": ignoreCase,
+    "nullHandling": nullHandling,
+    "ascending": ascending,
+    "descending": descending,
+  };
+}
+
+Map<String, dynamic> _asStringKeyMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return {};
+}
+
+bool _looksLikePagedResponse(Map<String, dynamic> json) {
+  return json.containsKey("content") ||
+      json.containsKey("pageable") ||
+      json.containsKey("totalElements") ||
+      json.containsKey("totalPages") ||
+      json.containsKey("last") ||
+      json.containsKey("number") ||
+      json.containsKey("size");
+}
+
+List<T> _modelList<T>(
+  dynamic value,
+  T Function(Map<String, dynamic>) fromJson,
+) {
+  if (value is! Iterable) return [];
+  return value
+      .whereType<Map>()
+      .map((item) => fromJson(_asStringKeyMap(item)))
+      .toList();
+}
+
+String? _asString(dynamic value) {
+  if (value == null) return null;
+  final text = value.toString().trim();
+  return text.isEmpty ? null : text;
+}
+
+int? _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+num? _asNum(dynamic value) {
+  if (value is num) return value;
+  return num.tryParse(value?.toString() ?? '');
+}
+
+bool? _asBool(dynamic value) {
+  if (value is bool) return value;
+  final text = value?.toString().toLowerCase();
+  if (text == 'true') return true;
+  if (text == 'false') return false;
+  return null;
+}
+
+DateTime? _asDateTime(dynamic value) {
+  final text = _asString(value);
+  return text == null ? null : DateTime.tryParse(text);
 }

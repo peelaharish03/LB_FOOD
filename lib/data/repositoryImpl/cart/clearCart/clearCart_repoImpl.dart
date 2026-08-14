@@ -8,7 +8,7 @@ class ClearCartRepositoryImpl implements ClearCartRepository {
   ClearCartRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<ClearCartModel> clearCart() {
-    return remoteDataSource.clearCart();
+  Future<ClearCartModel> clearCart(String cartId) {
+    return remoteDataSource.clearCart(cartId);
   }
 }

@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "local_basket",
-      "version": "1.0.0+1",
+      "version": "3.0.3+36",
       "dependencies": [
         "carousel_slider",
         "connectivity_plus",

@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_state.dart';
-import 'rating_service.dart';
 
 class GlobalRatingListener extends StatefulWidget {
   final Widget child;
@@ -90,10 +89,7 @@ class _GlobalRatingListenerState extends State<GlobalRatingListener>
           debugPrint(
             '[GlobalRatingListener] Orders loaded: ${orders.length}, delivered: $delivered',
           );
-          RatingService().checkAndShowRatingPopup(
-            context: context,
-            orders: orders,
-          );
+          // Rating popup is disabled.
         }
       },
       child: widget.child,

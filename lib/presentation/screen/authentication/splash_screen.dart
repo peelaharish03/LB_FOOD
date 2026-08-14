@@ -8,9 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
-import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
-import 'package:local_basket/presentation/screen/authentication/nameInput_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -26,15 +24,18 @@ class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _videoController;
   late Future<void> _videoInitFuture;
   bool _navigateManually = false;
+  bool _hasNavigated = false;
   final NotificationServices _notificationServices = NotificationServices();
 
   @override
   void initState() {
     super.initState();
     initNotifications();
-    _videoController =
-        VideoPlayerController.asset('assets/images/videos/food.mp4');
+    _videoController = VideoPlayerController.asset(
+      'assets/images/videos/food.mp4',
+    );
     _videoInitFuture = _videoController.initialize().then((_) {
+      if (!mounted) return;
       _videoController.setLooping(true);
       _videoController.setVolume(0.0);
       _videoController.play();
@@ -45,33 +46,53 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _startNavigationLogic() async {
-    await Future.delayed(const Duration(seconds: 4));
+    try {
+      await Future.delayed(const Duration(seconds: 4));
 
-    final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
 
-    String? deviceId = await _getUniqueDeviceId();
-    if (deviceId != null) {
-      await prefs.setString('device_id', deviceId);
+      String? deviceId = await _getUniqueDeviceId();
+      if (deviceId != null) {
+        await prefs.setString('device_id', deviceId);
+      }
+      debugPrint("Device ID: $deviceId");
+
+      final storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'TOKEN');
+      final isFirstTime = prefs.getBool('isFirstTime') ?? true;
+
+      if (isFirstTime) {
+        await prefs.setBool('isFirstTime', false);
+        _navigateTo(const LoginScreen());
+        return;
+      }
+
+      if (token == null || token.isEmpty) {
+        _navigateTo(const LoginScreen());
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _navigateManually = true);
+
+      final currentCustomerCubit = context.read<CurrentCustomerCubit>();
+      await currentCustomerCubit.GetCurrentCustomer(context);
+
+      if (!mounted || _hasNavigated) return;
+      final state = currentCustomerCubit.state;
+      if (state is CurrentCustomerLoaded) {
+        _navigateTo(const MainDashboard());
+      } else if (state is CurrentCustomerError ||
+          state is CurrentCustomerInitial ||
+          state is CurrentCustomerLoading) {
+        _navigateTo(const LoginScreen());
+      }
+    } catch (e) {
+      debugPrint('Splash navigation error: $e');
+      if (mounted) {
+        _navigateTo(const LoginScreen());
+      }
     }
-    print("Device ID: $deviceId");
-
-    final storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'TOKEN');
-    final isFirstTime = prefs.getBool('isFirstTime') ?? true;
-
-    if (isFirstTime) {
-      await prefs.setBool('isFirstTime', false);
-      _navigateTo(const LoginScreen());
-      return;
-    }
-
-    if (token == null || token.isEmpty) {
-      _navigateTo(const LoginScreen());
-      return;
-    }
-
-    await context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
-    setState(() => _navigateManually = true);
   }
 
   Future<String?> _getUniqueDeviceId() async {
@@ -94,6 +115,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateTo(Widget screen) {
     if (!mounted) return;
+    if (_hasNavigated) return;
+    _hasNavigated = true;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => screen),
@@ -118,20 +141,10 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     await _notificationServices.isRefreshToken();
 
-    _notificationServices.getDeviceToken().then((fcmToken) {
-      if (!mounted) return;
-      if (fcmToken != null) {
-        final payload = {
-          'fullName': '',
-          'email': '',
-          'local_basket': true,
-          "fcmToken": fcmToken,
-        };
-        context
-            .read<UpdateCurrentCustomerCubit>()
-            .updateCustomer(payload, context);
-      }
-    });
+    // FIX: Notification PERMISSION is no longer requested here (before login).
+    // It is now requested after login from MainDashboard/DashboardScreen
+    // so that notification permission is asked first, then location permission.
+    // getDeviceToken() internally calls requestPermission() → moved after login.
   }
 
   @override
@@ -139,12 +152,12 @@ class _SplashScreenState extends State<SplashScreen> {
     return BlocListener<CurrentCustomerCubit, CurrentCustomerState>(
       listener: (context, state) {
         if (!_navigateManually) return;
+        if (_hasNavigated) return;
 
         if (state is CurrentCustomerLoaded) {
           // final localBasket = state.currentCustomerModel.eato ?? false;
-          _navigateTo(
-              const MainDashboard() );
-        } else {
+          _navigateTo(const MainDashboard());
+        } else if (state is CurrentCustomerError) {
           _navigateTo(const LoginScreen());
         }
       },
@@ -169,9 +182,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   )
                 else
                   Container(color: Colors.black),
-                Container(
-                  color: Colors.black.withOpacity(0.5),
-                ),
+                Container(color: Colors.black.withValues(alpha: 0.5)),
                 Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

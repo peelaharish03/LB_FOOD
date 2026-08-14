@@ -11,6 +11,12 @@
             "type": "dart"
         },
         {
+            "name": "LOCAL_BASKET_FOOD (Flutter I2018)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "I2018"
+        },
+        {
             "name": "LOCAL_BASKET_FOOD (profile mode)",
             "request": "launch",
             "type": "dart",

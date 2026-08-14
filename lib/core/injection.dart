@@ -6,7 +6,9 @@ import 'package:local_basket/data/datasource/address/defaultAddress/get/getDefau
 import 'package:local_basket/data/datasource/address/defaultAddress/post/defaultAddress_dataSource.dart';
 import 'package:local_basket/data/datasource/address/deleteAddress/deleteAddress_dataSource.dart';
 import 'package:local_basket/data/datasource/address/getAddress/getAddress_dataSource.dart';
+import 'package:local_basket/data/datasource/address/city/city_dataSource.dart';
 import 'package:local_basket/data/datasource/address/saveAddress/saveAddress_dataSource.dart';
+import 'package:local_basket/data/datasource/address/state/state_dataSource.dart';
 import 'package:local_basket/data/datasource/authentication/current_customer_remote_data_source.dart';
 import 'package:local_basket/data/datasource/authentication/deleteAccount_dataSource.dart';
 import 'package:local_basket/data/datasource/authentication/rolesPost_dataSource.dart';
@@ -21,7 +23,9 @@ import 'package:local_basket/data/datasource/cart/productsAddToCart/productsAddt
 import 'package:local_basket/data/datasource/cart/updateCartItems/updateCartItems_dataSource.dart';
 import 'package:local_basket/data/datasource/complaints/create_complaints_datasource.dart';
 import 'package:local_basket/data/datasource/location/location_remotedatasource.dart';
+import 'package:local_basket/data/datasource/notifications/fcmToken/fcm_token_dataSource.dart';
 import 'package:local_basket/data/datasource/notifications/notifications_datasource.dart';
+import 'package:local_basket/data/datasource/offers/promotions/promotions_dataSource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/restaurant_offers_dataSource.dart';
 import 'package:local_basket/data/datasource/offers/restaurant_offers/validate_offer_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/createOrder/createOrder_dataSource.dart';
@@ -37,7 +41,9 @@ import 'package:local_basket/data/repositoryImpl/address/defaultAddress/get/getD
 import 'package:local_basket/data/repositoryImpl/address/defaultAddress/post/defaultAddress_dataSource.dart';
 import 'package:local_basket/data/repositoryImpl/address/deleteAddress/deleteAddress_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/getAddress/getAddress_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/address/city/city_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/saveAddress/saveAddress_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/address/state/state_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/current_customer_repository_impl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/deleteAccount_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/rolesPost_repoImpl.dart';
@@ -53,6 +59,8 @@ import 'package:local_basket/data/repositoryImpl/cart/updateCartItems/updateCart
 import 'package:local_basket/data/repositoryImpl/complaints/create_complaints_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/location/location_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/notifications/notifications_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/notifications/fcmToken/fcm_token_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/offers/promotions/promotions_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/restaurant_offers_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/validate_offer_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_repoImpl.dart';
@@ -68,7 +76,9 @@ import 'package:local_basket/domain/repository/address/defaultAddress/get/getDef
 import 'package:local_basket/domain/repository/address/defaultAddress/post/defaultAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/deleteAddress/deleteAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/getAddress/getAddress_repository.dart';
+import 'package:local_basket/domain/repository/address/city/city_repository.dart';
 import 'package:local_basket/domain/repository/address/saveAddress/saveAddress_repository.dart';
+import 'package:local_basket/domain/repository/address/state/state_repository.dart';
 import 'package:local_basket/domain/repository/authentication/current_customer_repository.dart';
 import 'package:local_basket/domain/repository/authentication/deleteAccount_repository.dart';
 import 'package:local_basket/domain/repository/authentication/rolesPost_repository.dart';
@@ -84,6 +94,8 @@ import 'package:local_basket/domain/repository/cart/updateCartItems/updateCartIt
 import 'package:local_basket/domain/repository/complaints/create_complaints_repository.dart';
 import 'package:local_basket/domain/repository/location/location_repo.dart';
 import 'package:local_basket/domain/repository/notifications/notifications_repository.dart';
+import 'package:local_basket/domain/repository/notifications/fcmToken/fcm_token_repository.dart';
+import 'package:local_basket/domain/repository/offers/promotions/promotions_repository.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/restaurant_offers_repository.dart';
 import 'package:local_basket/domain/repository/offers/restaurant_offers/validate_offer_repository.dart';
 import 'package:local_basket/domain/repository/orders/createOrder/createOrder_repository.dart';
@@ -99,7 +111,9 @@ import 'package:local_basket/domain/usecase/address/defaultAddress/get/getDefaul
 import 'package:local_basket/domain/usecase/address/defaultAddress/post/defaultAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/deleteAddress/deleteAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/getAddress/getAddress_usecase.dart';
+import 'package:local_basket/domain/usecase/address/city/getCities_usecase.dart';
 import 'package:local_basket/domain/usecase/address/saveAddress/saveAddress_usecase.dart';
+import 'package:local_basket/domain/usecase/address/state/getStates_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/current_customer_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/deleteAccount_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/rolesPost_usecase.dart';
@@ -115,6 +129,8 @@ import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems
 import 'package:local_basket/domain/usecase/complaints/create_complaints_usecase.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
 import 'package:local_basket/domain/usecase/notifications/notifications_usecase.dart';
+import 'package:local_basket/domain/usecase/notifications/fcmToken/fcm_token_usecase.dart';
+import 'package:local_basket/domain/usecase/offers/promotions/promotions_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/restaurant_offers_usecase.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_offer_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
@@ -129,7 +145,9 @@ import 'package:local_basket/domain/usecase/restaurants/getRestaurantsByProductN
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/city/getCities_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/state/getStates_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
@@ -146,6 +164,8 @@ import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartI
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
+import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/promotions/promotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
@@ -428,6 +448,38 @@ void init() {
     () => GetAddressCubit(sl<GetAddressUseCase>(), sl<NetworkService>()),
   );
 
+  //GetStates
+  sl.registerLazySingleton<GetStatesRemoteDataSource>(
+    () => GetStatesRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<GetStatesRepository>(
+    () => GetStatesRepositoryImpl(
+      remoteDataSource: sl<GetStatesRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => GetStatesUseCase(repository: sl<GetStatesRepository>()),
+  );
+  sl.registerFactory(
+    () => GetStatesCubit(sl<GetStatesUseCase>(), sl<NetworkService>()),
+  );
+
+  //GetCities
+  sl.registerLazySingleton<GetCitiesRemoteDataSource>(
+    () => GetCitiesRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<GetCitiesRepository>(
+    () => GetCitiesRepositoryImpl(
+      remoteDataSource: sl<GetCitiesRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => GetCitiesUseCase(repository: sl<GetCitiesRepository>()),
+  );
+  sl.registerFactory(
+    () => GetCitiesCubit(sl<GetCitiesUseCase>(), sl<NetworkService>()),
+  );
+
   //Payment
   sl.registerLazySingleton<PaymentRemoteDataSource>(
     () => PaymentRemoteDataSourceImpl(client: sl<DioClient>().dio),
@@ -650,6 +702,22 @@ void init() {
   );
   sl.registerFactory(() => ValidateOfferCubit(sl<ValidateOfferUseCase>()));
 
+  //Promotions
+  sl.registerLazySingleton<PromotionsRemoteDataSource>(
+    () => PromotionsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<PromotionsRepository>(
+    () => PromotionsRepositoryImpl(
+      remoteDataSource: sl<PromotionsRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => PromotionsUseCase(repository: sl<PromotionsRepository>()),
+  );
+  sl.registerFactory(
+    () => PromotionsCubit(sl<PromotionsUseCase>()),
+  );
+
   //RatingReview
   sl.registerLazySingleton<RatingReviewRemoteDataSource>(
     () => RatingReviewRemoteDataSourceImpl(client: sl<DioClient>().dio),
@@ -717,6 +785,28 @@ void init() {
     () => NotificationsCubit(
       getNotificationsUseCase: sl<GetNotificationsUseCase>(),
       clearNotificationsUseCase: sl<ClearNotificationsUseCase>(),
+    ),
+  );
+
+  //FcmToken
+  sl.registerLazySingleton<FcmTokenRemoteDataSource>(
+    () => FcmTokenRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<FcmTokenRepository>(
+    () => FcmTokenRepositoryImpl(
+      remoteDataSource: sl<FcmTokenRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => StoreFcmTokenUseCase(repository: sl<FcmTokenRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => GetFcmTokenUseCase(repository: sl<FcmTokenRepository>()),
+  );
+  sl.registerFactory(
+    () => FcmTokenCubit(
+      storeFcmTokenUseCase: sl<StoreFcmTokenUseCase>(),
+      getFcmTokenUseCase: sl<GetFcmTokenUseCase>(),
     ),
   );
 }

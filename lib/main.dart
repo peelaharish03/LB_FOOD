@@ -5,8 +5,10 @@ import 'package:local_basket/firebase_options.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/city/getCities_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/state/getStates_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/deleteAccount/deleteAccount_cubit.dart';
@@ -22,6 +24,8 @@ import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartI
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
+import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
+import 'package:local_basket/presentation/cubit/offers/promotions/promotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
@@ -116,6 +120,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<UpdateCartItemsCubit>()),
         BlocProvider(create: (_) => di.sl<SaveAddressCubit>()),
         BlocProvider(create: (_) => di.sl<GetAddressCubit>()),
+        BlocProvider(create: (_) => di.sl<GetStatesCubit>()),
+        BlocProvider(create: (_) => di.sl<GetCitiesCubit>()),
         BlocProvider(create: (_) => di.sl<PaymentCubit>()),
         BlocProvider(create: (_) => di.sl<GetRestaurantsByProductNameCubit>()),
         BlocProvider(create: (_) => di.sl<CreateOrderCubit>()),
@@ -128,11 +134,13 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<AddressSavetoCartCubit>()),
         BlocProvider(create: (_) => di.sl<DeleteAccountCubit>()),
         BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
+        BlocProvider(create: (_) => di.sl<PromotionsCubit>()),
         BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
         BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),
         BlocProvider(create: (_) => di.sl<CreateComplaintCubit>()),
         BlocProvider(create: (_) => di.sl<CheckoutCubit>()),
         BlocProvider(create: (_) => di.sl<NotificationsCubit>()),
+        BlocProvider(create: (_) => di.sl<FcmTokenCubit>()),
       ],
       child: MaterialApp(
         title: 'local basket',

@@ -29,35 +29,45 @@ class CheckoutModel {
   final CheckoutData? data;
 
   factory CheckoutModel.fromJson(Map<String, dynamic> json) {
-    final dataJson = json["data"];
-    final totalAmount = _toNum(json["totalAmount"]);
+    final rawData = json["data"];
+    final dataJson = rawData is Map<String, dynamic> ? rawData : null;
+    final source = dataJson ?? json;
+    final totalAmount =
+        _toNum(_read(source, ["totalAmount", "amount", "grandTotal"])) ??
+        _toNum(_read(json, ["totalAmount", "amount", "grandTotal"]));
 
     return CheckoutModel(
-      crossSellProductIds:
-          json["crossSellProductIds"] == null
-              ? []
-              : List<String>.from(
-                json["crossSellProductIds"].map((x) => x.toString()),
-              ),
-      fraudFlagged: json["fraudFlagged"],
-      orderId: json["orderId"]?.toString(),
-      orderStatus: json["orderStatus"]?.toString(),
-      paymentRedirectUrl: json["paymentRedirectUrl"]?.toString(),
-      paymentStatus: json["paymentStatus"]?.toString(),
-      razorpayKeyId: json["razorpayKeyId"]?.toString(),
-      razorpayOrderId: json["razorpayOrderId"]?.toString(),
+      crossSellProductIds: _toStringList(
+        _read(source, ["crossSellProductIds"]),
+      ),
+      fraudFlagged: _toBool(_read(source, ["fraudFlagged"])),
+      orderId: _read(source, ["orderId", "order_id", "id"])?.toString(),
+      orderStatus: _read(source, ["orderStatus", "order_status"])?.toString(),
+      paymentRedirectUrl:
+          _read(source, [
+            "paymentRedirectUrl",
+            "payment_redirect_url",
+          ])?.toString(),
+      paymentStatus:
+          _read(source, ["paymentStatus", "payment_status"])?.toString(),
+      razorpayKeyId:
+          _read(source, [
+            "razorpayKeyId",
+            "razorpay_key_id",
+            "keyId",
+            "key_id",
+          ])?.toString(),
+      razorpayOrderId:
+          _read(source, [
+            "razorpayOrderId",
+            "razorpay_order_id",
+            "rzpOrderId",
+            "order_id",
+          ])?.toString(),
       totalAmount: totalAmount,
       message: json["message"]?.toString(),
       status: json["status"]?.toString(),
-      data:
-          dataJson is Map<String, dynamic>
-              ? CheckoutData.fromJson(dataJson)
-              : CheckoutData(
-                itemsTotal: totalAmount,
-                taxTotal: _toNum(json["totalTax"]) ?? 0,
-                deliveryCharge: _toNum(json["deliveryCharge"]) ?? 0,
-                grandTotal: totalAmount,
-              ),
+      data: CheckoutData.fromJson(source, fallbackTotal: totalAmount),
     );
   }
 
@@ -90,12 +100,21 @@ class CheckoutData {
   final num? deliveryCharge;
   final num? grandTotal;
 
-  factory CheckoutData.fromJson(Map<String, dynamic> json) {
+  factory CheckoutData.fromJson(
+    Map<String, dynamic> json, {
+    num? fallbackTotal,
+  }) {
     return CheckoutData(
-      itemsTotal: _toNum(json["itemsTotal"]),
-      taxTotal: _toNum(json["taxTotal"]),
-      deliveryCharge: _toNum(json["deliveryCharge"]),
-      grandTotal: _toNum(json["grandTotal"]),
+      itemsTotal: _toNum(
+        _read(json, ["itemsTotal", "items_total", "subTotal"]),
+      ),
+      taxTotal: _toNum(_read(json, ["taxTotal", "tax_total", "totalTax"])),
+      deliveryCharge: _toNum(
+        _read(json, ["deliveryCharge", "delivery_charge"]),
+      ),
+      grandTotal:
+          _toNum(_read(json, ["grandTotal", "grand_total", "totalAmount"])) ??
+          fallbackTotal,
     );
   }
 
@@ -105,6 +124,27 @@ class CheckoutData {
     "deliveryCharge": deliveryCharge,
     "grandTotal": grandTotal,
   };
+}
+
+dynamic _read(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    if (json.containsKey(key)) return json[key];
+  }
+  return null;
+}
+
+List<String> _toStringList(dynamic value) {
+  if (value is Iterable) return value.map((x) => x.toString()).toList();
+  return [];
+}
+
+bool? _toBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  final text = value.toString().toLowerCase();
+  if (text == 'true') return true;
+  if (text == 'false') return false;
+  return null;
 }
 
 num? _toNum(dynamic value) {
