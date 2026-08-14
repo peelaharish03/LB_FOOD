@@ -10,10 +10,19 @@ class RestaurantOffersModel {
   final Data? data;
 
   factory RestaurantOffersModel.fromJson(Map<String, dynamic> json) {
+    final dynamic data = json["data"];
+    Map<String, dynamic> page;
+    if (data is List) {
+      page = {"content": data};
+    } else if (data is Map<String, dynamic>) {
+      page = data;
+    } else {
+      page = json;
+    }
     return RestaurantOffersModel(
       message: json["message"],
       status: json["status"],
-      data: json["data"] == null ? null : Data.fromJson(json["data"]),
+      data: Data.fromJson(page),
     );
   }
 }
@@ -49,8 +58,7 @@ class Data {
     return Data(
       content: json["content"] == null
           ? []
-          : List<Content>.from(
-              json["content"]!.map((x) => Content.fromJson(x))),
+          : _parseContent(json["content"] as List),
       pageable:
           json["pageable"] == null ? null : Pageable.fromJson(json["pageable"]),
       totalPages: json["totalPages"],
@@ -65,6 +73,18 @@ class Data {
       first: json["first"],
       empty: json["empty"],
     );
+  }
+
+  static List<Content> _parseContent(List dynamicList) {
+    final List<Content> result = [];
+    for (final item in dynamicList) {
+      try {
+        if (item is Map<String, dynamic>) {
+          result.add(Content.fromJson(item));
+        }
+      } catch (_) {}
+    }
+    return result;
   }
 }
 
@@ -91,7 +111,7 @@ class Content {
     required this.presentSlotStatus,
   });
 
-  final num? id;
+  final dynamic id;
   final String? name;
   final String? offerType;
   final num? value;
@@ -102,8 +122,8 @@ class Content {
   final num? businessId;
   final bool? active;
   final String? description;
-  final List<num> productIds;
-  final List<num> categoryIds;
+  final List<dynamic> productIds;
+  final List<dynamic> categoryIds;
   final String? targetType;
   final num? windowMinutes;
   final num? maxClaimsPerWindow;
@@ -116,28 +136,41 @@ class Content {
       id: json["id"],
       name: json["name"],
       offerType: json["offerType"],
-      value: json["value"],
-      minOrderValue: json["minOrderValue"],
+      value: _toNum(json["value"]),
+      minOrderValue: _toNum(json["minOrderValue"]),
       couponCode: json["couponCode"],
       startDate: DateTime.tryParse(json["startDate"] ?? ""),
       endDate: DateTime.tryParse(json["endDate"] ?? ""),
-      businessId: json["businessId"],
-      active: json["active"],
+      businessId: _toNum(json["businessId"]),
+      active: _toBool(json["active"]),
       description: json["description"],
       productIds: json["productIds"] == null
           ? []
-          : List<num>.from(json["productIds"]!.map((x) => x)),
+          : List<dynamic>.from(json["productIds"] as List),
       categoryIds: json["categoryIds"] == null
           ? []
-          : List<num>.from(json["categoryIds"]!.map((x) => x)),
+          : List<dynamic>.from(json["categoryIds"] as List),
       targetType: json["targetType"],
-      windowMinutes: json["windowMinutes"],
-      maxClaimsPerWindow: json["maxClaimsPerWindow"],
+      windowMinutes: _toNum(json["windowMinutes"]),
+      maxClaimsPerWindow: _toNum(json["maxClaimsPerWindow"]),
       slotStartTime: DateTime.tryParse(json["slotStartTime"] ?? ""),
       slotEndTime: DateTime.tryParse(json["slotEndTime"] ?? ""),
-      presentSlotStatus: json["presentSlotStatus"],
+      presentSlotStatus: _toBool(json["presentSlotStatus"]),
     );
   }
+}
+
+num? _toNum(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value;
+  return num.tryParse(value.toString());
+}
+
+bool? _toBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return value.toString().toLowerCase() == 'true';
 }
 
 class Pageable {

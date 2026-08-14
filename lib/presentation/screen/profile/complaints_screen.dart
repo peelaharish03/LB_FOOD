@@ -8,12 +8,16 @@ import 'package:local_basket/presentation/cubit/complaints/create_complaints_cub
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_state.dart';
 
 class ComplaintsScreen extends StatefulWidget {
-  final int? orderId;
-  final int? b2bId;
+  final Object? orderId;
+  final Object? b2bId;
   final bool fromOrderHistory;
 
-  const ComplaintsScreen(
-      {super.key, this.orderId, this.b2bId, this.fromOrderHistory = false});
+  const ComplaintsScreen({
+    super.key,
+    this.orderId,
+    this.b2bId,
+    this.fromOrderHistory = false,
+  });
 
   @override
   State<ComplaintsScreen> createState() => _ComplaintsScreenState();
@@ -54,8 +58,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final int? orderId = widget.orderId;
-    final int? b2bId = widget.b2bId;
+    final orderId = widget.orderId;
+    final b2bId = widget.b2bId;
 
     final payload = {
       'title': _subjectController.text.trim(),
@@ -68,7 +72,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     context.read<CreateComplaintCubit>().createComplaint(payload);
   }
 
-   void _makePhoneCall(String phoneNumber) async {
+  void _makePhoneCall(String phoneNumber) async {
     print("Phone Number: $phoneNumber");
     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     try {
@@ -114,11 +118,10 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 8),
-                  Text('Let us know your issue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[700],
-                      )),
+                  Text(
+                    'Let us know your issue',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _subjectController,
@@ -128,9 +131,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Please enter a subject'
-                        : null,
+                    validator:
+                        (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please enter a subject'
+                                : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -144,9 +149,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Please describe your issue'
-                        : null,
+                    validator:
+                        (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please describe your issue'
+                                : null,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -157,26 +164,40 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    items: widget.fromOrderHistory
-                        ? const [
-                            DropdownMenuItem(
-                                value: 'PRODUCT', child: Text('Order Item')),
-                            DropdownMenuItem(
-                                value: 'RESTAURANT', child: Text('Restaurant')),
-                          ]
-                        : const [
-                            DropdownMenuItem(
-                                value: 'SERVICE', child: Text('Service')),
-                            DropdownMenuItem(
-                                value: 'DELIVERY', child: Text('Delivery')),
-                            DropdownMenuItem(
-                                value: 'GENAERAL', child: Text('General')),
-                            DropdownMenuItem(
+                    items:
+                        widget.fromOrderHistory
+                            ? const [
+                              DropdownMenuItem(
+                                value: 'PRODUCT',
+                                child: Text('Order Item'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'RESTAURANT',
+                                child: Text('Restaurant'),
+                              ),
+                            ]
+                            : const [
+                              DropdownMenuItem(
+                                value: 'SERVICE',
+                                child: Text('Service'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'DELIVERY',
+                                child: Text('Delivery'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'GENAERAL',
+                                child: Text('General'),
+                              ),
+                              DropdownMenuItem(
                                 value: 'ORDER_REJECTED',
-                                child: Text('Order Rejected')),
-                            DropdownMenuItem(
-                                value: 'OTHER', child: Text('Other')),
-                          ],
+                                child: Text('Order Rejected'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'OTHER',
+                                child: Text('Other'),
+                              ),
+                            ],
                     onChanged: (v) {
                       if (v == null) return;
                       setState(() => _complaintType = v);
@@ -191,21 +212,24 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColor.PrimaryColor,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: loading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Submit Complaint'),
+                      child:
+                          loading
+                              ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : const Text('Submit Complaint'),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -216,21 +240,31 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColor.SecondaryColor,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: loading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                      child:
+                          loading
+                              ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : Text(
+                                'Make a Call',
+                                style: TextStyle(
+                                  color: AppColor.White,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
-                            )
-                          :  Text('Make a Call', style: TextStyle(color: AppColor.White, fontWeight: FontWeight.bold, fontSize: 14),),
                     ),
                   ),
                 ],

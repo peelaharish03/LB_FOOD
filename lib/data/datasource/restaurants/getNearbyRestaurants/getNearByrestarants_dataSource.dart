@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
@@ -34,7 +36,12 @@ class GetNearByRestaurantsRemoteDataSourceImpl
       );
 
       if (response.statusCode == 200) {
-        print('response of getNearByRestaurants:: $response');
+        final body = response.data;
+        print('📦 GET $url');
+        print(
+          '✅ getNearByRestaurants response (status ${response.statusCode}): ${jsonEncode(body)}',
+        );
+        print('data:  ${response.data}');
         return GetNearByStoresModel.fromJson(response.data);
       } else {
         throw Exception(

@@ -9,10 +9,14 @@ class OrderHistoryCubit extends Cubit<OrderHistoryState> {
   final NetworkService networkService;
 
   OrderHistoryCubit(this.useCase, this.networkService)
-      : super(OrderHistoryInitial());
+    : super(OrderHistoryInitial());
 
   Future<void> fetchCart(
-      int page, int size, String searchQuery, context) async {
+    int page,
+    int size,
+    String searchQuery,
+    context,
+  ) async {
     bool isConnected = await networkService.hasInternetConnection();
     print(isConnected);
     if (!isConnected) {
@@ -22,15 +26,23 @@ class OrderHistoryCubit extends Cubit<OrderHistoryState> {
         title: 'Alert',
         message: 'Please check Internet Connection',
       );
+      emit(OrderHistoryError('Please check Internet Connection', page: page));
       return;
     } else {
-      emit(OrderHistoryLoading());
+      emit(OrderHistoryLoading(page: page));
       try {
         final cart = await useCase.execute(page, size, searchQuery);
-        emit(OrderHistoryLoaded(cart));
+        emit(
+          OrderHistoryLoaded(
+            cart,
+            page: page,
+            size: size,
+            searchQuery: searchQuery,
+          ),
+        );
       } catch (e) {
         print('Error fetching order history: $e');
-        emit(OrderHistoryError(e.toString()));
+        emit(OrderHistoryError(e.toString(), page: page));
       }
     }
   }

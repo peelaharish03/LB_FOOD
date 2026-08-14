@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_model.dart';
@@ -17,12 +19,12 @@ class GetMenuByRestaurantIdRemoteDataSourceImpl
   @override
   Future<GetMenuByRestaurantIdModel> getMenuByRestaurantId(Map<String, dynamic> params) async {
     try {
-      final String restaurantId = params['restaurantId'];
-      final String search = params['search'];
-      final int page = params['page'];
-      final int size = params['size'];
+      final String storeId = params['restaurantId'];
+      final String b2bUnitId = params['b2bUnitId'];
+      final int page = params['page'] ?? 0;
+      final int size = params['size'] ?? 20;
 
-      final url = '$baseUrl${getMenuByRestaurantIdUrl(restaurantId, search, page, size)}';
+      final url = '$baseUrl${getMenuByRestaurantIdUrl(storeId, b2bUnitId, page, size)}';
 
       final response = await client.request(
         url,
@@ -30,7 +32,11 @@ class GetMenuByRestaurantIdRemoteDataSourceImpl
       );
 
       if (response.statusCode == 200) {
-        print('response of GetMenuByRestaurantId:: $response');
+        final body = response.data;
+        print('📦 GET $url');
+        print(
+          '✅ GetMenuByRestaurantId response (status ${response.statusCode}): ${jsonEncode(body)}',
+        );
         return GetMenuByRestaurantIdModel.fromJson(response.data);
       } else {
         throw Exception(

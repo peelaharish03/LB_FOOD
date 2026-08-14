@@ -1,15 +1,16 @@
 //prod//
 const baseUrl2 =
-    'https://gateway-service.purplefield-2b43f6a6.southindia.azurecontainerapps.io';
+    'https://gateway-service.orangeplant-f70408fb.centralindia.azurecontainerapps.io/';
 
 const TriggerOtp = '/auth/otp/send';
 const SigninUrl = '/auth/otp/login';
-const SignupUrl = 'auth/jtuserotp/trigger/sign-up?triggerOtp=true';
+const SignupUrl = '/auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = '/api/users/me';
-const updateCurrentCustomerUrl = 'usermgmt/user/userDetails';
-const deleteAccountUrl = 'usermgmt/user/skillrat';
+const fcmTokenUrl = '/api/users/me/fcm-token';
+const updateCurrentCustomerUrl = '/usermgmt/user/userDetails';
+const deleteAccountUrl = '/usermgmt/user/skillrat';
 
-const rolePostUrl = 'user/user';
+const rolePostUrl = '/user/user';
 String getNearbyRestaurantsUrl(
   double latitude,
   double longitude,
@@ -20,28 +21,31 @@ String getNearbyRestaurantsUrl(
   return '/api/stores/nearby?lat=$latitude&lng=$longitude&radius=$radius&page=$page&size=$size';
 }
 
-const addressSave = 'api/addresses/save';
+const addressSave = '/api/addresses/save';
+
+const statesUrl = '/api/states';
+String getCitiesUrl(int page, int size) {
+  return '/api/cities?page=$page&size=$size';
+}
 
 const baseUrl =
-    'https://gateway-service.purplefield-2b43f6a6.southindia.azurecontainerapps.io';
+    'https://gateway-service.orangeplant-f70408fb.centralindia.azurecontainerapps.io';
 
 // notifications
 String getNotificationsUrl(int pageNo, int pageSize) {
-  return 'order/usernotification/user/list?pageNo=$pageNo&pageSize=$pageSize';
+  return '/order/usernotification/user/list?pageNo=$pageNo&pageSize=$pageSize';
 }
 
-const clearAllNotificationsUrl = 'order/usernotification/clear-all';
+const clearAllNotificationsUrl = '/order/usernotification/clear-all';
 
 String getMenuByRestaurantIdUrl(
-  String restaurantId,
-  String search,
+  String storeId,
+  String b2bUnitId,
   int page,
   int size,
 ) {
-  return '/api/products/store/$restaurantId?page=$page&size=$size';
-  //'/api/products/b2b-unit/f19981ef-4735-4983-82fe-752af776c00e?storeId=39dcaa06-add8-42d4-918d-45cdb78a9f24&searchTerm=&$page=0&size=$size';
+  return '/api/products/b2b-unit/$b2bUnitId?storeId=$storeId&mobileOrWeb=True&page=$page&size=$size';
 }
-// old api -'product/api/products/filter?businessId=$restaurantId&attributeValue=Online&attributeValue=DineIN%26Online%26TakeAway&keyword=$search&page=$page&size=$size';
 
 String getRestaurantsByProductNameUrl(
   String productName,
@@ -51,41 +55,48 @@ String getRestaurantsByProductNameUrl(
   int page,
   int size,
 ) {
-  return '/api/stores/nearby?lat=$latitude&lng=$longitude&radius=$radius&page=$page&size=$size';
+  return '/api/stores/nearby?lat=$latitude&lng=$longitude&radius=$radius&page=$page&size=$size&b2bUnitId=b1731bad-7883-4ad8-9d09-abc1c34d7057';
 }
 
 String orderHistoryUrl(int page, int size, String searchQuery) {
-  return 'order/api/orders/history?page=$page&size=$size&sortBy=createdDate&direction=DESC&query=$searchQuery';
+  final query = searchQuery.trim();
+  final encodedQuery = Uri.encodeQueryComponent(query);
+  final searchParam = query.isEmpty ? '' : '&query=$encodedQuery';
+  return '/api/orders/me?page=$page&size=$size&sort=createdDate%2Cdesc';
 }
 
 // const createCartUrl = 'order/api/carts/create';
 const createCartUrl = '/api/carts';
 const getCartUrl = '/api/carts';
-const clearCartUrl = 'order/api/carts/clear';
+String clearCartByIdUrl(String cartId) {
+  return '/api/carts/$cartId';
+}
+
 const productsAddToCartUrl = '/api/carts';
 const saveAddressUrl = '/api/users/me/addresses';
 const getAddressUrl = '/api/users/me/addresses?page=0&size=10';
-const paymentUrl = 'order/payments/process';
-const paymentReFund = 'order/payments/refund';
-const paymentRefundStatus = 'order/payments/refunds';
-const createOrderUrl = 'order/api/orders/create';
-const reOrderUrl = 'order/api/orders/reorder';
-const deleteAddressUrl = 'usermgmt/api/addresses';
-const defaultAddressUrl = 'usermgmt/api/addresses/setdefaultAddress';
-const addressSavetoCartUrl = 'order/api/carts/address?addressId';
+const paymentUrl = '/api/orders/payments/process';
+const paymentReFund = '/order/payments/refund';
+const paymentRefundStatus = '/order/payments/refunds';
+const createOrderUrl = '/order/api/orders/create';
+const reOrderUrl = '/order/api/orders/reorder';
+const deleteAddressUrl = '/usermgmt/api/addresses';
+const defaultAddressUrl = '/usermgmt/api/addresses/setdefaultAddress';
+const addressSavetoCartUrl = '/order/api/carts/address?addressId';
 
 // FIX: paymentRefundHistory was an empty string — marked as TODO until the endpoint is known.
 const paymentRefundHistory =
     ''; // TODO: Set the correct refund history endpoint
 
 const restaurantOffersUrl =
-    'product/api/offers/list?active=true&page=0&size=100';
+    '/product/api/offers/list?active=true&page=0&size=100';
+const promotionsUrl = '/api/promotion-engine/promotions?page=0&size=20';
 String validateOfferUrl(String offerId) {
-  return 'order/offers/$offerId/validate';
+  return '/order/offers/$offerId/validate';
 }
 
-const ratingReviewUrl = 'product/internal/reviews';
-const createComplaintUrl = 'order/api/orders/complaints';
+const ratingReviewUrl = '/product/internal/reviews';
+const createComplaintUrl = '/order/api/orders/complaints';
 const checkoutUrl = '/api/orders/checkout';
 
 String updateCartItemsUrl(String cartId, String itemId) {
@@ -93,23 +104,8 @@ String updateCartItemsUrl(String cartId, String itemId) {
 }
 
 String deleteCartItemsUrl(String cartId) {
-  return 'order/api/carts/items/$cartId';
+  return '/order/api/carts/items/$cartId';
 }
-
-// ---------------------------------------------------------------------------
-// FIX: Razorpay keys moved here from CartScreen to centralise them.
-//
-// HOW TO USE SECURELY IN PRODUCTION:
-//   Pass keys at build time using --dart-define so they are never committed
-//   to source control:
-//
-//   flutter run \
-//     --dart-define=RAZORPAY_KEY=rzp_live_xxx \
-//     --dart-define=RAZORPAY_SECRET=xxx \
-//     --dart-define=IS_PRODUCTION=true
-//
-//   The defaultValue below keeps dev builds working without any --dart-define.
-// ---------------------------------------------------------------------------
 
 const _isProduction = bool.fromEnvironment(
   'IS_PRODUCTION',
@@ -118,11 +114,11 @@ const _isProduction = bool.fromEnvironment(
 
 const _razorPayTestKey = String.fromEnvironment(
   'RAZORPAY_TEST_KEY',
-  defaultValue: 'rzp_test_RsEtePJVg5vbk9',
+  defaultValue: 'rzp_test_TBfHQdPeMMX7ie',
 );
 const _razorPayTestSecret = String.fromEnvironment(
   'RAZORPAY_TEST_SECRET',
-  defaultValue: 'U7RLFFnNceIHKyMtuYJSlkQ5',
+  defaultValue: 'yWklbZTXK5sZt5OPXMVEv7Un',
 );
 
 const _razorPayLiveKey = String.fromEnvironment(

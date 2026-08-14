@@ -14,7 +14,6 @@ import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp
 import 'package:local_basket/presentation/cubit/authentication/signin/sigin_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/signin/signin_state.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
-import 'package:local_basket/presentation/screen/authentication/nameInput_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/main_dashboard_screen.dart';
 
 // ignore: must_be_immutable
@@ -23,7 +22,6 @@ class OtpScreen extends StatefulWidget {
   String otp;
   String fullName;
   String deviceId;
-  
 
   OtpScreen({
     super.key,
@@ -40,6 +38,71 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final TextEditingController otpController = TextEditingController();
   bool _hasNavigated = false;
+
+  String? get _debugOtp {
+    final otp = widget.otp.trim();
+    final normalized = otp.toLowerCase();
+    if (otp.isEmpty ||
+        normalized == 'true' ||
+        normalized == 'false' ||
+        normalized == 'null') {
+      return null;
+    }
+
+    return otp;
+  }
+
+  Widget _buildDebugOtpBox() {
+    final otp = _debugOtp;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFB26B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Debug OTP',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF9A4B00),
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (otp == null)
+            Text(
+              'OTP was not returned by server',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF9A4B00),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: () {
+                otpController.text = otp;
+              },
+              child: Text(
+                otp,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3,
+                  color: AppColor.PrimaryColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   void _navigateBasedOnCustomerStatus(BuildContext context) {
     context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
@@ -66,9 +129,8 @@ class _OtpScreenState extends State<OtpScreen> {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const Center(
-                    child: CupertinoActivityIndicator(),
-                  ),
+                  builder:
+                      (_) => const Center(child: CupertinoActivityIndicator()),
                 );
               } else {
                 Navigator.of(context, rootNavigator: true).pop();
@@ -99,10 +161,10 @@ class _OtpScreenState extends State<OtpScreen> {
             listener: (context, state) {
               if (state is CurrentCustomerLoaded && !_hasNavigated) {
                 _hasNavigated = true;
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainDashboard()),
-                  );
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainDashboard()),
+                );
                 // } else {
                 //   Navigator.pushReplacement(
                 //     context,
@@ -189,7 +251,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -222,8 +284,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                         Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const LoginScreen()),
+                                            builder: (_) => const LoginScreen(),
+                                          ),
                                         );
                                       },
                                       child: Text(
@@ -237,18 +299,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                     ),
                                   ],
                                 ),
-                                if (widget.otp != 'true') ...[
-                                  const SizedBox(height: 10),
-                                  Center(
-                                    child: Text(
-                                      widget.otp,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 18,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                _buildDebugOtpBox(),
                                 const SizedBox(height: 24),
 
                                 /// OTP Input
@@ -259,12 +310,12 @@ class _OtpScreenState extends State<OtpScreen> {
                                     onCompleted: (value) {
                                       if (value.length == 6) {
                                         context.read<SignInCubit>().signIn(
-                                              context,
-                                              widget.primaryContact,
-                                              value,
-                                              widget.fullName,
-                                              widget.deviceId,
-                                            );
+                                          context,
+                                          widget.primaryContact,
+                                          value,
+                                          widget.fullName,
+                                          widget.deviceId,
+                                        );
                                       }
                                     },
                                     defaultPinTheme: PinTheme(
@@ -278,7 +329,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                            color: Colors.grey.shade300),
+                                          color: Colors.grey.shade300,
+                                        ),
                                         color: Colors.white,
                                       ),
                                     ),
@@ -295,7 +347,9 @@ class _OtpScreenState extends State<OtpScreen> {
                   /// Sticky Button Section (same style as login)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 20),
+                      horizontal: 24,
+                      vertical: 20,
+                    ),
                     child: Column(
                       children: [
                         BlocBuilder<SignInCubit, SignInState>(
@@ -306,17 +360,18 @@ class _OtpScreenState extends State<OtpScreen> {
                               onPressed: () {
                                 if (otpController.text.length == 6) {
                                   context.read<SignInCubit>().signIn(
-                                        context,
-                                        widget.primaryContact,
-                                        otpController.text,
-                                        widget.fullName,
-                                        widget.deviceId,
-                                      );
+                                    context,
+                                    widget.primaryContact,
+                                    otpController.text,
+                                    widget.fullName,
+                                    widget.deviceId,
+                                  );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                          "Please enter a valid 6-digit OTP."),
+                                        "Please enter a valid 6-digit OTP.",
+                                      ),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -328,9 +383,10 @@ class _OtpScreenState extends State<OtpScreen> {
                         const SizedBox(height: 14),
                         GestureDetector(
                           onTap: () {
-                            context
-                                .read<TriggerOtpCubit>()
-                                .resendOtp(context, widget.primaryContact);
+                            context.read<TriggerOtpCubit>().resendOtp(
+                              context,
+                              widget.primaryContact,
+                            );
                           },
                           child: Text(
                             "Didn’t receive it? Resend OTP",

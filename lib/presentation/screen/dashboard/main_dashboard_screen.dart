@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
 import 'package:local_basket/presentation/screen/notifications/notifications_screen.dart';
 import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/offersCard_widget.dart';
@@ -72,6 +74,13 @@ class _MainDashboardState extends State<MainDashboard> {
           context.read<UpdateCurrentCustomerCubit>().updateCustomer(
             payload,
             context,
+          );
+
+          final deviceType = Platform.isAndroid ? 'ANDROID' : 'IOS';
+          debugPrint('Storing FCM token via fcm-token API: $fcmToken');
+          context.read<FcmTokenCubit>().storeFcmToken(
+            fcmToken: fcmToken,
+            deviceType: deviceType,
           );
         }
       }
@@ -305,7 +314,13 @@ class _UnderDevelopmentScreenState extends State<_UnderDevelopmentScreen> {
   }
 
   void _updateFcmToken(String token) {
-    // implement your logic to update FCM token
+    if (!mounted) return;
+    final deviceType = Platform.isAndroid ? 'ANDROID' : 'IOS';
+    debugPrint('Storing refreshed FCM token via fcm-token API: $token');
+    context.read<FcmTokenCubit>().storeFcmToken(
+      fcmToken: token,
+      deviceType: deviceType,
+    );
   }
 
   @override

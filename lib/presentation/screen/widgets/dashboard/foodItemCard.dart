@@ -11,6 +11,7 @@ class FoodItemCard extends StatelessWidget {
   final Function()? onReorder;
   final Function()? onViewDetails;
   final List<String> mediaUrls;
+  final bool isActive;
 
   const FoodItemCard({
     super.key,
@@ -19,6 +20,7 @@ class FoodItemCard extends StatelessWidget {
     this.onReorder,
     this.onViewDetails,
     this.mediaUrls = const [],
+    this.isActive = true,
   });
 
   Color _getStatusColor(String status) {
@@ -50,12 +52,15 @@ class FoodItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isInactive = !isActive;
     return GestureDetector(
-      onTap: () => onRestaurantTap?.call(data["Restaurant"]),
+      onTap: isInactive
+          ? null
+          : () => onRestaurantTap?.call(data["Restaurant"]),
       child: Container(
         margin: const EdgeInsets.only(bottom: 24, left: 12, right: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isInactive ? Colors.grey[300] : Colors.white,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -115,7 +120,23 @@ class FoodItemCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  )
+                  ),
+                  if (isInactive)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.45),
+                        alignment: Alignment.center,
+                        child: Text(
+                          "Temporarily unavailable",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
                 ],
               ),
             ),
@@ -132,7 +153,7 @@ class FoodItemCard extends StatelessWidget {
                           style: GoogleFonts.poppins(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                            color: isInactive ? Colors.grey : Colors.black87,
                           ),
                         ),
                       ),
@@ -170,14 +191,15 @@ class FoodItemCard extends StatelessWidget {
                             ? DateFormat('MMM dd, yyyy').format(data["date"])
                             : data["time"] ?? "",
                         style: GoogleFonts.poppins(
-                            fontSize: 13, color: Colors.grey[700]),
+                            fontSize: 13,
+                            color: isInactive ? Colors.grey : Colors.grey[700]),
                       ),
                       const Spacer(),
                       Text(
                         '${_capitalize(data["Items"])} ${int.tryParse(data["Items"].toString()) == 1 ? 'item' : 'items'}',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
-                          color: Colors.grey[700],
+                          color: isInactive ? Colors.grey : Colors.grey[700],
                         ),
                       ),
                     ],

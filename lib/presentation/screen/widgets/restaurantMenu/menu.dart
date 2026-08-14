@@ -105,12 +105,12 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
           comingSoonText = 'Available after ${time.format(context)}';
           return true;
         } else {
-          return false;
+          return true;
         }
       }
     }
 
-    return false;
+    return true;
   }
 
   void updateQuantity(int newQty) async {
@@ -142,6 +142,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
     if (!showItem) return const SizedBox.shrink();
 
     final item = widget.item;
+    final isUnavailable = item.available != true;
     final mediaUrl =
         item.media?.isNotEmpty == true ? item.media!.first.url : null;
 
@@ -150,7 +151,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
       orElse:
           () => Attribute(id: null, attributeName: null, attributeValue: null),
     );
-    final isVeg = typeAttr.attributeValue?.toLowerCase() == 'veg';
+    final isVeg = item.foodType == 'veg' || typeAttr.attributeValue?.toLowerCase() == 'veg';
 
     final onlinePriceAttr = item.attributes.firstWhere(
       (attr) => attr.attributeName?.toLowerCase() == 'onlineprice',
@@ -165,7 +166,9 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isBeforeStartTime ? Colors.grey : Colors.white,
+        color: isUnavailable
+            ? Colors.grey[300]
+            : (isBeforeStartTime ? Colors.grey : Colors.white),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
@@ -246,7 +249,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                               ? const EdgeInsets.only(bottom: 8.0)
                               : EdgeInsets.zero,
                       child:
-                          isBeforeStartTime || !(item.available ?? true)
+                          isBeforeStartTime || item.available != true
                               ? Container(
                                 height: 36,
                                 alignment: Alignment.center,
@@ -364,6 +367,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
+                          color: isUnavailable ? Colors.grey : null,
                         ),
                       ),
                     ),
@@ -375,6 +379,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
+                    color: isUnavailable ? Colors.grey : null,
                   ),
                 ),
                 const SizedBox(height: 4),

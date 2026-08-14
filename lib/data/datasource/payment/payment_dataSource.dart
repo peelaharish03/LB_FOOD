@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/payment/payment_model.dart';
@@ -16,72 +18,88 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
 
   @override
   Future<PaymentModel> Payment(Map<String, dynamic> payload) async {
-    print('payload: $payload');
     final prefs = await SharedPreferences.getInstance();
     final deviceId = prefs.getString('device_id') ?? '';
+    final url = '$baseUrl$paymentUrl';
+    log(
+      '[PaymentRemoteDataSource] POST $url '
+      'orderId=${payload['orderId']} cartId=${payload['cartId']} '
+      'amount=${payload['amount']} paymentId=${payload['paymentId']} '
+      'razorpayOrderId=${payload['razorpayOrderId']} '
+      'signaturePresent=${payload['razorpaySignature'] != null} '
+      'deviceIdPresent=${deviceId.isNotEmpty}',
+    );
     try {
       final response = await client.post(
-        '$baseUrl$paymentUrl',
+        url,
         data: payload,
-        options: Options(
-          headers: {
-            'X-Device-Id': deviceId,
-          },
-        ),
+        options: Options(headers: {'X-Device-Id': deviceId}),
       );
 
-      print('Payment Response: ${response.data}');
+      log(
+        '[PaymentRemoteDataSource] response status=${response.statusCode} '
+        'data=${response.data}',
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed to save address. Status code: ${response.statusCode}');
+          'Failed to save address. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      print('Payment Error: $e');
+      log('[PaymentRemoteDataSource] error=$e');
       throw Exception('Payment failed: ${e.toString()}');
     }
   }
 
   @override
   Future<PaymentStausModel> Payment_Tracking(String paymentId) async {
+    final url = '$baseUrl$paymentRefundStatus/$paymentId';
     try {
-      final response = await client.post(
-        '$baseUrl$paymentRefundStatus/$paymentId',
-      );
+      log('[PaymentRemoteDataSource] tracking POST $url');
+      final response = await client.post(url);
 
-      print('Payment Response: ${response.data}');
+      log(
+        '[PaymentRemoteDataSource] tracking response '
+        'status=${response.statusCode} data=${response.data}',
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentStausModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed payment tracking. Status code: ${response.statusCode}');
+          'Failed payment tracking. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      print('Payment Error: $e');
+      log('[PaymentRemoteDataSource] tracking error=$e');
       throw Exception('Payment failed: ${e.toString()}');
     }
   }
 
   @override
   Future<PaymentRefundModel> Payment_Refund(String paymentId) async {
+    final url = '$baseUrl$paymentReFund/$paymentId';
     try {
-      final response = await client.post(
-        '$baseUrl$paymentReFund/$paymentId',
-      );
+      log('[PaymentRemoteDataSource] refund POST $url');
+      final response = await client.post(url);
 
-      print('Payment refund Response: ${response.data}');
+      log(
+        '[PaymentRemoteDataSource] refund response '
+        'status=${response.statusCode} data=${response.data}',
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentRefundModel.fromJson(response.data);
       } else {
         throw Exception(
-            'Failed payment refund. Status code: ${response.statusCode}');
+          'Failed payment refund. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      print('Payment Error: $e');
+      log('[PaymentRemoteDataSource] refund error=$e');
       throw Exception('Payment refund failed: ${e.toString()}');
     }
   }

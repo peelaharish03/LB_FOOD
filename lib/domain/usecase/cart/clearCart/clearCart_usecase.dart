@@ -6,7 +6,7 @@ class ClearCartUseCase {
 
   ClearCartUseCase({required this.repository});
 
-  Future<ClearCartModel> call() {
-    return repository.clearCart();
+  Future<ClearCartModel> call(String cartId) {
+    return repository.clearCart(cartId);
   }
 }

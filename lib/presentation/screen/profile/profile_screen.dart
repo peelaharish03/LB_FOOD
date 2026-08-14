@@ -14,6 +14,7 @@ import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/order/myOrders_screen.dart';
 import 'package:local_basket/presentation/screen/profile/faqs_screen.dart';
 import 'package:local_basket/presentation/screen/profile/complaints_screen.dart';
+import 'package:local_basket/presentation/screen/profile/offers_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/logout.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 
@@ -136,6 +137,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => MyOrders()),
+          );
+        },
+      ),
+      _Option(
+        Icons.local_offer_outlined,
+        "Offers",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const OffersScreen()),
           );
         },
       ),

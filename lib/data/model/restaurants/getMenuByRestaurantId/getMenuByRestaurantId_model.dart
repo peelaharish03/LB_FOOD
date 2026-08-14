@@ -29,6 +29,15 @@ class GetMenuByRestaurantIdModel {
   final bool? empty;
 
   factory GetMenuByRestaurantIdModel.fromJson(Map<String, dynamic> json) {
+    final page = json["page"];
+    final pageMap = page is Map ? Map<String, dynamic>.from(page) : null;
+
+    final int? number = pageMap?["number"] ?? json["number"];
+    final int? size = pageMap?["size"] ?? json["size"];
+    final int? totalPages = pageMap?["totalPages"] ?? json["totalPages"];
+    final int? totalElements =
+        pageMap?["totalElements"] ?? json["totalElements"];
+
     return GetMenuByRestaurantIdModel(
       content: json["content"] == null
           ? []
@@ -38,15 +47,18 @@ class GetMenuByRestaurantIdModel {
       pageable: json["pageable"] == null
           ? null
           : Pageable.fromJson(json["pageable"]),
-      totalPages: json["totalPages"],
-      totalElements: json["totalElements"],
-      last: json["last"],
-      size: json["size"],
-      number: json["number"],
+      totalPages: totalPages,
+      totalElements: totalElements,
+      last: json["last"] ??
+          (totalPages != null && number != null
+              ? number + 1 >= totalPages
+              : null),
+      size: size,
+      number: number,
       sort: json["sort"] == null ? [] : List<dynamic>.from(json["sort"]),
-      numberOfElements: json["numberOfElements"],
-      first: json["first"],
-      empty: json["empty"],
+      numberOfElements: pageMap?["totalElements"] ?? json["numberOfElements"],
+      first: json["first"] ?? (number != null ? number == 0 : null),
+      empty: json["empty"] ?? (json["content"] == null ? null : json["content"].isEmpty),
     );
   }
 }

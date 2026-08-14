@@ -21,7 +21,11 @@ class RestaurantOffersRemoteDataSourceImpl
       );
       if (response.statusCode == 200) {
         print('responce of RestaurantOffers:: $response');
-        return RestaurantOffersModel.fromJson(response.data);
+        final data = response.data;
+        if (data is List) {
+          return RestaurantOffersModel.fromJson({'content': data});
+        }
+        return RestaurantOffersModel.fromJson(data);
       } else {
         throw Exception(
             'Failed to load RestaurantOffers data: ${response.statusCode}');

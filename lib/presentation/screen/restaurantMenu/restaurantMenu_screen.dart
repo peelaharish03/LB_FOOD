@@ -11,10 +11,10 @@ import 'package:local_basket/presentation/screen/widgets/restaurantMenu/menu.dar
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/screen/cart/cart_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_basket/data/model/restaurants/menu_content_model.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
@@ -22,11 +22,13 @@ import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantI
 
 class RestaurantMenuScreen extends StatefulWidget {
   final String restaurantName, restaurantId;
+  final String? b2bUnitId;
   final String? couponCode;
   const RestaurantMenuScreen({
     super.key,
     required this.restaurantName,
     required this.restaurantId,
+    this.b2bUnitId,
     this.couponCode,
   });
 
@@ -37,7 +39,7 @@ class RestaurantMenuScreen extends StatefulWidget {
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, int> cart = {};
-  int totalItems = 0, page = 0, size = 20;
+  int totalItems = 0, page = 0, size = 100;
   PersistentBottomSheetController? _bottomSheetController;
   bool _isOfferFlow = false;
   bool isBottomSheetVisible = false;
@@ -62,8 +64,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   static const String _menuCacheRestaurantIdKey = 'menu_cache_restaurant_id';
   static const String _menuCacheDataKey = 'menu_cache_data';
   static const Duration _menuCacheExpiry = Duration(
-    hours: 1,
-  ); // Cache for 1 hour
+    minutes: 5,
+  ); // Cache for 5 minutes
+
+  // Background refresh
+  static const Duration _menuRefreshInterval = Duration(seconds: 30);
+  Timer? _menuRefreshTimer;
+  bool _isRefreshingMenu = false;
 
   @override
   void initState() {
@@ -91,6 +98,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
       // Check for cached menu data first
       _checkCachedMenuData();
+
+      // Start background refresh so backend changes are picked up automatically
+      _menuRefreshTimer = Timer.periodic(
+        _menuRefreshInterval,
+        (_) => _refreshMenuInBackground(),
+      );
+
+      // Kick off an immediate first refresh so stale cached data is replaced fast
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _refreshMenuInBackground();
+      });
 
       _scrollController.addListener(() {
         final direction = _scrollController.position.userScrollDirection;
@@ -462,6 +480,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     page = 0;
     _isLastMenuPage = false;
     _isLoadingMore = false;
+    _isMenuLoaded = false;
     menuItems = [];
     _offerAutoLoadAttempts = 0;
 
@@ -473,6 +492,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
       'restaurantId': widget.restaurantId,
+      'b2bUnitId': widget.b2bUnitId,
       'search': searchText,
       'page': page,
       'size': size,
@@ -502,14 +522,38 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Future<void> _loadMoreMenu() async {
     if (_isLastMenuPage) return;
     if (_isLoadingMore) return;
+    if (!_isMenuLoaded) return;
     setState(() => _isLoadingMore = true);
     page = page + 1;
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
       'restaurantId': widget.restaurantId,
+      'b2bUnitId': widget.b2bUnitId,
       'search': searchText,
       'page': page,
       'size': size,
     });
+  }
+
+  Future<void> _refreshMenuInBackground() async {
+    if (!mounted) return;
+    if (_isRefreshingMenu) return;
+    if (!_isMenuLoaded) return;
+
+    _isRefreshingMenu = true;
+    try {
+      debugPrint('🔄 Background refresh of restaurant menu');
+      await context.read<GetMenuByRestaurantIdCubit>().refreshMenu({
+        'restaurantId': widget.restaurantId,
+        'b2bUnitId': widget.b2bUnitId,
+        'search': searchText,
+        'page': 0,
+        'size': size,
+      });
+    } catch (e) {
+      debugPrint('❌ Background menu refresh failed: $e');
+    } finally {
+      _isRefreshingMenu = false;
+    }
   }
 
   // Cache management methods
@@ -525,6 +569,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     } else {
       context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
         'restaurantId': widget.restaurantId,
+        'b2bUnitId': widget.b2bUnitId,
         'search': searchText,
         'page': page,
         'size': size,
@@ -602,6 +647,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 shopifyVariantId: item['shopifyVariantId'] ?? '',
                 businessId: item['businessId'] ?? 0,
                 categoryId: item['categoryId'] ?? 0,
+                categoryName: item['categoryName'] ?? '',
                 media:
                     (item['media'] as List<dynamic>?)
                         ?.map(
@@ -654,6 +700,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   'shopifyVariantId': item.shopifyVariantId,
                   'businessId': item.businessId,
                   'categoryId': item.categoryId,
+                  'categoryName': item.categoryName,
                   'media':
                       item.media
                           ?.map((m) => {'mediaType': m.mediaType, 'url': m.url})
@@ -697,6 +744,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Future<void> update_Cart(Content item, int qty) async {
+    if (item.available != true) {
+      debugPrint('Item is not active. Skipping cart update.');
+      return;
+    }
+
     final activeCartId = await _ensureCartId();
     if (!_hasValidCartId(activeCartId)) {
       debugPrint('Cart id unavailable. Skipping cart update.');
@@ -885,9 +937,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 showPersistentCart();
               }
 
-              // Refresh cart from backend to ensure full consistency
+              // Refresh cart from backend to ensure full consistency without
+              // clearing the already loaded menu list.
               await rootContext.read<GetCartCubit>().fetchCart(rootContext);
-              _loadMenu();
             }
           }
         },
@@ -967,6 +1019,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _menuRefreshTimer?.cancel();
+    _menuRefreshTimer = null;
     _bottomSheetController?.close();
     _scrollController.dispose();
     super.dispose();
@@ -1005,79 +1059,71 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
-                      children:
-                          ['All', 'Veg', 'NonVeg'].map((filter) {
-                            final isSelected = filter == filterType;
-                            Widget? icon;
-                            if (filter == 'Veg') icon = vegNonVegIcon(true);
-                            if (filter == 'NonVeg') icon = vegNonVegIcon(false);
+                      children: ['All', 'Veg', 'NonVeg'].map((filter) {
+                        final isSelected = filter == filterType;
+                        Widget? icon;
+                        if (filter == 'Veg') icon = vegNonVegIcon(true);
+                        if (filter == 'NonVeg') icon = vegNonVegIcon(false);
 
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () async {
-                                  setState(() {
-                                    filterType = filter;
-                                  });
-                                  // Clear cache when filter changes to get fresh results
-                                  await _clearMenuCache();
-                                  _loadMenu();
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        isSelected
-                                            ? AppColor.PrimaryColor
-                                            : Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color:
-                                          isSelected
-                                              ? AppColor.PrimaryColor
-                                              : Colors.grey.shade300,
-                                    ),
-                                    boxShadow:
-                                        isSelected
-                                            ? [
-                                              BoxShadow(
-                                                color: AppColor
-                                                    .PrimaryColor.withAlpha(50),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ]
-                                            : [],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (icon != null) ...[
-                                        icon,
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Text(
-                                        filter,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color:
-                                              isSelected
-                                                  ? Colors.white
-                                                  : Colors.black87,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                filterType = filter;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
                               ),
-                            );
-                          }).toList(),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColor.PrimaryColor
+                                    : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColor.PrimaryColor
+                                      : Colors.grey.shade300,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColor.PrimaryColor
+                                              .withAlpha(50),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (icon != null) ...[
+                                    icon,
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    filter,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
 
@@ -1130,23 +1176,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           final matchesSearch = (item.name ?? "").toLowerCase().contains(
             searchText.toLowerCase(),
           );
-          final foodType =
-              item.attributes
-                  .firstWhere(
-                    (a) => (a.attributeName ?? "").toLowerCase() == 'type',
-                    orElse:
-                        () => Attribute(
-                          id: 0,
-                          attributeName: 'type',
-                          attributeValue: 'unknown',
-                        ),
-                  )
-                  .attributeValue ??
-              'unknown';
           final matchesFilter =
               filterType == 'All' ||
-              (filterType == 'Veg' && foodType.toLowerCase() == 'veg') ||
-              (filterType == 'NonVeg' && foodType.toLowerCase() == 'nonveg');
+              (filterType == 'Veg' && item.foodType == 'veg') ||
+              (filterType == 'NonVeg' && item.foodType == 'nonveg');
           return matchesSearch && matchesFilter;
         }).toList();
 
@@ -1195,8 +1228,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     return BlocConsumer<GetMenuByRestaurantIdCubit, GetMenuByRestaurantIdState>(
       listener: (context, state) {
         if (state is GetMenuByRestaurantIdLoaded) {
+          final responsePage = state.model.number ?? page;
+          final isFirstPage = responsePage == 0;
           setState(() {
-            if (page == 0) {
+            if (isFirstPage) {
               menuItems = state.model.content;
             } else {
               final existingIds = menuItems.map((e) => e.id.toString()).toSet();
@@ -1209,10 +1244,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             _isMenuLoaded = true;
             _isLastMenuPage = state.model.last ?? false;
             _isLoadingMore = false;
+            page = responsePage;
           });
 
           // Save menu data to cache (only on first page load)
-          if (page == 0) {
+          if (isFirstPage) {
             _saveMenuToCache(menuItems);
           }
 
@@ -1235,25 +1271,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 final matchesSearch = (item.name ?? "").toLowerCase().contains(
                   searchText.toLowerCase(),
                 );
-                final foodType =
-                    item.attributes
-                        .firstWhere(
-                          (a) =>
-                              (a.attributeName ?? "").toLowerCase() == 'type',
-                          orElse:
-                              () => Attribute(
-                                id: 0,
-                                attributeName: '',
-                                attributeValue: '',
-                              ),
-                        )
-                        .attributeValue
-                        ?.toLowerCase();
                 final matchesFilter =
                     filterType == 'All' ||
-                    (filterType.toLowerCase() == 'veg' && foodType == 'veg') ||
+                    (filterType.toLowerCase() == 'veg' &&
+                        item.foodType == 'veg') ||
                     (filterType.toLowerCase() == 'nonveg' &&
-                        foodType == 'nonveg');
+                        item.foodType == 'nonveg');
                 return matchesSearch && matchesFilter;
               }).toList();
 
