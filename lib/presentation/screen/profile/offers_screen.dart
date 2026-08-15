@@ -4,11 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/offers/promotions/promotions_model.dart';
-import 'package:local_basket/data/model/offers/restaurant_offers/restaurant_offers_model.dart';
 import 'package:local_basket/presentation/cubit/offers/promotions/promotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/promotions/promotions_state.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_state.dart';
 
 class OffersScreen extends StatefulWidget {
   const OffersScreen({super.key});
@@ -18,13 +15,10 @@ class OffersScreen extends StatefulWidget {
 }
 
 class _OffersScreenState extends State<OffersScreen> {
-  List<Object> _combined = const [];
-
   @override
   void initState() {
     super.initState();
     context.read<PromotionsCubit>().fetchPromotions();
-    context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
   }
 
   @override
@@ -32,50 +26,32 @@ class _OffersScreenState extends State<OffersScreen> {
     return Scaffold(
       backgroundColor: AppColor.White,
       appBar: const CustomAppBar(title: "Offers"),
-      body: BlocBuilder<RestaurantOffersCubit, RestaurantOffersState>(
-        builder: (context, offersState) {
-          return BlocBuilder<PromotionsCubit, PromotionsState>(
-            builder: (context, promotionsState) {
-              final List<PromotionContent> promotions = promotionsState is PromotionsLoaded
+      body: BlocBuilder<PromotionsCubit, PromotionsState>(
+        builder: (context, promotionsState) {
+          final List<PromotionContent> promotions =
+              promotionsState is PromotionsLoaded
                   ? promotionsState.promotions.content
                   : const [];
-              final List<Content> offers = offersState is RestaurantOffersLoaded
-                  ? offersState.offers.data?.content ?? []
-                  : const [];
 
-              _combined = [...promotions, ...offers];
+          final bool isLoading = promotionsState is PromotionsLoading;
 
-              final bool isLoading =
-                  promotionsState is PromotionsLoading ||
-                  offersState is RestaurantOffersLoading;
+          if (promotions.isEmpty) {
+            if (isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return const _EmptyOffers();
+          }
 
-              if (_combined.isEmpty) {
-                if (isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                return const _EmptyOffers();
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: _combined.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = _combined[index];
-                  if (item is PromotionContent) {
-                    return _OfferCard(
-                      name: item.name ?? item.customerFacingLabel ?? 'Offer',
-                      description: item.internalDescription ?? '',
-                      couponCode: item.code ?? '',
-                    );
-                  }
-                  final Content offer = item as Content;
-                  return _OfferCard(
-                    name: offer.name ?? 'Offer',
-                    description: offer.description ?? '',
-                    couponCode: offer.couponCode ?? '',
-                  );
-                },
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: promotions.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final promo = promotions[index];
+              return _OfferCard(
+                name: promo.name ?? 'Offer',
+                description: promo.description ?? '',
+                couponCode: promo.code ?? '',
               );
             },
           );
@@ -221,7 +197,6 @@ class _EmptyOffers extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               context.read<PromotionsCubit>().fetchPromotions();
-              context.read<RestaurantOffersCubit>().fetchRestaurantOffers();
             },
             child: const Text("Retry"),
           ),

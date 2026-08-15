@@ -38,6 +38,16 @@ String getNotificationsUrl(int pageNo, int pageSize) {
 
 const clearAllNotificationsUrl = '/order/usernotification/clear-all';
 
+// pools
+const defaultB2bUnitId = 'b1731bad-7883-4ad8-9d09-abc1c34d7057';
+String getPoolsUrl(String b2bUnitId) {
+  return '/api/b2b/$b2bUnitId/pools';
+}
+
+String joinPoolUrl(String b2bUnitId, String poolId) {
+  return '/api/b2b/$b2bUnitId/pools/$poolId/join';
+}
+
 String getMenuByRestaurantIdUrl(
   String storeId,
   String b2bUnitId,
@@ -88,9 +98,8 @@ const addressSavetoCartUrl = '/order/api/carts/address?addressId';
 const paymentRefundHistory =
     ''; // TODO: Set the correct refund history endpoint
 
-const restaurantOffersUrl =
-    '/product/api/offers/list?active=true&page=0&size=100';
-const promotionsUrl = '/api/promotion-engine/promotions?page=0&size=20';
+const promotionsUrl =
+    '/api/promotions?page=0&size=10&sortBy=createdAt&sortDir=desc';
 String validateOfferUrl(String offerId) {
   return '/order/offers/$offerId/validate';
 }

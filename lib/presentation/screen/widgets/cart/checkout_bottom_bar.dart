@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 class CheckoutBottomBar extends StatelessWidget {
   final double subtotal;
-  final double gst;
+  final double platformFee;
   final double deliveryCharge;
   final double total;
   final bool loading;
@@ -13,7 +13,7 @@ class CheckoutBottomBar extends StatelessWidget {
   const CheckoutBottomBar({
     super.key,
     required this.subtotal,
-    required this.gst,
+    required this.platformFee,
     required this.deliveryCharge,
     required this.total,
     required this.loading,
@@ -84,7 +84,7 @@ class CheckoutBottomBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   buildPriceRow("Subtotal", subtotal),
-                  buildPriceRow("GST (5%)", gst),
+                  buildPriceRow("Platform Fee", platformFee),
                   buildPriceRow("Delivery Charge", deliveryCharge),
                   const Divider(height: 24, thickness: 1),
                   buildPriceRow("Total", total, isTotal: true),

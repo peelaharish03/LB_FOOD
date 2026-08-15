@@ -15,6 +15,7 @@ import 'package:local_basket/presentation/screen/order/myOrders_screen.dart';
 import 'package:local_basket/presentation/screen/profile/faqs_screen.dart';
 import 'package:local_basket/presentation/screen/profile/complaints_screen.dart';
 import 'package:local_basket/presentation/screen/profile/offers_screen.dart';
+import 'package:local_basket/presentation/screen/profile/pool_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/logout.dart';
 import 'package:local_basket/presentation/screen/authentication/login_screen.dart';
 
@@ -151,6 +152,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _Option(
+        Icons.emoji_events_outlined,
+        "Pool",
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PoolScreen()),
+          );
+        },
+      ),
+      _Option(
         Icons.location_on_outlined,
         "Saved Addresses",
         onTap: () {
@@ -193,21 +204,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         },
       ),
-      _Option(
-        Icons.delete_forever_outlined,
-        "Delete Account",
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            useRootNavigator: true,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            builder: (_) => _buildDeleteConfirmation(context),
-          );
-        },
-      ),
+      // _Option(
+      //   Icons.delete_forever_outlined,
+      //   "Delete Account",
+      //   onTap: () {
+      //     showModalBottomSheet(
+      //       context: context,
+      //       isScrollControlled: true,
+      //       useRootNavigator: true,
+      //       shape: const RoundedRectangleBorder(
+      //         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      //       ),
+      //       builder: (_) => _buildDeleteConfirmation(context),
+      //     );
+      //   },
+      // ),
     ];
 
     return Column(
