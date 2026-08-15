@@ -154,7 +154,10 @@ class SavedAddressesView extends StatelessWidget {
               addressId,
               context,
             );
-            Navigator.pop(context, addressString);
+            Navigator.pop(context, {
+              'address': addressString,
+              'addressId': addressId,
+            });
           }
         },
         child: Padding(

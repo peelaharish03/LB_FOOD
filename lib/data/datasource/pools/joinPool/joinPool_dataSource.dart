@@ -19,7 +19,9 @@ class JoinPoolRemoteDataSourceImpl implements JoinPoolRemoteDataSource {
         url,
         options: Options(method: 'POST'),
       );
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
           return JoinPoolModel.fromJson(data);

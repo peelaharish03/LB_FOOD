@@ -221,7 +221,7 @@ class _PoolViewState extends State<_PoolView> {
   }
 
   Widget _poolCard(PoolItem pool) {
-    final status = pool.statusAt(_now);
+    final status = pool.apiStatus ?? pool.statusAt(_now);
     final isActive = status == PoolStatus.active;
     final isCompleted = status == PoolStatus.completed;
     final isUpcoming = status == PoolStatus.upcoming;
@@ -401,7 +401,7 @@ class _PoolViewState extends State<_PoolView> {
         break;
       case PoolStatus.completed:
         color = Colors.blueGrey;
-        label = 'Completed';
+        label = 'Closed';
         break;
     }
     return Container(

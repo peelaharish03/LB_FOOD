@@ -64,8 +64,10 @@ class _CartScreenState extends State<CartScreen> {
   final List<Map<String, dynamic>> selectedItems = [];
   String? cartId;
   String? _pendingCheckoutOrderId;
+  String? _processedRazorpayPaymentId;
   bool loading = false;
   String selectedAddress = "Add Address";
+  String? _selectedAddressId;
   bool selfOrder = false;
 
   static const double _defaultDeliveryCharge = 30.0;
@@ -76,6 +78,7 @@ class _CartScreenState extends State<CartScreen> {
   double _deliveryCharge = 0.0;
   double _grandTotal = 0.0;
   bool _checkoutLoading = false;
+  bool _checkoutInFlight = false;
 
   void _applyFlatCharges() {
     final hasItems = selectedItems.isNotEmpty;
@@ -131,6 +134,16 @@ class _CartScreenState extends State<CartScreen> {
       'orderId=${response.orderId}, signaturePresent=${response.signature != null}',
     );
 
+    // The Razorpay SDK has been known to fire EVENT_PAYMENT_SUCCESS more
+    // than once for a single payment; without this guard that would submit
+    // the same payment twice and create two orders.
+    final paymentId = response.paymentId;
+    if (paymentId != null && paymentId == _processedRazorpayPaymentId) {
+      debugPrint('[Razorpay] duplicate success callback for $paymentId; ignoring');
+      return;
+    }
+    _processedRazorpayPaymentId = paymentId;
+
     final payload = {
       "orderId": _pendingCheckoutOrderId,
       "cartId": cartId ?? "",
@@ -150,7 +163,7 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => loading = false);
   }
 
-  void _onPaymentFailure(dynamic response) {
+  void _onPaymentFailure(dynamic response) async {
     if (!mounted) return;
     debugPrint('[Razorpay] failure: ${_formatRazorpayFailure(response)}');
     CustomSnackbars.showErrorSnack(
@@ -158,6 +171,28 @@ class _CartScreenState extends State<CartScreen> {
       title: 'Failed',
       message: _formatRazorpayFailure(response),
     );
+
+    final error =
+        response is PaymentFailureResponse ? response.error : null;
+    final metadata = error?['metadata'];
+
+    final payload = {
+      "orderId": _pendingCheckoutOrderId,
+      "cartId": cartId ?? "",
+      "amount": _grandTotal,
+      "paymentId": metadata?['payment_id'],
+      "razorpayOrderId": metadata?['order_id'],
+      "status": "FAILED",
+      "failureCode": response is PaymentFailureResponse ? response.code : null,
+      "failureReason": _formatRazorpayFailure(response),
+    };
+    print('Payment failure payload: $payload');
+    setState(() => loading = true);
+    await context.read<PaymentCubit>().makePaymentFailure(
+      context: context,
+      paymentPayload: payload,
+    );
+    if (!mounted) return;
     setState(() => loading = false);
   }
 
@@ -173,18 +208,21 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _loadSavedAddress() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(
-      () =>
-          selectedAddress =
-              prefs.getString('delivery_address') ?? "Add Address",
-    );
+    setState(() {
+      selectedAddress = prefs.getString('delivery_address') ?? "Add Address";
+      _selectedAddressId = prefs.getString('delivery_address_id');
+    });
   }
 
   Future<void> _clearSavedAddress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('delivery_address');
+    await prefs.remove('delivery_address_id');
     if (!mounted) return;
-    setState(() => selectedAddress = "Add Address");
+    setState(() {
+      selectedAddress = "Add Address";
+      _selectedAddressId = null;
+    });
   }
 
   Future<void> _maybeAutoValidateOffer() async {
@@ -220,9 +258,14 @@ class _CartScreenState extends State<CartScreen> {
     } catch (_) {}
   }
 
-  Future<void> _saveAddress(String address) async {
+  Future<void> _saveAddress(String address, {String? addressId}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('delivery_address', address);
+    if (addressId != null && addressId.isNotEmpty) {
+      await prefs.setString('delivery_address_id', addressId);
+    } else {
+      await prefs.remove('delivery_address_id');
+    }
   }
 
   String _formatAddress(dynamic content) {
@@ -582,15 +625,13 @@ class _CartScreenState extends State<CartScreen> {
       "cartId": activeCartId,
       "shippingMethod": "STANDARD",
       "paymentMethod": paymentMethod,
-      "shippingAddressId":"",
+      "shippingAddressId": _selectedAddressId ?? "",
     };
 
     debugPrint(
       '[Checkout] submit: paymentMethod=$paymentMethod, cartId=$activeCartId',
     );
-    setState(() => loading = true);
     final checkout = await context.read<CheckoutCubit>().fetchCheckout(payload);
-    if (mounted) setState(() => loading = false);
 
     if (checkout != null) {
       _pendingCheckoutOrderId = checkout.orderId;
@@ -608,84 +649,115 @@ class _CartScreenState extends State<CartScreen> {
     return checkout;
   }
 
+  void _stopCheckoutButtonLoading() {
+    if (mounted) setState(() => loading = false);
+  }
+
   Future<void> openCheckOut() async {
-    if (selectedAddress == "Add Address") {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: "Attention",
-        message: "Select delivery address first",
-      );
-      return;
-    }
-
-    debugPrint('[Razorpay] Pay Online; creating checkout order');
-    final checkout = await _submitCartCheckout("RAZORPAY");
-    if (checkout == null) return;
-
-    final razorpayOrderId = checkout.razorpayOrderId?.trim();
-    if (!_hasValidCartId(razorpayOrderId)) {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: 'ERROR',
-        message: 'Payment order id not received',
-      );
-      return;
-    }
-    final validRazorpayOrderId = razorpayOrderId!;
-
-    final razorpayKeyId = _firstNonEmpty(checkout.razorpayKeyId, razorPayKey);
-    if (razorpayKeyId == null) {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: 'ERROR',
-        message: 'Razorpay key not received',
-      );
-      return;
-    }
-
-    final amountInPaise = _checkoutAmountInPaise(checkout);
-    if (amountInPaise <= 0) {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: 'ERROR',
-        message: 'Invalid payment amount',
-      );
-      return;
-    }
-
+    // Guard set synchronously (no await before it) so a fast double-tap
+    // can't slip a second call in before `loading` flips the button off,
+    // which was causing two checkout orders + two Razorpay opens.
+    if (_checkoutInFlight) return;
+    _checkoutInFlight = true;
+    _processedRazorpayPaymentId = null;
     try {
-      if (!mounted) return;
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        try {
-          debugPrint(
-            'Opening Razorpay checkout: orderId=$validRazorpayOrderId, '
-            'amount=$amountInPaise, key=${_maskedRazorpayKey(razorpayKeyId)}',
-          );
+      if (selectedAddress == "Add Address") {
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: "Attention",
+          message: "Select delivery address first",
+        );
+        return;
+      }
 
-          _razorpay.open(
-            _razorpayCheckoutOptions(
-              key: razorpayKeyId,
-              amountInPaise: amountInPaise,
-              razorpayOrderId: validRazorpayOrderId,
-              checkout: checkout,
-            ),
-          );
-        } catch (e) {
-          if (!mounted) return;
-          CustomSnackbars.showErrorSnack(
-            context: context,
-            title: 'ERROR',
-            message: e.toString(),
-          );
-        }
-      });
-    } catch (e) {
-      CustomSnackbars.showErrorSnack(
-        context: context,
-        title: 'ERROR',
-        message: e.toString(),
+      // Button shows its loader from here until Razorpay's checkout sheet
+      // actually opens (or we bail out below on an error).
+      if (mounted) setState(() => loading = true);
+
+      debugPrint('[Razorpay] Pay Online; creating checkout order');
+      final checkout = await _submitCartCheckout("RAZORPAY");
+      if (checkout == null) {
+        _stopCheckoutButtonLoading();
+        return;
+      }
+
+      final razorpayOrderId = checkout.razorpayOrderId?.trim();
+      if (!_hasValidCartId(razorpayOrderId)) {
+        _stopCheckoutButtonLoading();
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'ERROR',
+          message: 'Payment order id not received',
+        );
+        return;
+      }
+      final validRazorpayOrderId = razorpayOrderId!;
+
+      final razorpayKeyId = _firstNonEmpty(
+        checkout.razorpayKeyId,
+        razorPayKey,
       );
+      if (razorpayKeyId == null) {
+        _stopCheckoutButtonLoading();
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'ERROR',
+          message: 'Razorpay key not received',
+        );
+        return;
+      }
+
+      final amountInPaise = _checkoutAmountInPaise(checkout);
+      if (amountInPaise <= 0) {
+        _stopCheckoutButtonLoading();
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'ERROR',
+          message: 'Invalid payment amount',
+        );
+        return;
+      }
+
+      try {
+        if (!mounted) return;
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            debugPrint(
+              'Opening Razorpay checkout: orderId=$validRazorpayOrderId, '
+              'amount=$amountInPaise, key=${_maskedRazorpayKey(razorpayKeyId)}',
+            );
+
+            _razorpay.open(
+              _razorpayCheckoutOptions(
+                key: razorpayKeyId,
+                amountInPaise: amountInPaise,
+                razorpayOrderId: validRazorpayOrderId,
+                checkout: checkout,
+              ),
+            );
+          } catch (e) {
+            if (!mounted) return;
+            CustomSnackbars.showErrorSnack(
+              context: context,
+              title: 'ERROR',
+              message: e.toString(),
+            );
+          } finally {
+            // Whether it opened or failed to, the button's job is done.
+            _stopCheckoutButtonLoading();
+          }
+        });
+      } catch (e) {
+        _stopCheckoutButtonLoading();
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'ERROR',
+          message: e.toString(),
+        );
+      }
+    } finally {
+      _checkoutInFlight = false;
     }
   }
 
@@ -752,9 +824,13 @@ class _CartScreenState extends State<CartScreen> {
               }
               if (selectedAddress == "Add Address") {
                 final defaultAddress = _formatAddress(addresses.first);
+                final defaultAddressId = addresses.first.id;
                 if (defaultAddress.isNotEmpty) {
-                  _saveAddress(defaultAddress);
-                  setState(() => selectedAddress = defaultAddress);
+                  _saveAddress(defaultAddress, addressId: defaultAddressId);
+                  setState(() {
+                    selectedAddress = defaultAddress;
+                    _selectedAddressId = defaultAddressId;
+                  });
                 }
               }
               _refreshCheckout();
@@ -940,14 +1016,19 @@ class _CartScreenState extends State<CartScreen> {
               AddressCard(
                 address: selectedAddress,
                 onEdit: () async {
-                  final address = await Navigator.push<String>(
+                  final result = await Navigator.push<Map<String, dynamic>>(
                     context,
                     MaterialPageRoute(builder: (_) => const AddressScreen()),
                   );
 
-                  if (address != null) {
-                    await _saveAddress(address);
-                    setState(() => selectedAddress = address);
+                  final address = result?['address'] as String?;
+                  final addressId = result?['addressId'] as String?;
+                  if (address != null && address.isNotEmpty) {
+                    await _saveAddress(address, addressId: addressId);
+                    setState(() {
+                      selectedAddress = address;
+                      _selectedAddressId = addressId;
+                    });
                     _refreshCheckout();
                   }
                 },

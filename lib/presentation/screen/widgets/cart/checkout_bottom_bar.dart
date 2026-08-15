@@ -1,5 +1,4 @@
 import 'package:local_basket/components/custom_button.dart' as local_basket_button;
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class CheckoutBottomBar extends StatelessWidget {
@@ -97,12 +96,11 @@ class CheckoutBottomBar extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: loading
-                  ? const CupertinoActivityIndicator()
-                  : local_basket_button.CustomButton(
-                      buttonText: "Place Order",
-                      onPressed: onPlaceOrder,
-                    ),
+              child: local_basket_button.CustomButton(
+                buttonText: "Place Order",
+                onPressed: onPlaceOrder,
+                isLoading: loading,
+              ),
             ),
           ],
         ),

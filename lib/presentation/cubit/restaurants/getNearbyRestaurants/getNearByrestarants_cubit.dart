@@ -56,6 +56,21 @@ class GetNearbyRestaurantsCubit extends Cubit<GetNearbyRestaurantsState> {
     }
   }
 
+  /// Silently re-fetches nearby stores in the background (e.g. on a timer)
+  /// to pick up active/inactive status changes, without flashing a loading
+  /// state and without surfacing a transient network failure as an error —
+  /// the last good list just stays on screen until the next successful poll.
+  Future<void> pollNearbyRestaurants(Map<String, dynamic> params) async {
+    final cacheKey = _generateCacheKey(params);
+    try {
+      final result = await getNearbyRestaurantsUseCase(params);
+      await _repositoryCache.setData(cacheKey, result, ttl: const Duration(minutes: 30));
+      emit(GetNearbyRestaurantsLoaded(result));
+    } catch (e) {
+      print('⚠️ Background store status poll failed: $e');
+    }
+  }
+
   /// Generate unique cache key based on request parameters
   String _generateCacheKey(Map<String, dynamic> params) {
     final keyParts = <String>[];

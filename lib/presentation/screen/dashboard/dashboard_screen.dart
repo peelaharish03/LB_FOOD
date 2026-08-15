@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,7 +9,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
-import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
@@ -25,7 +24,6 @@ import 'package:local_basket/presentation/screen/restaurantMenu/restaurantMenu_s
 import 'package:local_basket/presentation/screen/widgets/dashboard/LocationPermissionDialog.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/bottom_card_widget.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/clear_cart_dialog.dart';
-import 'package:local_basket/presentation/screen/widgets/dashboard/foodCatagoryIcons.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/foodItemCard.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/locationHeader.dart';
 import 'package:local_basket/components/searchBar.dart';
@@ -99,15 +97,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isRequestingPermission = false;
   bool _isOutOfServiceArea = false;
   String _outOfServiceMessage = '';
-  bool _restaurantsLoaded = false;
-  bool _isDataCached = false;
-  List<Map<String, dynamic>>?
-  _cachedRestaurants; // Store restaurant data as maps
-  static const String _cacheTimestampKey = 'restaurants_cache_timestamp';
-  static const String _cacheLatKey = 'restaurants_cache_lat';
-  static const String _cacheLngKey = 'restaurants_cache_lng';
-  static const String _cacheDataKey = 'restaurants_cache_data';
-  static const Duration _cacheExpiry = Duration(hours: 1); // Cache for 1 hour
+  Timer? _storeStatusPollTimer;
+  static const Duration _storeStatusPollInterval = Duration(seconds: 30);
 
   @override
   void initState() {
@@ -125,19 +116,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     _scrollController.addListener(_scrollListener);
-
-    // Check if we have cached data on init
-    _checkCachedState();
-  }
-
-  Future<void> _checkCachedState() async {
-    if (await _hasValidCache()) {
-      setState(() {
-        _restaurantsLoaded = true;
-        _isDataCached = true;
-      });
-      debugPrint("📦 Restored cached state on init");
-    }
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -285,17 +263,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onLocationChanged() {
-    _restaurantsLoaded = false;
-    _isDataCached = false;
-    _clearCache(); // Clear cache when location changes
     _loadCoordinatesAndFetchRestaurants();
   }
 
   Future<void> _refreshRestaurants() async {
-    // Clear cache and force refresh
-    await _clearCache();
-    _restaurantsLoaded = false;
-    _isDataCached = false;
     await _loadCoordinatesAndFetchRestaurants(forceRefresh: true);
   }
 
@@ -346,141 +317,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    // Check if we have cached data for the current location
-    if (await _hasValidCache()) {
-      debugPrint("📦 Using cached restaurant data - no API call");
-      setState(() {
-        _restaurantsLoaded = true;
-        _isDataCached = true;
-      });
-      return; // Completely skip API calls
-    }
+    debugPrint(" Fetching restaurants with lat=$latitude, lon=$longitude");
 
-    final params = {
+    context
+        .read<GetNearbyRestaurantsCubit>()
+        .fetchNearbyRestaurants(_nearbyStoresParams(), forceRefresh: forceRefresh);
+
+    _startStoreStatusPolling();
+  }
+
+  Map<String, dynamic> _nearbyStoresParams() {
+    return {
       "latitude": latitude,
       "longitude": longitude,
       "radius": 5,
       "page": page,
       "size": size,
     };
-
-    debugPrint(" Fetching restaurants with lat=$latitude, lon=$longitude");
-
-    context
-        .read<GetNearbyRestaurantsCubit>()
-        .fetchNearbyRestaurants(params, forceRefresh: forceRefresh);
   }
 
-  // Cache management methods
-  Future<bool> _hasValidCache() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final cachedTimestamp = prefs.getInt(_cacheTimestampKey);
-    final cachedLat = prefs.getDouble(_cacheLatKey);
-    final cachedLng = prefs.getDouble(_cacheLngKey);
-
-    if (cachedTimestamp == null || cachedLat == null || cachedLng == null) {
-      debugPrint("📦 No cache metadata found");
-      return false;
-    }
-
-    // Check if cache is expired
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final cacheAge = now - cachedTimestamp;
-    if (cacheAge > _cacheExpiry.inMilliseconds) {
-      debugPrint("📦 Cache expired");
-      return false;
-    }
-
-    // Check if location has significantly changed (more than 1km)
-    if (latitude != null && longitude != null) {
-      final distance = LocationValidator.calculateDistance(
-        latitude!,
-        longitude!,
-        cachedLat,
-        cachedLng,
-      );
-      if (distance > 1.0) {
-        // 1km threshold
-        debugPrint("📦 Location changed significantly, invalidating cache");
-        return false;
+  // Periodically re-hits the nearby-stores API in the background so a
+  // store's active/inactive status updates on screen without the user
+  // having to pull-to-refresh.
+  void _startStoreStatusPolling() {
+    _storeStatusPollTimer?.cancel();
+    _storeStatusPollTimer = Timer.periodic(_storeStatusPollInterval, (_) {
+      if (!mounted || _isOutOfServiceArea || latitude == null || longitude == null) {
+        return;
       }
-    }
-
-    // Load and validate cached restaurant data
-    final cachedDataString = prefs.getString(_cacheDataKey);
-    if (cachedDataString == null) {
-      debugPrint("📦 No cached restaurant data found");
-      return false;
-    }
-
-    try {
-      final List<dynamic> decodedData = jsonDecode(cachedDataString);
-      _cachedRestaurants = decodedData.cast<Map<String, dynamic>>();
-      if (_cachedRestaurants == null || _cachedRestaurants!.isEmpty) {
-        debugPrint("📦 Cached restaurant data is empty");
-        return false;
-      }
-      debugPrint(
-        "📦 Loaded ${_cachedRestaurants!.length} restaurants from cache",
-      );
-      return true;
-    } catch (e) {
-      debugPrint("📦 Failed to decode cached restaurant data: $e");
-      return false;
-    }
+      context
+          .read<GetNearbyRestaurantsCubit>()
+          .pollNearbyRestaurants(_nearbyStoresParams());
+    });
   }
 
-  Future<void> _saveCache() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    if (latitude != null && longitude != null) {
-      await prefs.setInt(
-        _cacheTimestampKey,
-        DateTime.now().millisecondsSinceEpoch,
-      );
-      await prefs.setDouble(_cacheLatKey, latitude!);
-      await prefs.setDouble(_cacheLngKey, longitude!);
-      debugPrint("📦 Saved restaurant cache");
-    }
-  }
-
-  Future<void> _saveRestaurantData(List<StoreContent> restaurants) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    try {
-      final restaurantJson =
-          restaurants.map((r) {
-            return {
-              'id': r.id,
-              'name': r.name,
-              'code': r.code,
-              'b2bUnitId': r.b2bUnitId,
-              'active': r.active,
-              'distanceKm': r.distanceKm,
-              'latitude': r.latitude,
-              'longitude': r.longitude,
-            };
-          }).toList();
-
-      await prefs.setString(_cacheDataKey, jsonEncode(restaurantJson));
-      _cachedRestaurants = restaurantJson.cast<Map<String, dynamic>>();
-      debugPrint(
-        "📦 Saved ${restaurantJson.length} restaurants to local storage",
-      );
-    } catch (e) {
-      debugPrint("❌ Failed to save restaurant data: $e");
-    }
-  }
-
-  Future<void> _clearCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_cacheTimestampKey);
-    await prefs.remove(_cacheLatKey);
-    await prefs.remove(_cacheLngKey);
-    await prefs.remove(_cacheDataKey);
-    _cachedRestaurants = null;
-    debugPrint("📦 Cleared restaurant cache");
+  void _stopStoreStatusPolling() {
+    _storeStatusPollTimer?.cancel();
+    _storeStatusPollTimer = null;
   }
 
   void _checkServiceArea(double lat, double lon) {
@@ -490,6 +363,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _isOutOfServiceArea = !isWithinArea;
         if (_isOutOfServiceArea) {
+          _stopStoreStatusPolling();
           final distance = LocationValidator.calculateDistance(
             lat,
             lon,
@@ -561,50 +435,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${distanceKm.toStringAsFixed(2)} km away';
   }
 
-  Widget _buildCachedRestaurantList() {
-    if (_cachedRestaurants == null || _cachedRestaurants!.isEmpty) {
-      return const Center(child: Text("No cached restaurants available"));
-    }
-
-    return _buildRestaurantListFromMaps(_cachedRestaurants!);
-  }
-
-  Widget _buildRestaurantListFromMaps(List<Map<String, dynamic>> restaurants) {
-    return Column(
-      children:
-          restaurants.map((restaurant) {
-            return FoodItemCard(
-              data: {
-                "Restaurant": restaurant['name'] ?? "Unknown",
-                "Items":
-                    restaurant['distanceKm'] is num
-                        ? _formatDistance(
-                          (restaurant['distanceKm'] as num).toDouble(),
-                        )
-                        : "",
-                "time": "20 - 25 MINS",
-              },
-              isActive: restaurant['active'] != false,
-              onRestaurantTap:
-                  (name) => _navigateToRestaurantMenu(
-                    name,
-                    restaurant['id']?.toString() ?? "",
-                    b2bUnitId: restaurant['b2bUnitId']?.toString(),
-                  ),
-            );
-          }).toList(),
-    );
+  // Stores only take orders between 12 PM and 11 PM; outside that window
+  // every store shows as inactive regardless of its own `active` flag.
+  bool _isWithinStoreServiceHours() {
+    final hour = DateTime.now().hour;
+    return hour >= 12 && hour < 23;
   }
 
   Widget _buildNearbyRestaurants() {
-    // If we have cached data, show it immediately without any loading
-    if (_isDataCached &&
-        _cachedRestaurants != null &&
-        _cachedRestaurants!.isNotEmpty) {
-      debugPrint("📦 Displaying cached restaurants - no loading");
-      return _buildCachedRestaurantList();
-    }
-
     if (isLocationInitializing) {
       return _buildShimmerRestaurants();
     }
@@ -614,19 +452,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (state is GetNearbyRestaurantsLoading) {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is GetNearbyRestaurantsLoaded) {
-          // Mark restaurants as loaded and save cache
-          if (!_restaurantsLoaded) {
-            WidgetsBinding.instance.addPostFrameCallback((_) async {
-              if (mounted) {
-                setState(() {
-                  _restaurantsLoaded = true;
-                  _isDataCached = true;
-                });
-                await _saveCache();
-                await _saveRestaurantData(state.model.content);
-              }
-            });
-          }
           if (state.model.content.isEmpty) {
             return const Center(child: Text("No restaurants found"));
           }
@@ -636,7 +461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getCategory: (r) => _formatDistance(r.distanceKm),
             getId: (r) => (r.id ?? "").toString(),
             getB2bUnitId: (r) => r.b2bUnitId,
-            getActive: (r) => r.active ?? true,
+            getActive: (r) => (r.active ?? true) && _isWithinStoreServiceHours(),
           );
         } else {
           return const Center(child: Text("Failed loading restaurants"));
@@ -671,7 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getCategory: (store) => _formatDistance(store.distanceKm),
             getId: (store) => (store.id ?? "").toString(),
             getB2bUnitId: (store) => store.b2bUnitId,
-            getActive: (store) => store.active ?? true,
+            getActive: (store) => (store.active ?? true) && _isWithinStoreServiceHours(),
           );
         } else if (state is GetRestaurantsByProductNameFailure) {
           return Center(child: Text(state.error));
@@ -765,6 +590,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _disposed = true;
+    _stopStoreStatusPolling();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _searchFocusNode.dispose();
@@ -875,8 +701,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             onChanged: (query) async {
                               if (_isOutOfServiceArea) return;
                               setState(() => searchQuery = query);
-                              // Clear cache when searching to get fresh results
-                              await _clearCache();
                               final prefs =
                                   await SharedPreferences.getInstance();
                               final lat =
