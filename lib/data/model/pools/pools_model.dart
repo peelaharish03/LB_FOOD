@@ -116,4 +116,20 @@ class PoolItem {
     if (now.isAfter(end)) return PoolStatus.completed;
     return PoolStatus.active;
   }
+
+  // Server-reported status takes priority over the time-derived one, since
+  // "OPEN"/"CLOSED" reflect the actual pool state and can diverge from the
+  // device clock's view of the start/end window.
+  PoolStatus? get apiStatus {
+    switch (status?.toUpperCase()) {
+      case 'OPEN':
+        return PoolStatus.active;
+      case 'CLOSED':
+        return PoolStatus.completed;
+      case 'SCHEDULED':
+        return PoolStatus.upcoming;
+      default:
+        return null;
+    }
+  }
 }

@@ -43,14 +43,23 @@ class PaymentCubit extends Cubit<PaymentState> {
         print('Payment result: ${result.status}');
 
         if (result.status == 'Verified') {
+          // Order is placed only here, once, after payment is confirmed
+          // verified by the backend — never before payment, and never if
+          // verification fails.
           final createOrderCubit = context.read<CreateOrderCubit>();
           await createOrderCubit.createOrder(
             context,
             paymentId: paymentPayload['paymentId'],
-            paymentType: paymentType,
+            paymentType: 'RAZORPAY',
+          );
+          emit(PaymentSuccess(result));
+        } else {
+          emit(
+            PaymentFailure(
+              'Payment could not be verified. If any amount was deducted, it will be refunded within 24 hours.',
+            ),
           );
         }
-        emit(PaymentSuccess(result));
       } else if (paymentType == 'CASH') {
         // Process COD payment directly
         final createOrderCubit = context.read<CreateOrderCubit>();
@@ -71,6 +80,28 @@ class PaymentCubit extends Cubit<PaymentState> {
     } catch (e) {
       print('Payment error: $e');
       emit(PaymentFailure(e.toString()));
+    }
+  }
+
+  // Logs a failed payment to the backend. Intentionally does not emit
+  // PaymentSuccess/PaymentFailure — the caller already shows the failure
+  // UI from the Razorpay callback, and a 200 here just means the failure
+  // was recorded, not that the payment succeeded.
+  Future<void> makePaymentFailure({
+    required BuildContext context,
+    Map<String, dynamic>? paymentPayload,
+  }) async {
+    if (paymentPayload == null) return;
+
+    final bool isConnected = await networkService.hasInternetConnection();
+    print('Internet connected: $isConnected');
+    if (!isConnected) return;
+
+    try {
+      final result = await paymentUseCase(paymentPayload);
+      print('Payment failure logged: ${result.status}');
+    } catch (e) {
+      print('Payment failure logging error: $e');
     }
   }
 
