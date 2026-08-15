@@ -37,6 +37,7 @@ class DioClient {
           if (requiresAuth) {
             // FIX: Read token from secure storage (encrypted) instead of SharedPreferences (plaintext)
             final token = await secureStorage.read(key: 'TOKEN');
+            log('ACCESS TOKEN[${options.path}] => $token');
 
             if (token != null && token.isNotEmpty) {
               options.headers["Authorization"] = "Bearer $token";

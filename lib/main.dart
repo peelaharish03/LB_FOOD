@@ -26,7 +26,6 @@ import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/promotions/promotions_cubit.dart';
-import 'package:local_basket/presentation/cubit/offers/restaurant_offers/get_restaurant_offers/restaurant_offers_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
@@ -133,7 +132,6 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<DefaultAddressCubit>()),
         BlocProvider(create: (_) => di.sl<AddressSavetoCartCubit>()),
         BlocProvider(create: (_) => di.sl<DeleteAccountCubit>()),
-        BlocProvider(create: (_) => di.sl<RestaurantOffersCubit>()),
         BlocProvider(create: (_) => di.sl<PromotionsCubit>()),
         BlocProvider(create: (_) => di.sl<ValidateOfferCubit>()),
         BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),

@@ -28,9 +28,9 @@ import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.da
 import 'package:local_basket/presentation/cubit/payment/payment/payment_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
-import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
 // FIX: Import Razorpay keys from api_constants instead of hardcoding them here.
 import 'package:local_basket/core/constants/api_constants.dart';
+import 'package:local_basket/core/utils/address_formatter.dart';
 
 class CartScreen extends StatefulWidget {
   final int? orderId;
@@ -68,11 +68,21 @@ class _CartScreenState extends State<CartScreen> {
   String selectedAddress = "Add Address";
   bool selfOrder = false;
 
+  static const double _defaultDeliveryCharge = 30.0;
+  static const double _defaultPlatformFee = 5.0;
+
   double _subtotal = 0.0;
-  double _gstAmount = 0.0;
+  double _platformFee = 0.0;
   double _deliveryCharge = 0.0;
   double _grandTotal = 0.0;
   bool _checkoutLoading = false;
+
+  void _applyFlatCharges() {
+    final hasItems = selectedItems.isNotEmpty;
+    _deliveryCharge = hasItems ? _defaultDeliveryCharge : 0;
+    _platformFee = hasItems ? _defaultPlatformFee : 0;
+    _grandTotal = _subtotal + _deliveryCharge + _platformFee;
+  }
 
   @override
   void initState() {
@@ -106,10 +116,12 @@ class _CartScreenState extends State<CartScreen> {
     if (selectedItems.isEmpty) {
       setState(() {
         _subtotal = 0;
-        _gstAmount = 0;
+        _platformFee = 0;
         _deliveryCharge = 0;
         _grandTotal = 0;
       });
+    } else {
+      setState(_applyFlatCharges);
     }
   }
 
@@ -213,6 +225,20 @@ class _CartScreenState extends State<CartScreen> {
     await prefs.setString('delivery_address', address);
   }
 
+  String _formatAddress(dynamic content) {
+    final item = content.address;
+    if (item == null) return '';
+    return joinAddressParts([
+      item.line1,
+      item.line2,
+      item.fullText,
+      item.city,
+      item.state,
+      item.country,
+      item.postalCode,
+    ]);
+  }
+
   void _initCartItems() {
     if (widget.cartItems != null) {
       for (final item in widget.cartItems!) {
@@ -266,8 +292,7 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     _subtotal = (loadedCart.subTotal ?? 0).toDouble();
-    _gstAmount = (loadedCart.totalTax ?? 0).toDouble();
-    _grandTotal = (loadedCart.grandTotal ?? 0).toDouble();
+    _applyFlatCharges();
   }
 
   Future<String?> _ensureCartId() async {
@@ -583,27 +608,6 @@ class _CartScreenState extends State<CartScreen> {
     return checkout;
   }
 
-  Future<void> _completeCheckoutOrder(CheckoutModel checkout) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('offer_applied');
-    await prefs.remove('is_offer_flow');
-    await prefs.remove('offer_id');
-    await prefs.remove('offer_coupon');
-    await prefs.remove('offer_started_at');
-
-    if (!mounted) return;
-
-    CustomSnackbars.showSuccessSnack(
-      context: context,
-      title: 'Success',
-      message: 'Order placed successfully',
-    );
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
-    );
-  }
-
   Future<void> openCheckOut() async {
     if (selectedAddress == "Add Address") {
       CustomSnackbars.showErrorSnack(
@@ -614,141 +618,7 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    final paymentMethod = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: AppColor.White,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.payment_rounded,
-                  color: Colors.orange,
-                  size: 60,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Select Payment Method",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: const Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: Colors.green,
-                  ),
-                  title: const Text("Pay Online"),
-                  onTap: () => Navigator.pop(context, "RAZORPAY"),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.money, color: Colors.brown),
-                  title: const Text("Cash on Delivery (COD)"),
-                  onTap: () => Navigator.pop(context, "COD"),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text(
-                    "Cancel",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (paymentMethod == null) return;
-
-    if (paymentMethod == "COD") {
-      final confirmCOD = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return Dialog(
-            backgroundColor: AppColor.White,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.orange,
-                    size: 60,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Confirm COD Order",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    "You've selected Cash on Delivery.\nPlease pay at the time of delivery.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black54,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text("Cancel"),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColor.PrimaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text("Confirm COD"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-
-      if (confirmCOD == true) {
-        final checkout = await _submitCartCheckout("COD");
-        if (checkout != null) {
-          await _completeCheckoutOrder(checkout);
-        }
-      }
-      return;
-    }
-
-    debugPrint('[Razorpay] Pay Online selected; creating checkout order');
+    debugPrint('[Razorpay] Pay Online; creating checkout order');
     final checkout = await _submitCartCheckout("RAZORPAY");
     if (checkout == null) return;
 
@@ -880,6 +750,13 @@ class _CartScreenState extends State<CartScreen> {
                 _clearSavedAddress();
                 return;
               }
+              if (selectedAddress == "Add Address") {
+                final defaultAddress = _formatAddress(addresses.first);
+                if (defaultAddress.isNotEmpty) {
+                  _saveAddress(defaultAddress);
+                  setState(() => selectedAddress = defaultAddress);
+                }
+              }
               _refreshCheckout();
             }
           },
@@ -892,9 +769,7 @@ class _CartScreenState extends State<CartScreen> {
               final data = state.model.data;
               setState(() {
                 _subtotal = (data?.itemsTotal ?? 0).toDouble();
-                _gstAmount = (data?.taxTotal ?? 0).toDouble();
-                _deliveryCharge = (data?.deliveryCharge ?? 0).toDouble();
-                _grandTotal = (data?.grandTotal ?? 0).toDouble();
+                _applyFlatCharges();
                 _checkoutLoading = false;
               });
             } else if (state is CheckoutFailure) {
@@ -1283,7 +1158,10 @@ class _CartScreenState extends State<CartScreen> {
                                       : CheckoutBottomBar(
                                         subtotal:
                                             _isCouponApplied ? 0 : _subtotal,
-                                        gst: _isCouponApplied ? 0 : _gstAmount,
+                                        platformFee:
+                                            _isCouponApplied
+                                                ? 0
+                                                : _platformFee,
                                         deliveryCharge:
                                             _isCouponApplied
                                                 ? 0

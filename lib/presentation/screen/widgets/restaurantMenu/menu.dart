@@ -185,6 +185,18 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  if (mediaUrl == null)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.grey.shade200,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.fastfood,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ),
                   if (mediaUrl != null && !_imageLoaded)
                     Positioned.fill(
                       child: Shimmer.fromColors(
@@ -218,7 +230,15 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                               if (mounted) setState(() => _imageLoaded = true);
                             });
                           }
-                          return Container(color: Colors.grey.shade200);
+                          return Container(
+                            color: Colors.grey.shade200,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.fastfood,
+                              size: 48,
+                              color: Colors.grey.shade400,
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -239,15 +259,9 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                       ),
                     ),
                   Align(
-                    alignment:
-                        mediaUrl == null
-                            ? Alignment.center
-                            : Alignment.bottomCenter,
+                    alignment: Alignment.bottomCenter,
                     child: Padding(
-                      padding:
-                          mediaUrl != null
-                              ? const EdgeInsets.only(bottom: 8.0)
-                              : EdgeInsets.zero,
+                      padding: const EdgeInsets.only(bottom: 8.0),
                       child:
                           isBeforeStartTime || item.available != true
                               ? Container(

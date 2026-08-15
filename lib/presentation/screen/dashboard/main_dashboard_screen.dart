@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/presentation/cubit/notifications/fcmToken/fcm_token_cubit.dart';
@@ -57,20 +58,23 @@ class _MainDashboardState extends State<MainDashboard> {
     if (!mounted) return;
     await _notificationServices.isRefreshToken();
 
-    _notificationServices.getDeviceToken().then((fcmToken) async {
-      if (!mounted) return;
-      if (fcmToken != null) {
-        final storage = FlutterSecureStorage();
-        final savedAuthToken = await storage.read(key: 'TOKEN');
-        if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
-          print('Updating customer with FCM token: $fcmToken');
-          final payload = {
-            'fullName': '',
-            'email': '',
-            'local_basket': true,
-            'fcmToken': fcmToken,
-          };
-          if (!mounted) return;
+    // Notification permission is requested inside getDeviceToken() above.
+    // Location permission is requested right after, so both prompts appear
+    // back-to-back on first landing here, instead of waiting until the
+    // user drills into the Food dashboard.
+    final fcmToken = await _notificationServices.getDeviceToken();
+    if (mounted && fcmToken != null) {
+      final storage = FlutterSecureStorage();
+      final savedAuthToken = await storage.read(key: 'TOKEN');
+      if (savedAuthToken != null && savedAuthToken.isNotEmpty) {
+        print('Updating customer with FCM token: $fcmToken');
+        final payload = {
+          'fullName': '',
+          'email': '',
+          'local_basket': true,
+          'fcmToken': fcmToken,
+        };
+        if (mounted) {
           context.read<UpdateCurrentCustomerCubit>().updateCustomer(
             payload,
             context,
@@ -84,7 +88,24 @@ class _MainDashboardState extends State<MainDashboard> {
           );
         }
       }
-    });
+    }
+
+    if (!mounted) return;
+    await _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('📍 MainDashboard initial permission status: $permission');
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        debugPrint('📍 MainDashboard after requestPermission: $permission');
+      }
+    } catch (e) {
+      debugPrint('❌ MainDashboard location permission request failed: $e');
+    }
   }
 
   @override

@@ -40,68 +40,88 @@ class PromotionsModel {
 
 class PromotionContent {
   PromotionContent({
-    required this.actionJson,
-    required this.code,
-    required this.conditionTreeJson,
-    required this.createdDate,
-    required this.customerFacingLabel,
-    required this.endsAt,
-    required this.exclusive,
     required this.id,
-    required this.internalDescription,
-    required this.maxRedemptions,
-    required this.maxRedemptionsPerCustomer,
     required this.name,
-    required this.priority,
-    required this.promoType,
-    required this.startsAt,
+    required this.code,
+    required this.description,
+    required this.discountType,
+    required this.discountValue,
+    required this.maxDiscountAmount,
+    required this.minimumOrderValue,
+    required this.maximumOrderValue,
+    required this.minimumItemQuantity,
+    required this.maximumItemQuantity,
+    required this.autoApply,
+    required this.firstTimeUsersOnly,
+    required this.singleUse,
+    required this.stackable,
+    required this.promotionType,
     required this.status,
+    required this.startDate,
+    required this.expiryDate,
+    required this.createdDate,
     required this.updatedDate,
-    required this.usedCount,
-    required this.version,
+    required this.currentUsageCount,
+    required this.totalUsageLimit,
+    required this.perUserUsageLimit,
+    required this.applicablePaymentMethods,
   });
 
-  final dynamic actionJson;
-  final String? code;
-  final dynamic conditionTreeJson;
-  final String? createdDate;
-  final String? customerFacingLabel;
-  final String? endsAt;
-  final bool? exclusive;
   final dynamic id;
-  final String? internalDescription;
-  final num? maxRedemptions;
-  final num? maxRedemptionsPerCustomer;
   final String? name;
-  final num? priority;
-  final String? promoType;
-  final String? startsAt;
+  final String? code;
+  final String? description;
+  final String? discountType;
+  final num? discountValue;
+  final num? maxDiscountAmount;
+  final num? minimumOrderValue;
+  final num? maximumOrderValue;
+  final num? minimumItemQuantity;
+  final num? maximumItemQuantity;
+  final bool? autoApply;
+  final bool? firstTimeUsersOnly;
+  final bool? singleUse;
+  final bool? stackable;
+  final String? promotionType;
   final String? status;
+  final String? startDate;
+  final String? expiryDate;
+  final String? createdDate;
   final String? updatedDate;
-  final num? usedCount;
-  final num? version;
+  final num? currentUsageCount;
+  final num? totalUsageLimit;
+  final num? perUserUsageLimit;
+  final List<dynamic> applicablePaymentMethods;
 
   factory PromotionContent.fromJson(Map<String, dynamic> json) {
     return PromotionContent(
-      actionJson: json["actionJson"],
-      code: json["code"],
-      conditionTreeJson: json["conditionTreeJson"],
-      createdDate: json["createdDate"],
-      customerFacingLabel: json["customerFacingLabel"],
-      endsAt: json["endsAt"],
-      exclusive: _toBool(json["exclusive"]),
       id: json["id"],
-      internalDescription: json["internalDescription"],
-      maxRedemptions: _toNum(json["maxRedemptions"]),
-      maxRedemptionsPerCustomer: _toNum(json["maxRedemptionsPerCustomer"]),
       name: json["name"],
-      priority: _toNum(json["priority"]),
-      promoType: json["promoType"],
-      startsAt: json["startsAt"],
+      code: json["code"],
+      description: json["description"],
+      discountType: json["discountType"],
+      discountValue: _toNum(json["discountValue"]),
+      maxDiscountAmount: _toNum(json["maxDiscountAmount"]),
+      minimumOrderValue: _toNum(json["minimumOrderValue"]),
+      maximumOrderValue: _toNum(json["maximumOrderValue"]),
+      minimumItemQuantity: _toNum(json["minimumItemQuantity"]),
+      maximumItemQuantity: _toNum(json["maximumItemQuantity"]),
+      autoApply: _toBool(json["autoApply"]),
+      firstTimeUsersOnly: _toBool(json["firstTimeUsersOnly"]),
+      singleUse: _toBool(json["singleUse"]),
+      stackable: _toBool(json["stackable"]),
+      promotionType: json["promotionType"],
       status: json["status"],
+      startDate: json["startDate"],
+      expiryDate: json["expiryDate"],
+      createdDate: json["createdDate"],
       updatedDate: json["updatedDate"],
-      usedCount: _toNum(json["usedCount"]),
-      version: _toNum(json["version"]),
+      currentUsageCount: _toNum(json["currentUsageCount"]),
+      totalUsageLimit: _toNum(json["totalUsageLimit"]),
+      perUserUsageLimit: _toNum(json["perUserUsageLimit"]),
+      applicablePaymentMethods: json["applicablePaymentMethods"] == null
+          ? []
+          : List<dynamic>.from(json["applicablePaymentMethods"] as List),
     );
   }
 }

@@ -39,22 +39,7 @@ class _OtpScreenState extends State<OtpScreen> {
   final TextEditingController otpController = TextEditingController();
   bool _hasNavigated = false;
 
-  String? get _debugOtp {
-    final otp = widget.otp.trim();
-    final normalized = otp.toLowerCase();
-    if (otp.isEmpty ||
-        normalized == 'true' ||
-        normalized == 'false' ||
-        normalized == 'null') {
-      return null;
-    }
-
-    return otp;
-  }
-
-  Widget _buildDebugOtpBox() {
-    final otp = _debugOtp;
-
+  Widget _buildOtpCallNotice() {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 14),
@@ -64,41 +49,20 @@ class _OtpScreenState extends State<OtpScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFFFB26B)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Debug OTP',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF9A4B00),
-            ),
-          ),
-          const SizedBox(height: 4),
-          if (otp == null)
-            Text(
-              'OTP was not returned by server',
+          const Icon(Icons.call, color: Color(0xFF9A4B00), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "You'll receive a call with your OTP. Enter it below.",
               style: GoogleFonts.poppins(
                 fontSize: 13,
+                fontWeight: FontWeight.w500,
                 color: const Color(0xFF9A4B00),
               ),
-            )
-          else
-            GestureDetector(
-              onTap: () {
-                otpController.text = otp;
-              },
-              child: Text(
-                otp,
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 3,
-                  color: AppColor.PrimaryColor,
-                ),
-              ),
             ),
+          ),
         ],
       ),
     );
@@ -183,7 +147,7 @@ class _OtpScreenState extends State<OtpScreen> {
         ],
         child: Stack(
           children: [
-            /// Gradient Background same as login
+            /// Gradient Background same as l,ogin
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -299,7 +263,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                     ),
                                   ],
                                 ),
-                                _buildDebugOtpBox(),
+                                _buildOtpCallNotice(),
                                 const SizedBox(height: 24),
 
                                 /// OTP Input

@@ -1041,7 +1041,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           children: [
             SingleChildScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.only(top: 300, bottom: 100),
+              padding: EdgeInsets.only(
+                top: 300,
+                bottom: 100 + MediaQuery.of(context).padding.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
