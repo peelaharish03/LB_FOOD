@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_usecase.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_state.dart';
@@ -42,7 +43,7 @@ class OrderHistoryCubit extends Cubit<OrderHistoryState> {
         );
       } catch (e) {
         print('Error fetching order history: $e');
-        emit(OrderHistoryError(e.toString(), page: page));
+        emit(OrderHistoryError(friendlyErrorMessage(e), page: page));
       }
     }
   }

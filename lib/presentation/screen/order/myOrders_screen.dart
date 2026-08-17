@@ -203,10 +203,13 @@ class _MyOrdersState extends State<MyOrders> {
                   }
 
                   if (state is OrderHistoryError && _allOrders.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        "Failed to load orders",
-                        style: TextStyle(fontSize: 16),
+                        state.message.isEmpty
+                            ? "Failed to load orders"
+                            : state.message,
+                        style: const TextStyle(fontSize: 16),
+                        textAlign: TextAlign.center,
                       ),
                     );
                   }
@@ -279,7 +282,10 @@ class _MyOrdersState extends State<MyOrders> {
     final status = _effectiveStatus(order).toUpperCase();
     switch (status) {
       case 'PICKED_UP':
+      case 'IN_DELIVERY':
         return 'Out for delivery';
+      case 'CONFIRMED':
+        return 'Preparing';
       case 'PREPARING':
         return 'Preparing';
       case 'DELIVERED':
@@ -627,14 +633,14 @@ class _MyOrdersState extends State<MyOrders> {
       normalized = "PLACED";
     } else if (normalized == "COMPLETED") {
       normalized = "DELIVERED";
-    } else if (normalized == "PICKED_UP") {
+    } else if (normalized == "PICKED_UP" || normalized == "IN_DELIVERY") {
       normalized = "OUT_FOR_DELIVERY";
     } else if (normalized == "READY" || normalized == "OUT_FOR_DELIVERY") {
       normalized = "OUT_FOR_DELIVERY";
     }
 
     if (normalized == "CONFIRMED") {
-      normalized = "PLACED";
+      normalized = "PREPARING";
     } else if (normalized == "READY_FOR_PICKUP") {
       normalized = "PREPARING";
     }

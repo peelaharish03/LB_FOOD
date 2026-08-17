@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/authentication/rolesPost_usecase.dart';
 import 'package:local_basket/presentation/cubit/authentication/roles/rolesPost_state.dart';
@@ -27,7 +28,7 @@ class RolePostCubit extends Cubit<RolePostState> {
       final result = await rolePostUsecase.call(role);
       emit(RolePostSuccess(result));
     } catch (e) {
-      emit(RolePostFailure(e.toString()));
+      emit(RolePostFailure(friendlyErrorMessage(e)));
     }
   }
 }

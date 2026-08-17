@@ -13,7 +13,6 @@ import 'package:local_basket/data/datasource/authentication/current_customer_rem
 import 'package:local_basket/data/datasource/authentication/deleteAccount_dataSource.dart';
 import 'package:local_basket/data/datasource/authentication/rolesPost_dataSource.dart';
 import 'package:local_basket/data/datasource/authentication/signin_remote_data_source.dart';
-import 'package:local_basket/data/datasource/authentication/signup_remote_data_source.dart';
 import 'package:local_basket/data/datasource/authentication/trigger_otp_remote_data_source.dart';
 import 'package:local_basket/data/datasource/authentication/update_current_customer_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/clearCart/clearCart_dataSource.dart';
@@ -32,6 +31,7 @@ import 'package:local_basket/data/datasource/offers/restaurant_offers/validate_o
 import 'package:local_basket/data/datasource/orders/createOrder/createOrder_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/orderHistory/orderHistory_dataSource.dart';
 import 'package:local_basket/data/datasource/orders/reOrder/reOrder_dataSource.dart';
+import 'package:local_basket/data/datasource/cart/eligiblePromotions/eligiblePromotions_dataSource.dart';
 import 'package:local_basket/data/datasource/payment/checkout_datasource.dart';
 import 'package:local_basket/data/datasource/payment/payment_dataSource.dart';
 import 'package:local_basket/data/datasource/rating&reviews/rating&review_datasource.dart';
@@ -49,7 +49,6 @@ import 'package:local_basket/data/repositoryImpl/authentication/current_customer
 import 'package:local_basket/data/repositoryImpl/authentication/deleteAccount_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/rolesPost_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/signin_repository_impl.dart';
-import 'package:local_basket/data/repositoryImpl/authentication/signup_repository_impl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/trigger_otp_repository_impl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/update_current_customer_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/clearCart/clearCart_repoImpl.dart';
@@ -68,6 +67,7 @@ import 'package:local_basket/data/repositoryImpl/offers/restaurant_offers/valida
 import 'package:local_basket/data/repositoryImpl/orders/createOrder/createOrder_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/orderHistory/orderHistory_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/orders/reOrder/reOrder_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/cart/eligiblePromotions/eligiblePromotions_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/checkout_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/payment_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/rating&reviews/rating&review_repoImpl.dart';
@@ -85,7 +85,6 @@ import 'package:local_basket/domain/repository/authentication/current_customer_r
 import 'package:local_basket/domain/repository/authentication/deleteAccount_repository.dart';
 import 'package:local_basket/domain/repository/authentication/rolesPost_repository.dart';
 import 'package:local_basket/domain/repository/authentication/signin_repository.dart';
-import 'package:local_basket/domain/repository/authentication/signup_repository.dart';
 import 'package:local_basket/domain/repository/authentication/trigger_otp_repository.dart';
 import 'package:local_basket/domain/repository/authentication/update_current_customer_repository.dart';
 import 'package:local_basket/domain/repository/cart/clearCart/clearCart_repository.dart';
@@ -104,6 +103,7 @@ import 'package:local_basket/domain/repository/offers/restaurant_offers/validate
 import 'package:local_basket/domain/repository/orders/createOrder/createOrder_repository.dart';
 import 'package:local_basket/domain/repository/orders/orderHistory/orderHistory_repository.dart';
 import 'package:local_basket/domain/repository/orders/reOrder/reOrder_repository.dart';
+import 'package:local_basket/domain/repository/cart/eligiblePromotions/eligiblePromotions_repository.dart';
 import 'package:local_basket/domain/repository/payment/checkout_repository.dart';
 import 'package:local_basket/domain/repository/payment/payment_repository.dart';
 import 'package:local_basket/domain/repository/rating&reviews/rating&review_repository.dart';
@@ -121,7 +121,6 @@ import 'package:local_basket/domain/usecase/authentication/current_customer_usec
 import 'package:local_basket/domain/usecase/authentication/deleteAccount_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/rolesPost_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/signin_usecase.dart';
-import 'package:local_basket/domain/usecase/authentication/signup_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/trigger_otp_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/update_current_customer_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/clearCart/clearCart_usecase.dart';
@@ -140,6 +139,7 @@ import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_of
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_usecase.dart';
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
+import 'package:local_basket/domain/usecase/cart/eligiblePromotions/eligiblePromotions_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/checkout_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/payment_usecase.dart';
 import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase.dart';
@@ -158,7 +158,6 @@ import 'package:local_basket/presentation/cubit/authentication/currentcustomer/u
 import 'package:local_basket/presentation/cubit/authentication/deleteAccount/deleteAccount_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/roles/rolesPost_cubit.dart';
-import 'package:local_basket/presentation/cubit/authentication/signUp/signup_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/signin/sigin_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit.dart';
@@ -176,6 +175,7 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validat
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
@@ -233,24 +233,6 @@ void init() {
       useCase: sl<SignInValidationUseCase>(),
       networkService: sl<NetworkService>(),
       // createCartCubit: sl(),
-    ),
-  );
-
-  //signup
-
-  sl.registerLazySingleton<SignUpRemoteDataSource>(
-    () => SignUpRemoteDataSourceImpl(client: sl<DioClient>().dio),
-  );
-  sl.registerLazySingleton<SignUpRepository>(
-    () => SignUpRepositoryImpl(remoteDataSource: sl<SignUpRemoteDataSource>()),
-  );
-  sl.registerLazySingleton(
-    () => SignUpValidationUseCase(repository: sl<SignUpRepository>()),
-  );
-  sl.registerFactory(
-    () => SignUpCubit(
-      useCase: sl<SignUpValidationUseCase>(),
-      networkService: sl<NetworkService>(),
     ),
   );
 
@@ -753,6 +735,24 @@ void init() {
     () => CheckoutUseCase(repository: sl<CheckoutRepository>()),
   );
   sl.registerFactory(() => CheckoutCubit(useCase: sl<CheckoutUseCase>()));
+
+  //EligiblePromotions
+  sl.registerLazySingleton<EligiblePromotionsRemoteDataSource>(
+    () => EligiblePromotionsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<EligiblePromotionsRepository>(
+    () => EligiblePromotionsRepositoryImpl(
+      remoteDataSource: sl<EligiblePromotionsRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => EligiblePromotionsUseCase(
+      repository: sl<EligiblePromotionsRepository>(),
+    ),
+  );
+  sl.registerFactory(
+    () => EligiblePromotionsCubit(sl<EligiblePromotionsUseCase>()),
+  );
 
   //Notifications
   sl.registerLazySingleton<GetNotificationsRemoteDataSource>(

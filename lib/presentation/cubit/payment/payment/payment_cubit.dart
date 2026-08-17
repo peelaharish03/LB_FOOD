@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/core/network/network_service.dart';
@@ -79,7 +80,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       }
     } catch (e) {
       print('Payment error: $e');
-      emit(PaymentFailure(e.toString()));
+      emit(PaymentFailure(friendlyErrorMessage(e)));
     }
   }
 
@@ -125,7 +126,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       emit(PaymentTrackingSuccess(result));
     } catch (e) {
       print('Payment tracking error: $e');
-      emit(PaymentFailure(e.toString()));
+      emit(PaymentFailure(friendlyErrorMessage(e)));
     }
   }
 
@@ -164,7 +165,7 @@ class PaymentCubit extends Cubit<PaymentState> {
       }
     } catch (e) {
       print('Payment refund error: $e');
-      emit(PaymentRefundFailure(e.toString()));
+      emit(PaymentRefundFailure(friendlyErrorMessage(e)));
     }
   }
 }

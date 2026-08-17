@@ -5,11 +5,28 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../components/custom_snackbar.dart';
+import '../../../../core/constants/global_exception_handler.dart';
 import '../../../../core/network/network_helper.dart';
 import '../../../../core/network/network_service.dart';
 import '../../../../domain/usecase/authentication/trigger_otp_usecase.dart';
 import '../../../screen/authentication/otp_screen.dart';
 import 'trigger_otp_state.dart';
+
+/// Maps a caught error from the OTP APIs to a message that's safe and
+/// useful to show a user - technical/backend failures get a generic
+/// "try again later" message, while validation-type errors (invalid or
+/// unregistered number, expired OTP, etc.) surface the specific reason.
+String _otpFriendlyMessage(AppException error) {
+  if (error is BadRequestException ||
+      error is UserNotFoundException ||
+      error is NotFoundException ||
+      error is ConflictException ||
+      error is NetworkException ||
+      error is RequestTimeoutException) {
+    return error.message;
+  }
+  return 'Unable to login at this moment. Please try again after some time.';
+}
 
 class TriggerOtpCubit extends Cubit<TriggerOtpState> {
   final TriggerOtpValidationUseCase useCase;
@@ -102,12 +119,14 @@ class TriggerOtpCubit extends Cubit<TriggerOtpState> {
       );
 
       debugPrint('OTP response received and stored in state');
+    } on AppException catch (e) {
+      debugPrint('Error in trigger otp: $e');
+      emit(TriggerOtpError(_otpFriendlyMessage(e)));
     } catch (e) {
       debugPrint('Error in trigger otp: $e');
-
       emit(
         TriggerOtpError(
-          'Failed to load OTP data: ${e.toString()}',
+          'Unable to login at this moment. Please try again after some time.',
         ),
       );
     }
@@ -139,8 +158,16 @@ class TriggerOtpCubit extends Cubit<TriggerOtpState> {
           message: 'Something went wrong, please try again later',
         );
       }
+    } on AppException catch (e) {
+      debugPrint("Resend OTP Error: $e");
+      emit(TriggerOtpError(_otpFriendlyMessage(e)));
     } catch (e) {
       debugPrint("Resend OTP Error: $e");
+      emit(
+        TriggerOtpError(
+          'Unable to resend OTP at this moment. Please try again after some time.',
+        ),
+      );
     }
   }
 }

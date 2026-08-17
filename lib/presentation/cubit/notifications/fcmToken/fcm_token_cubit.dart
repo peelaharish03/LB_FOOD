@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/domain/usecase/notifications/fcmToken/fcm_token_usecase.dart';
 import 'fcm_token_state.dart';
@@ -26,7 +27,7 @@ class FcmTokenCubit extends Cubit<FcmTokenState> {
       emit(FcmTokenStored(result));
     } catch (e) {
       debugPrint('Store FCM token error: $e');
-      emit(FcmTokenError(e.toString()));
+      emit(FcmTokenError(friendlyErrorMessage(e)));
     }
   }
 
@@ -38,7 +39,7 @@ class FcmTokenCubit extends Cubit<FcmTokenState> {
       emit(FcmTokenFetched(result));
     } catch (e) {
       debugPrint('Fetch FCM token error: $e');
-      emit(FcmTokenError(e.toString()));
+      emit(FcmTokenError(friendlyErrorMessage(e)));
     }
   }
 }

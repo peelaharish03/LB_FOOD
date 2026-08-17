@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/offers/promotions/promotions_model.dart';
 
@@ -26,12 +27,13 @@ class PromotionsRemoteDataSourceImpl implements PromotionsRemoteDataSource {
         }
         return PromotionsModel.fromJson(data);
       } else {
-        throw Exception(
-          'Failed to load Promotions data: ${response.statusCode}',
-        );
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load Promotions data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

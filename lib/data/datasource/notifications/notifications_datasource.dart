@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/notifications/clear_notifications_model.dart';
 import 'package:local_basket/data/model/notifications/notifications_model.dart';
@@ -30,11 +31,13 @@ class GetNotificationsRemoteDataSourceImpl
         print('responce of GetNotifications:: $response');
         return GetNotificationsModel.fromJson(response.data);
       } else {
-        throw Exception(
-            'Failed to load GetNotifications data: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load GetNotifications data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 
@@ -49,11 +52,13 @@ class GetNotificationsRemoteDataSourceImpl
         print('responce of ClearNotifications:: $response');
         return ClearNotificationsModel.fromJson(response.data);
       } else {
-        throw Exception(
-            'Failed to load ClearNotifications data: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load ClearNotifications data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

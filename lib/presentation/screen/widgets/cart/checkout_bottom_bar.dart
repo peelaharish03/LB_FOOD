@@ -3,20 +3,25 @@ import 'package:flutter/material.dart';
 
 class CheckoutBottomBar extends StatelessWidget {
   final double subtotal;
-  final double platformFee;
   final double deliveryCharge;
   final double total;
   final bool loading;
+
+  /// When true, a coupon/promo code is applied and only Cash on Delivery is
+  /// offered for this order; otherwise only Pay Online (Razorpay) is offered.
+  final bool codAvailable;
   final VoidCallback onPlaceOrder;
+  final VoidCallback onCodOrder;
 
   const CheckoutBottomBar({
     super.key,
     required this.subtotal,
-    required this.platformFee,
     required this.deliveryCharge,
     required this.total,
     required this.loading,
     required this.onPlaceOrder,
+    required this.onCodOrder,
+    this.codAvailable = false,
   });
 
   Widget buildPriceRow(String label, double value, {bool isTotal = false}) {
@@ -83,7 +88,6 @@ class CheckoutBottomBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   buildPriceRow("Subtotal", subtotal),
-                  buildPriceRow("Platform Fee", platformFee),
                   buildPriceRow("Delivery Charge", deliveryCharge),
                   const Divider(height: 24, thickness: 1),
                   buildPriceRow("Total", total, isTotal: true),
@@ -96,11 +100,17 @@ class CheckoutBottomBar extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: local_basket_button.CustomButton(
-                buttonText: "Place Order",
-                onPressed: onPlaceOrder,
-                isLoading: loading,
-              ),
+              child: codAvailable
+                  ? local_basket_button.CustomButton(
+                      buttonText: "Confirm Order (Cash on Delivery)",
+                      onPressed: onCodOrder,
+                      isLoading: loading,
+                    )
+                  : local_basket_button.CustomButton(
+                      buttonText: "Place Order",
+                      onPressed: onPlaceOrder,
+                      isLoading: loading,
+                    ),
             ),
           ],
         ),

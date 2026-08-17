@@ -14,7 +14,6 @@ import 'package:local_basket/presentation/cubit/authentication/currentcustomer/u
 import 'package:local_basket/presentation/cubit/authentication/deleteAccount/deleteAccount_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/roles/rolesPost_cubit.dart';
-import 'package:local_basket/presentation/cubit/authentication/signUp/signup_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/signin/sigin_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit.dart';
@@ -30,6 +29,7 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validat
 import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
@@ -106,7 +106,6 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => di.sl<TriggerOtpCubit>()),
         BlocProvider(create: (_) => di.sl<SignInCubit>()),
-        BlocProvider(create: (_) => di.sl<SignUpCubit>()),
         BlocProvider(create: (_) => di.sl<CurrentCustomerCubit>()),
         BlocProvider(create: (_) => di.sl<NetworkCubit>()),
         BlocProvider(create: (_) => di.sl<LocationCubit>()),
@@ -137,6 +136,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<RatingReviewCubit>()),
         BlocProvider(create: (_) => di.sl<CreateComplaintCubit>()),
         BlocProvider(create: (_) => di.sl<CheckoutCubit>()),
+        BlocProvider(create: (_) => di.sl<EligiblePromotionsCubit>()),
         BlocProvider(create: (_) => di.sl<NotificationsCubit>()),
         BlocProvider(create: (_) => di.sl<FcmTokenCubit>()),
       ],

@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/deleteAddress/deleteAddress_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_state.dart';
@@ -27,7 +28,7 @@ class DeleteAddressCubit extends Cubit<DeleteAddressState> {
         final result = await usecase.execute(addressId);
         emit(DeleteAddressSuccess(result));
       } catch (e) {
-        emit(DeleteAddressFailure(e.toString()));
+        emit(DeleteAddressFailure(friendlyErrorMessage(e)));
       }
     }
   }

@@ -2,10 +2,23 @@ import 'dart:developer';
 
 import 'package:dio/dio.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/data/model/payment/checkout_model.dart';
 
 abstract class CheckoutRemoteDataSource {
+  /// Step 1 of the online-payment flow: moves the cart into checkout.
   Future<CheckoutModel> checkout(Map<String, dynamic> payload);
+
+  /// Step 2 of the online-payment flow: returns the Razorpay order/key to
+  /// open the payment sheet with.
+  Future<CheckoutModel> initiateCheckout(Map<String, dynamic> payload);
+
+  /// Cash-on-delivery checkout: creates the order directly, no payment
+  /// gateway involved.
+  Future<CheckoutModel> checkoutCod(Map<String, dynamic> payload);
+
+  /// Reports the outcome of a Razorpay payment attempt back to the backend.
+  Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload);
 }
 
 class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
@@ -14,11 +27,13 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
 
   CheckoutRemoteDataSourceImpl({required this.client});
 
-  @override
-  Future<CheckoutModel> checkout(Map<String, dynamic> payload) async {
-    final url = '$baseUrl$checkoutUrl';
+  Future<CheckoutModel> _post(
+    String tag,
+    String url,
+    Map<String, dynamic> payload,
+  ) async {
     try {
-      log('[CheckoutRemoteDataSource] POST $url payload=$payload');
+      log('[CheckoutRemoteDataSource:$tag] POST $url payload=$payload');
       final response = await client.post(
         url,
         data: payload,
@@ -29,31 +44,56 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         ),
       );
       log(
-        '[CheckoutRemoteDataSource] response status=${response.statusCode} '
+        '[CheckoutRemoteDataSource:$tag] response status=${response.statusCode} '
         'data=${response.data}',
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return CheckoutModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to load Checkout data: ${response.statusCode}');
+        throw UnknownBackendException(
+          "Unable to complete checkout right now. Please try again after some time.",
+        );
       }
     } on DioException catch (e) {
-      log('[CheckoutRemoteDataSource] error=$e');
+      log('[CheckoutRemoteDataSource:$tag] error=$e');
       if (e.type == DioExceptionType.receiveTimeout) {
-        throw Exception(
-          'Checkout server took too long to create Razorpay order. Please try again.',
+        throw RequestTimeoutException(
+          'Checkout server took too long to respond. Please try again.',
         );
       }
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.sendTimeout) {
-        throw Exception(
+        throw RequestTimeoutException(
           'Checkout request timed out. Please check your internet and try again.',
         );
       }
-      throw Exception('Failed to load Checkout data: ${e.message}');
+      throw handleDioError(e);
     } catch (e) {
-      log('[CheckoutRemoteDataSource] error=$e');
-      throw Exception('Failed to load Checkout data: ${e.toString()}');
+      log('[CheckoutRemoteDataSource:$tag] error=$e');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException(
+        "Unable to complete checkout right now. Please try again after some time.",
+      );
     }
+  }
+
+  @override
+  Future<CheckoutModel> checkout(Map<String, dynamic> payload) {
+    return _post('checkout', '$baseUrl$checkoutUrl', payload);
+  }
+
+  @override
+  Future<CheckoutModel> initiateCheckout(Map<String, dynamic> payload) {
+    return _post('initiate', '$baseUrl$checkoutInitiateUrl', payload);
+  }
+
+  @override
+  Future<CheckoutModel> checkoutCod(Map<String, dynamic> payload) {
+    return _post('cod', '$baseUrl$checkoutCodUrl', payload);
+  }
+
+  @override
+  Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload) {
+    return _post('verify-payment', '$baseUrl$checkoutVerifyPaymentUrl', payload);
   }
 }

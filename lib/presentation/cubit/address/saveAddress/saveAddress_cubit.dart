@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/saveAddress/saveAddress_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_state.dart';
@@ -29,7 +30,7 @@ class SaveAddressCubit extends Cubit<SaveAddressState> {
         emit(SaveAddressSuccess(result));
       } catch (e) {
         print(e);
-        emit(SaveAddressFailure(e.toString()));
+        emit(SaveAddressFailure(friendlyErrorMessage(e)));
       }
     }
   }

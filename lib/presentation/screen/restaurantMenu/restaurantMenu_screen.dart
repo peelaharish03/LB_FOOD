@@ -1325,7 +1325,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             ],
           );
         } else if (state is GetMenuByRestaurantIdError) {
-          return const Center(child: Text("Error loading menu"));
+          return Center(
+            child: Text(
+              state.message.isEmpty ? "Error loading menu" : state.message,
+              textAlign: TextAlign.center,
+            ),
+          );
         }
         if (menuItems.isNotEmpty) {
           return Column(

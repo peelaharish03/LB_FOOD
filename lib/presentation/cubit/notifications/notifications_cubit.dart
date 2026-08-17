@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/domain/usecase/notifications/notifications_usecase.dart';
 import 'notifications_state.dart';
 
@@ -19,7 +20,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       final response = await getNotificationsUseCase();
       emit(NotificationsLoaded(response));
     } catch (e) {
-      emit(NotificationsError(e.toString()));
+      emit(NotificationsError(friendlyErrorMessage(e)));
     }
   }
 
@@ -31,7 +32,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
       final result = await clearNotificationsUseCase();
       emit(ClearNotificationsSuccess(result));
     } catch (e) {
-      emit(ClearNotificationsError(e.toString()));
+      emit(ClearNotificationsError(friendlyErrorMessage(e)));
     }
   }
 }

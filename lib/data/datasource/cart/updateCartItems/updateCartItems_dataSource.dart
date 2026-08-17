@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/cart/updateCartItems/updateCartItems_model.dart';
 
@@ -39,13 +40,13 @@ class UpdateCartItemsRemoteDataSourceImpl
       if (response.statusCode == 200 || response.statusCode == 201) {
         return UpdateCartItemsModel.fromJson(response.data);
       } else {
-        throw Exception(
-          'Failed to UpdateCartItems. Status code: ${response.statusCode}',
-        );
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print('UpdateCartItems Error: $e');
-      throw Exception('UpdateCartItems failed: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

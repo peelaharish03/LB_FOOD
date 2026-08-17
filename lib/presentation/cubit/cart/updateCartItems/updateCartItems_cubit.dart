@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_state.dart';
@@ -37,7 +38,7 @@ class UpdateCartItemsCubit extends Cubit<UpdateCartItemsState> {
         final result = await updateCartItemsUseCase(payload, cartId, itemId);
         emit(UpdateCartItemsSuccess(result));
       } catch (e) {
-        emit(UpdateCartItemsFailure(e.toString()));
+        emit(UpdateCartItemsFailure(friendlyErrorMessage(e)));
       }
     }
   }

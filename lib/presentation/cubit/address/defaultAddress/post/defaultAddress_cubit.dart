@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/defaultAddress/post/defaultAddress_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_state.dart';
@@ -28,7 +29,7 @@ class DefaultAddressCubit extends Cubit<DefaultAddressState> {
         final result = await useCase(addressId);
         emit(DefaultAddressSuccess(defaultAddressModel: result));
       } catch (e) {
-        emit(DefaultAddressFailure(error: e.toString()));
+        emit(DefaultAddressFailure(error: friendlyErrorMessage(e)));
       }
     }
   }

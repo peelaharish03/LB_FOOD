@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/city/getCities_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/city/getCities_state.dart';
@@ -28,7 +29,7 @@ class GetCitiesCubit extends Cubit<GetCitiesState> {
         emit(GetCitiesSuccess(result, stateCode));
       } catch (e) {
         print(e);
-        emit(GetCitiesFailure(e.toString()));
+        emit(GetCitiesFailure(friendlyErrorMessage(e)));
       }
     }
   }

@@ -1,19 +1,34 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../constants/api_constants.dart';
-
-// NOTE: SharedPreferences import removed.
-// TOKEN and REFRESH_TOKEN are now read/written via FlutterSecureStorage.
-// ACTION REQUIRED: Wherever you write 'TOKEN' or 'REFRESH_TOKEN' during login/signup
-// (e.g. in your signin_remote_data_source or sigin_cubit), replace
-// prefs.setString('TOKEN', value) with:
-//   final storage = FlutterSecureStorage();
-//   await storage.write(key: 'TOKEN', value: value);
-// Do the same for REFRESH_TOKEN, and update SplashScreen's token read too.
+import '../constants/app_navigator.dart';
+import '../../presentation/screen/authentication/login_screen.dart';
 
 enum Method { post, get, put, delete, patch }
+
+/// Some gateway/backend responses come back with a JSON content-type but a
+/// body that isn't valid JSON (e.g. a plain-text error page or an empty
+/// success body). Left alone, `jsonDecode` throws a FormatException that
+/// Dio surfaces as `DioExceptionType.unknown` with no attached response —
+/// which then gets misreported to the user as "No internet connection"
+/// even though the request actually reached the server. Decoding it this
+/// way keeps the request from crashing outright so `response.statusCode`
+/// stays available to the caller.
+dynamic _safeJsonDecode(String text) {
+  try {
+    return jsonDecode(text);
+  } on FormatException catch (e) {
+    log(
+      'Non-JSON response body (${text.length} chars): '
+      '${text.length > 300 ? text.substring(0, 300) : text}\n$e',
+    );
+    return <String, dynamic>{'_rawResponse': text};
+  }
+}
 
 class DioClient {
   final Dio dio;
@@ -27,7 +42,9 @@ class DioClient {
       ..options.headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-      };
+      }
+      ..transformer = (BackgroundTransformer()
+        ..jsonDecodeCallback = _safeJsonDecode);
 
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -98,7 +115,6 @@ class DioClient {
                 final newToken = refreshResponse.data['accessToken'];
                 final newRefreshToken = refreshResponse.data['refreshToken'];
 
-                // FIX: Write refreshed tokens to secure storage
                 await secureStorage.write(key: 'TOKEN', value: newToken);
                 await secureStorage.write(
                   key: 'REFRESH_TOKEN',
@@ -112,11 +128,12 @@ class DioClient {
                 return handler.resolve(response);
               } catch (e) {
                 log('Token refresh failed: $e');
-                // FIX: Clear tokens from secure storage on refresh failure
-                await secureStorage.delete(key: 'TOKEN');
-                await secureStorage.delete(key: 'REFRESH_TOKEN');
+                await _signOutAndReturnToLogin();
                 return handler.reject(error);
               }
+            } else {
+              // No refresh token on hand either — the session is simply gone.
+              await _signOutAndReturnToLogin();
             }
           }
 
@@ -124,6 +141,27 @@ class DioClient {
         },
       ),
     );
+  }
+
+  bool _redirectingToLogin = false;
+
+  /// Clears the stored session and drops the user back at the login
+  /// screen, so an expired/invalid session shows a fresh login screen
+  /// instead of leaving the user stuck on a broken authenticated screen.
+  Future<void> _signOutAndReturnToLogin() async {
+    await secureStorage.delete(key: 'TOKEN');
+    await secureStorage.delete(key: 'REFRESH_TOKEN');
+
+    if (_redirectingToLogin) return;
+    final navigator = AppNavigator.key.currentState;
+    if (navigator == null) return;
+
+    _redirectingToLogin = true;
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+    _redirectingToLogin = false;
   }
 
   Future<Response> request(

@@ -34,7 +34,8 @@ class CurrentCustomerRemoteDataSourceImpl
     } on DioException catch (e) {
       throw handleDioError(e);
     } catch (e) {
-      throw UnknownBackendException('Unexpected error: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

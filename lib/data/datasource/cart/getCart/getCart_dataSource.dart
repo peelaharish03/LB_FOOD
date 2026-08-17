@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 
@@ -17,18 +18,20 @@ class GetCartRemoteDataSourceImpl
   Future<GetCartModel> getCart() async {
     try {
       final response = await client.request(
-        '$baseUrl$getCartUrl',
+        '$baseUrl${getCartUrl()}',
         options: Options(method: 'GET'),
       );
       if (response.statusCode == 200) {
         print('responce of GetCart:: $response');
         return GetCartModel.fromJson(response.data);
       } else {
-        throw Exception(
-            'Failed to load GetCart data: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load GetCart data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

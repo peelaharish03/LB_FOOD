@@ -348,7 +348,10 @@ class _AddressScreenState extends State<AddressScreen>
                     CustomSnackbars.showErrorSnack(
                       context: scaffoldContext,
                       title: "Failed",
-                      message: "Failed to Save Address",
+                      message:
+                          state.message.isEmpty
+                              ? "Failed to Save Address"
+                              : state.message,
                     );
                   }
                 },
@@ -366,7 +369,10 @@ class _AddressScreenState extends State<AddressScreen>
                     CustomSnackbars.showErrorSnack(
                       context: scaffoldContext,
                       title: "Failed",
-                      message: "Failed to Delete Address",
+                      message:
+                          state.error.isEmpty
+                              ? "Failed to Delete Address"
+                              : state.error,
                     );
                   }
                 },
@@ -382,7 +388,10 @@ class _AddressScreenState extends State<AddressScreen>
                     CustomSnackbars.showErrorSnack(
                       context: scaffoldContext,
                       title: "Failed",
-                      message: "Failed to load states",
+                      message:
+                          state.error.isEmpty
+                              ? "Failed to load states"
+                              : state.error,
                     );
                   }
                 },
@@ -398,7 +407,10 @@ class _AddressScreenState extends State<AddressScreen>
                     CustomSnackbars.showErrorSnack(
                       context: scaffoldContext,
                       title: "Failed",
-                      message: "Failed to load cities",
+                      message:
+                          state.error.isEmpty
+                              ? "Failed to load cities"
+                              : state.error,
                     );
                   }
                 },

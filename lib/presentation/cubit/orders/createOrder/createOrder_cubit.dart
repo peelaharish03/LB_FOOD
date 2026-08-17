@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/orders/createOrder/createOrder_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
@@ -66,7 +67,7 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
       }
 
       print('CreateOrder error: $e');
-      emit(CreateOrderError(e.toString()));
+      emit(CreateOrderError(friendlyErrorMessage(e)));
     }
   }
 }

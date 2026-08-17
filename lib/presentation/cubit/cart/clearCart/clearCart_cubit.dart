@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/cart/clearCart/clearCart_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_state.dart';
@@ -40,7 +41,7 @@ class ClearCartCubit extends Cubit<ClearCartState> {
         await prefs.remove('cart_id');
         emit(ClearCartSuccess(result));
       } catch (e) {
-        emit(ClearCartFailure(e.toString()));
+        emit(ClearCartFailure(friendlyErrorMessage(e)));
       }
     }
   }

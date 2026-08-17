@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:flutter/material.dart';
@@ -15,11 +16,8 @@ class SignInCubit extends Cubit<SignInState> {
 
   Future<void> signIn(BuildContext context, String mobileNumber, String otp, String deviceId,
       String fullName) async {
-    print(
-        'trigger otp 1 mobileNumber: $mobileNumber -- OTP: $otp -- fullName: $fullName -- deviceId: $deviceId');
     bool isConnected = await networkService.hasInternetConnection();
     if (!isConnected) {
-      print("No Internet Connection");
       CustomSnackbars.showErrorSnack(
         context: context,
         title: 'Alert',
@@ -48,7 +46,6 @@ class SignInCubit extends Cubit<SignInState> {
       try {
         emit(SignInLoading());
         final signEntity = await useCase(mobileNumber, otp, fullName, 'device-uuid-123');
-        print('signEntity: $signEntity');
 
         if (signEntity.accessToken != null && signEntity.accessToken!.isNotEmpty) {
           final storage = FlutterSecureStorage();
@@ -72,9 +69,16 @@ class SignInCubit extends Cubit<SignInState> {
         }
 
         emit(SignInLoaded(signEntity));
+      } on AppException catch (e) {
+        debugPrint('Sign in error: $e');
+        final message =
+            e is BadRequestException || e is NotFoundException || e is NetworkException || e is RequestTimeoutException
+                ? e.message
+                : 'Unable to verify OTP at this moment. Please try again after some time.';
+        emit(SignInError(message));
       } catch (e) {
-        print('Sign in error: $e');
-        emit(SignInError('Failed to validate OTP: ${e.toString()}'));
+        debugPrint('Sign in error: $e');
+        emit(SignInError('Unable to verify OTP at this moment. Please try again after some time.'));
       }
     }
   }

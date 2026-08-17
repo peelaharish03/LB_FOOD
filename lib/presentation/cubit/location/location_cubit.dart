@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
 import 'package:local_basket/presentation/cubit/location/location_state.dart';
@@ -41,7 +42,7 @@ class LocationCubit extends Cubit<LocationState> {
         }
         emit(LocationLoaded(model: result, latLangModel: responce));
       } catch (e) {
-        emit(LocationFailure(message: e.toString()));
+        emit(LocationFailure(message: friendlyErrorMessage(e)));
       }
     }
   }
