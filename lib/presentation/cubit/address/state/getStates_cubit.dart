@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/state/getStates_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/state/getStates_state.dart';
@@ -28,7 +29,7 @@ class GetStatesCubit extends Cubit<GetStatesState> {
         emit(GetStatesSuccess(result));
       } catch (e) {
         print(e);
-        emit(GetStatesFailure(e.toString()));
+        emit(GetStatesFailure(friendlyErrorMessage(e)));
       }
     }
   }

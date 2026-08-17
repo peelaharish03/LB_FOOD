@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/cart/createCart/createCart_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/createCart/createCart_state.dart';
@@ -30,7 +31,7 @@ class CreateCartCubit extends Cubit<CreateCartState> {
       } catch (e) {
         print("crete cart failed>>>>>>>>>>>>$e");
 
-        emit(CreateCartError(e.toString()));
+        emit(CreateCartError(friendlyErrorMessage(e)));
       }
     }
   }

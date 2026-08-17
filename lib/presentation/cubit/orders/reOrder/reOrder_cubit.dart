@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
@@ -27,7 +28,7 @@ class ReOrderCubit extends Cubit<ReOrderState> {
         final result = await usecase(payload);
         emit(ReOrderSuccess(reOrderModel: result));
       } catch (e) {
-        emit(ReOrderFailure(message: e.toString()));
+        emit(ReOrderFailure(message: friendlyErrorMessage(e)));
       }
     }
   }

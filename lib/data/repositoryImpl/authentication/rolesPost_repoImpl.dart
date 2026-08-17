@@ -1,3 +1,4 @@
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/data/datasource/authentication/rolesPost_dataSource.dart';
 import 'package:local_basket/data/model/authentication/rolesPost_model.dart';
 import 'package:local_basket/domain/repository/authentication/rolesPost_repository.dart';
@@ -18,7 +19,8 @@ class RolePostRepoImpl implements RolePostRepository {
         role: model.role,
       );
     } catch (e) {
-      throw Exception('Failed to fetch payment approval: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

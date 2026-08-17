@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/address/getAddress/getAddress_model.dart';
 
@@ -24,12 +25,13 @@ class GetAddressRemoteDataSourceImpl
         print('responce of GetAddress:: $response');
         return GetAddressModel.fromJson(response.data);
       } else {
-        throw Exception(
-            'Failed to load GetAddress data: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print(e);
-      throw Exception('Failed to load GetAddress data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

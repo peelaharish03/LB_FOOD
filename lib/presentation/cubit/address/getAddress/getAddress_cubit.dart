@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/getAddress/getAddress_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_state.dart';
@@ -28,7 +29,7 @@ class GetAddressCubit extends Cubit<GetAddressState> {
         final result = await getAddressUseCase();
         emit(GetAddressSuccess(result));
       } catch (e) {
-        emit(GetAddressFailure(e.toString()));
+        emit(GetAddressFailure(friendlyErrorMessage(e)));
       }
     }
   }

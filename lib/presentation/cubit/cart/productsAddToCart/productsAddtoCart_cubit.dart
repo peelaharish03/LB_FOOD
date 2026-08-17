@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/cart/productsAddToCart/productsAddtoCart_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
@@ -55,7 +56,7 @@ class ProductsAddToCartCubit extends Cubit<ProductsAddToCartState> {
 
           return;
         }
-        emit(ProductsAddToCartFailure(e.toString()));
+        emit(ProductsAddToCartFailure(friendlyErrorMessage(e)));
       }
     }
   }

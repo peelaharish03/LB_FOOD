@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/constants/global_exception_handler.dart';
 import '../../model/authentication/trigger_otp_model.dart';
 
 abstract class TriggerOtpRemoteDataSource {
@@ -15,7 +16,6 @@ class TriggerOtpRemoteDataSourceImpl implements TriggerOtpRemoteDataSource {
   @override
   Future<TriggerOtpModel> fetchOtp(String mobileNumber) async {
     final payload = {"otpType": "SIGNIN", "primaryContact": mobileNumber};
-    print('payload: $payload');
     try {
       final response = await client.request(
         '$baseUrl2$TriggerOtp',
@@ -26,11 +26,17 @@ class TriggerOtpRemoteDataSourceImpl implements TriggerOtpRemoteDataSource {
       if (response.statusCode == 200) {
         return TriggerOtpModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to load OTP data: ${response.statusCode}');
+        final code = response.data is Map ? response.data['code'] : null;
+        final message = response.data is Map
+            ? (response.data['message'] ?? 'Unable to send OTP right now.')
+            : 'Unable to send OTP right now.';
+        throw mapErrorCodeToException(code ?? response.statusCode ?? -1, message);
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print('error is otp data source::$e');
-      throw Exception('Failed to load OTP data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to send OTP right now. Please try again after some time.");
     }
   }
 }

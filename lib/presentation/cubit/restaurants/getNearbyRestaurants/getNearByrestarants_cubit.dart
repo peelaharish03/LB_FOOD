@@ -1,5 +1,6 @@
 
 import 'package:local_basket/core/data/repository_cache.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 import 'package:local_basket/domain/usecase/restaurants/getNearbyRestaurants/getNearByrestarants_usecase.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
@@ -52,7 +53,7 @@ class GetNearbyRestaurantsCubit extends Cubit<GetNearbyRestaurantsState> {
       emit(GetNearbyRestaurantsLoaded(result));
     } catch (e) {
       print('❌ Error fetching restaurants: $e');
-      emit(GetNearbyRestaurantsError(e.toString()));
+      emit(GetNearbyRestaurantsError(friendlyErrorMessage(e)));
     }
   }
 

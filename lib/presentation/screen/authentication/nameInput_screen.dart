@@ -82,7 +82,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
           CustomSnackbars.showErrorSnack(
             context: context,
             title: "Failed",
-            message: "Something went wrong",
+            message: state.error!,
           );
         } else if (state.data != null && !_hasNavigated) {
           _hasNavigated = true;

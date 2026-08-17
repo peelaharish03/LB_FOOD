@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_basket/core/constants/img_const.dart';
 import 'package:local_basket/components/custom_button.dart';
+import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/login/trigger_otp_state.dart';
 import 'package:local_basket/presentation/screen/profile/terms&conditions_screen.dart';
@@ -254,7 +255,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Column(
                       children: [
-                        BlocBuilder<TriggerOtpCubit, TriggerOtpState>(
+                        BlocConsumer<TriggerOtpCubit, TriggerOtpState>(
+                          listener: (context, state) {
+                            if (state is TriggerOtpError) {
+                              CustomSnackbars.showErrorSnack(
+                                context: context,
+                                title: 'Failed',
+                                message: state.message,
+                              );
+                            }
+                          },
                           builder: (context, state) {
                             return CustomButton(
                               buttonText: "Get OTP",

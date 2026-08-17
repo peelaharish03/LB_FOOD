@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 
@@ -44,14 +45,13 @@ class GetNearByRestaurantsRemoteDataSourceImpl
         print('data:  ${response.data}');
         return GetNearByStoresModel.fromJson(response.data);
       } else {
-        throw Exception(
-          'Failed to load getNearByRestaurants data: ${response.statusCode}',
-        );
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception(
-        'Failed to load getNearByRestaurants data: ${e.toString()}',
-      );
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

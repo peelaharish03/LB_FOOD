@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/orders/orderHistory/orderHistory_model.dart';
 
@@ -36,13 +37,13 @@ class OrderHistoryRemoteDataSourceImpl implements OrderHistoryRemoteDataSource {
         );
         return OrderHistoryModel.fromJson(response.data);
       } else {
-        throw Exception(
-          'Failed to load OrderHistory data: ${response.statusCode}',
-        );
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      log('[OrderHistoryRemoteDataSource] error=$e');
-      throw Exception('Failed to load OrderHistory data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

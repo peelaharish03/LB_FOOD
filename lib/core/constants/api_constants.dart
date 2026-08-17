@@ -4,7 +4,6 @@ const baseUrl2 =
 
 const TriggerOtp = '/auth/otp/send';
 const SigninUrl = '/auth/otp/login';
-const SignupUrl = '/auth/jtuserotp/trigger/sign-up?triggerOtp=true';
 const userDetails = '/api/users/me';
 const fcmTokenUrl = '/api/users/me/fcm-token';
 const updateCurrentCustomerUrl = '/usermgmt/user/userDetails';
@@ -38,6 +37,7 @@ String getNotificationsUrl(int pageNo, int pageSize) {
 
 const clearAllNotificationsUrl = '/order/usernotification/clear-all';
 
+//local basket b2bId default//
 // pools
 const defaultB2bUnitId = 'b1731bad-7883-4ad8-9d09-abc1c34d7057';
 String getPoolsUrl(String b2bUnitId) {
@@ -72,12 +72,14 @@ String orderHistoryUrl(int page, int size, String searchQuery) {
   final query = searchQuery.trim();
   final encodedQuery = Uri.encodeQueryComponent(query);
   final searchParam = query.isEmpty ? '' : '&query=$encodedQuery';
-  return '/api/orders/me?page=$page&size=$size&sort=createdDate%2Cdesc';
+  return '/api/orders/me?page=$page&size=$size&sort=createdDate%2Cdesc$searchParam';
 }
 
 // const createCartUrl = 'order/api/carts/create';
 const createCartUrl = '/api/carts';
-const getCartUrl = '/api/carts';
+String getCartUrl() {
+  return '/api/carts?b2bUnitId=$defaultB2bUnitId';
+}
 String clearCartByIdUrl(String cartId) {
   return '/api/carts/$cartId';
 }
@@ -104,9 +106,14 @@ String validateOfferUrl(String offerId) {
   return '/order/offers/$offerId/validate';
 }
 
+const eligiblePromotionsUrl = '/api/promotions/eligible';
+
 const ratingReviewUrl = '/product/internal/reviews';
 const createComplaintUrl = '/order/api/orders/complaints';
-const checkoutUrl = '/api/orders/checkout';
+const checkoutUrl = '/api/carts/checkout';
+const checkoutInitiateUrl = '/api/carts/checkout/initiate';
+const checkoutCodUrl = '/api/carts/checkout/cod';
+const checkoutVerifyPaymentUrl = '/api/carts/checkout/verify-payment';
 
 String updateCartItemsUrl(String cartId, String itemId) {
   return '/api/carts/$cartId/items/$itemId';

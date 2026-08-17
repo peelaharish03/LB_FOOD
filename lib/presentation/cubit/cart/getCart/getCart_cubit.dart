@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/cart/getCart/getCart_usecase.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
@@ -34,7 +35,7 @@ class GetCartCubit extends Cubit<GetCartState> {
         print("cart id is ${cart.id}");
         emit(GetCartLoaded(cart));
       } catch (e) {
-        emit(GetCartError(e.toString()));
+        emit(GetCartError(friendlyErrorMessage(e)));
       }
     }
   }

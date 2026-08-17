@@ -57,6 +57,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, state) {
         if (state is CurrentCustomerLoaded) {
           final customer = state.currentCustomerModel;
+          final fullName =
+              [
+                customer.firstName?.trim() ?? '',
+                customer.lastName?.trim() ?? '',
+              ].where((e) => e.isNotEmpty).join(' ');
+          final hasName = fullName.isNotEmpty;
           return Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -87,17 +93,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        customer.username ?? 'No Name',
+                        hasName
+                            ? fullName
+                            : (customer.mobile ?? 'No Phone Number'),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        customer.mobile ?? 'No Phone Number',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
+                      if (hasName) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          customer.mobile ?? 'No Phone Number',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -326,7 +339,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         CustomSnackbars.showErrorSnack(
                           context: context,
                           title: "Error",
-                          message: "Failed to delete account",
+                          message:
+                              state.message.isEmpty
+                                  ? "Failed to delete account"
+                                  : state.message,
                         );
                       }
                     },

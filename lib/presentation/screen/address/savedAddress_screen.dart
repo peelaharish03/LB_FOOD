@@ -101,8 +101,9 @@ class SavedAddressesView extends StatelessWidget {
           Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
           const SizedBox(height: 16),
           Text(
-            "Failed to load addresses",
+            state.error.isEmpty ? "Failed to load addresses" : state.error,
             style: TextStyle(fontSize: 16, color: Colors.red.shade700),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           ElevatedButton(

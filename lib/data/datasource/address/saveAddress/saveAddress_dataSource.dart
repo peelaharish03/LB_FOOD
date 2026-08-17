@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/address/saveAddress/saveAddress_model.dart';
 
@@ -24,12 +25,13 @@ print('$baseUrl$saveAddressUrl');
       if (response.statusCode == 200 || response.statusCode == 201) {
         return SaveAddressModel.fromJson(response.data);
       } else {
-        throw Exception(
-            'Failed to save address. Status code: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print('SaveAddress Error: $e');
-      throw Exception('SaveAddress failed: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

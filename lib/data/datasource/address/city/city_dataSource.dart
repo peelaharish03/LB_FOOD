@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/address/state/state_model.dart';
 
@@ -31,13 +32,12 @@ class GetCitiesRemoteDataSourceImpl implements GetCitiesRemoteDataSource {
         print('GetCities Response: ${response.data}');
 
         if (response.statusCode != 200) {
-          throw Exception(
-              'Failed to load cities. Status code: ${response.statusCode}');
+          throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
         }
 
         final data = response.data;
         if (data is! Map || data['content'] is! List) {
-          throw Exception('Unexpected cities response format');
+          throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
         }
 
         final content = data['content'] as List;
@@ -60,9 +60,11 @@ class GetCitiesRemoteDataSourceImpl implements GetCitiesRemoteDataSource {
                 city.stateCode!.toLowerCase() == stateCode.toLowerCase(),
           )
           .toList();
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print('GetCities Error: $e');
-      throw Exception('GetCities failed: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

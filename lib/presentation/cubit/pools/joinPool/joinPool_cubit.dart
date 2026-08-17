@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/domain/usecase/pools/joinPool/joinPool_usecase.dart';
 import 'joinPool_state.dart';
 
@@ -14,7 +15,7 @@ class JoinPoolCubit extends Cubit<JoinPoolState> {
       final response = await joinPoolUseCase(poolId);
       emit(JoinPoolSuccess(poolId, response));
     } catch (e) {
-      emit(JoinPoolFailure(poolId, e.toString()));
+      emit(JoinPoolFailure(poolId, friendlyErrorMessage(e)));
     }
   }
 }

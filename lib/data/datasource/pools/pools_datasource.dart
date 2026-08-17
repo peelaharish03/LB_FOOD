@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/pools/pools_model.dart';
 
@@ -22,10 +23,13 @@ class GetPoolsRemoteDataSourceImpl implements GetPoolsRemoteDataSource {
       if (response.statusCode == 200) {
         return PoolsModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to load Pools data: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load Pools data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

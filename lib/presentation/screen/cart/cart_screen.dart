@@ -1,8 +1,10 @@
-import 'package:flutter/cupertino.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
+import 'package:local_basket/data/model/cart/eligiblePromotions/eligiblePromotions_model.dart';
 import 'package:local_basket/data/model/payment/checkout_model.dart';
+import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_state.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
@@ -10,6 +12,7 @@ import 'package:local_basket/presentation/cubit/payment/checkout/checkout_state.
 import 'package:local_basket/presentation/screen/widgets/cart/address_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/promo_code_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -24,12 +27,12 @@ import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_st
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
-import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
-import 'package:local_basket/presentation/cubit/payment/payment/payment_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
+import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
 // FIX: Import Razorpay keys from api_constants instead of hardcoding them here.
 import 'package:local_basket/core/constants/api_constants.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/utils/address_formatter.dart';
 
 class CartScreen extends StatefulWidget {
@@ -63,7 +66,7 @@ class _CartScreenState extends State<CartScreen> {
   final Map<String, int> cart = {};
   final List<Map<String, dynamic>> selectedItems = [];
   String? cartId;
-  String? _pendingCheckoutOrderId;
+  double? _pendingCheckoutAmount;
   String? _processedRazorpayPaymentId;
   bool loading = false;
   String selectedAddress = "Add Address";
@@ -71,20 +74,53 @@ class _CartScreenState extends State<CartScreen> {
   bool selfOrder = false;
 
   static const double _defaultDeliveryCharge = 30.0;
-  static const double _defaultPlatformFee = 5.0;
 
   double _subtotal = 0.0;
-  double _platformFee = 0.0;
   double _deliveryCharge = 0.0;
   double _grandTotal = 0.0;
-  bool _checkoutLoading = false;
   bool _checkoutInFlight = false;
+
+  // Promo codes (promotions/eligible API) — when the cart has any eligible
+  // promo code, Cash on Delivery becomes available and delivery charges are
+  // waived for the order, same as the legacy single-item coupon flow.
+  List<EligiblePromotion> _eligiblePromotions = [];
+  bool _promotionsLoading = false;
+  bool _promotionsFetched = false;
+  String? _selectedPromoCode;
+  String? _promotionsFetchedForCartId;
+
+  bool get _hasEligiblePromotions => _eligiblePromotions.isNotEmpty;
 
   void _applyFlatCharges() {
     final hasItems = selectedItems.isNotEmpty;
-    _deliveryCharge = hasItems ? _defaultDeliveryCharge : 0;
-    _platformFee = hasItems ? _defaultPlatformFee : 0;
-    _grandTotal = _subtotal + _deliveryCharge + _platformFee;
+    final waiveDelivery = _isCouponApplied || _hasEligiblePromotions;
+    _deliveryCharge = (hasItems && !waiveDelivery) ? _defaultDeliveryCharge : 0;
+    _grandTotal = _subtotal + _deliveryCharge;
+  }
+
+  Future<void> _maybeFetchEligiblePromotions() async {
+    if (selectedItems.isEmpty) {
+      if (_eligiblePromotions.isNotEmpty || _promotionsFetched) {
+        setState(() {
+          _eligiblePromotions = [];
+          _promotionsFetched = false;
+          _selectedPromoCode = null;
+        });
+      }
+      return;
+    }
+
+    final activeCartId = await _ensureCartId();
+    if (!mounted) return;
+    if (!_hasValidCartId(activeCartId)) return;
+    if (_promotionsFetchedForCartId == activeCartId) return;
+    _promotionsFetchedForCartId = activeCartId;
+
+    setState(() => _promotionsLoading = true);
+    await context.read<EligiblePromotionsCubit>().fetchEligiblePromotions({
+      "cartId": activeCartId,
+      "b2bUnitId": defaultB2bUnitId,
+    });
   }
 
   @override
@@ -119,7 +155,6 @@ class _CartScreenState extends State<CartScreen> {
     if (selectedItems.isEmpty) {
       setState(() {
         _subtotal = 0;
-        _platformFee = 0;
         _deliveryCharge = 0;
         _grandTotal = 0;
       });
@@ -139,28 +174,51 @@ class _CartScreenState extends State<CartScreen> {
     // the same payment twice and create two orders.
     final paymentId = response.paymentId;
     if (paymentId != null && paymentId == _processedRazorpayPaymentId) {
-      debugPrint('[Razorpay] duplicate success callback for $paymentId; ignoring');
+      debugPrint(
+        '[Razorpay] duplicate success callback for $paymentId; ignoring',
+      );
       return;
     }
     _processedRazorpayPaymentId = paymentId;
 
     final payload = {
-      "orderId": _pendingCheckoutOrderId,
       "cartId": cartId ?? "",
-      "amount": _grandTotal,
-      "paymentId": response.paymentId,
-      "razorpayOrderId": response.orderId,
-      "razorpaySignature": response.signature,
+      "amount": (_pendingCheckoutAmount ?? _grandTotal).toString(),
+      "paymentId": response.paymentId ?? "",
+      "razorpayOrderId": response.orderId ?? "",
+      "razorpaySignature": response.signature ?? "",
       "status": "SUCCESS",
+      "b2bUnitId": defaultB2bUnitId,
     };
-    print('Payment success payload: $payload');
+    debugPrint('[Razorpay] verify-payment (success) payload: $payload');
     setState(() => loading = true);
-    await context.read<PaymentCubit>().makePayment(
-      context: context,
-      paymentType: 'ONLINE',
-      paymentPayload: payload,
-    );
+    final result = await context.read<CheckoutCubit>().verifyPayment(payload);
+    if (!mounted) return;
     setState(() => loading = false);
+
+    if (result != null) {
+      CustomSnackbars.showSuccessSnack(
+        context: context,
+        title: 'Success',
+        message: 'Payment Successful!',
+      );
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('is_offer_flow');
+        await prefs.remove('offer_id');
+        await prefs.remove('offer_coupon');
+        await prefs.remove('offer_started_at');
+        await prefs.remove('offer_applied');
+      }();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+      });
+    }
   }
 
   void _onPaymentFailure(dynamic response) async {
@@ -172,26 +230,21 @@ class _CartScreenState extends State<CartScreen> {
       message: _formatRazorpayFailure(response),
     );
 
-    final error =
-        response is PaymentFailureResponse ? response.error : null;
+    final error = response is PaymentFailureResponse ? response.error : null;
     final metadata = error?['metadata'];
 
     final payload = {
-      "orderId": _pendingCheckoutOrderId,
       "cartId": cartId ?? "",
-      "amount": _grandTotal,
-      "paymentId": metadata?['payment_id'],
-      "razorpayOrderId": metadata?['order_id'],
-      "status": "FAILED",
-      "failureCode": response is PaymentFailureResponse ? response.code : null,
-      "failureReason": _formatRazorpayFailure(response),
+      "amount": (_pendingCheckoutAmount ?? _grandTotal).toString(),
+      "paymentId": (metadata?['payment_id'] ?? "").toString(),
+      "razorpayOrderId": (metadata?['order_id'] ?? "").toString(),
+      "razorpaySignature": "",
+      "status": "FAILURE",
+      "b2bUnitId": defaultB2bUnitId,
     };
-    print('Payment failure payload: $payload');
+    debugPrint('[Razorpay] verify-payment (failure) payload: $payload');
     setState(() => loading = true);
-    await context.read<PaymentCubit>().makePaymentFailure(
-      context: context,
-      paymentPayload: payload,
-    );
+    await context.read<CheckoutCubit>().verifyPayment(payload);
     if (!mounted) return;
     setState(() => loading = false);
   }
@@ -611,7 +664,7 @@ class _CartScreenState extends State<CartScreen> {
   Future<CheckoutModel?> _submitCartCheckout(String paymentMethod) async {
     final activeCartId = await _ensureCartId();
     if (!mounted) return null;
-
+    print(activeCartId);
     if (!_hasValidCartId(activeCartId)) {
       CustomSnackbars.showErrorSnack(
         context: context,
@@ -626,27 +679,111 @@ class _CartScreenState extends State<CartScreen> {
       "shippingMethod": "STANDARD",
       "paymentMethod": paymentMethod,
       "shippingAddressId": _selectedAddressId ?? "",
+      "b2bUnitId": defaultB2bUnitId,
+      if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
     };
 
     debugPrint(
       '[Checkout] submit: paymentMethod=$paymentMethod, cartId=$activeCartId',
     );
+    // Step 1: move the cart into checkout.
     final checkout = await context.read<CheckoutCubit>().fetchCheckout(payload);
-
-    if (checkout != null) {
-      _pendingCheckoutOrderId = checkout.orderId;
-      debugPrint(
-        '[Checkout] success: orderId=${checkout.orderId}, '
-        'razorpayOrderId=${checkout.razorpayOrderId}, '
-        'totalAmount=${checkout.totalAmount}, '
-        'grandTotal=${checkout.data?.grandTotal}, '
-        'key=${checkout.razorpayKeyId == null ? null : _maskedRazorpayKey(checkout.razorpayKeyId!)}',
-      );
-    } else {
+    if (checkout == null) {
       debugPrint('[Checkout] failed: checkout response is null');
+      return null;
     }
 
-    return checkout;
+    // Step 2: initiate — this is what actually returns the Razorpay
+    // order id/key to pay with.
+    final initiated = await context.read<CheckoutCubit>().initiateCheckout(
+      payload,
+    );
+
+    if (initiated != null) {
+      _pendingCheckoutAmount =
+          initiated.totalAmount?.toDouble() ??
+          initiated.data?.grandTotal?.toDouble() ??
+          checkout.totalAmount?.toDouble() ??
+          _grandTotal;
+      debugPrint(
+        '[Checkout] initiated: orderId=${initiated.orderId}, '
+        'razorpayOrderId=${initiated.razorpayOrderId}, '
+        'totalAmount=${initiated.totalAmount}, '
+        'grandTotal=${initiated.data?.grandTotal}, '
+        'key=${initiated.razorpayKeyId == null ? null : _maskedRazorpayKey(initiated.razorpayKeyId!)}',
+      );
+    } else {
+      debugPrint('[Checkout] initiate failed: response is null');
+    }
+
+    return initiated;
+  }
+
+  /// Cash-on-delivery checkout — creates the order directly with no
+  /// payment gateway step. Only offered while a coupon is applied.
+  Future<void> openCodCheckout() async {
+    if (_checkoutInFlight) return;
+    _checkoutInFlight = true;
+    try {
+      if (selectedAddress == "Add Address") {
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: "Attention",
+          message: "Select delivery address first",
+        );
+        return;
+      }
+
+      final activeCartId = await _ensureCartId();
+      if (!mounted) return;
+      if (!_hasValidCartId(activeCartId)) {
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'ERROR',
+          message: 'Cart id not found',
+        );
+        return;
+      }
+
+      if (mounted) setState(() => loading = true);
+
+      final payload = {
+        "cartId": activeCartId,
+        "shippingMethod": "STANDARD",
+        "shippingAddressId": _selectedAddressId ?? "",
+        "paymentMethod": "COD",
+        "b2bUnitId": defaultB2bUnitId,
+        if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
+      };
+
+      debugPrint('[Checkout] COD submit: cartId=$activeCartId');
+      final result = await context.read<CheckoutCubit>().checkoutCod(payload);
+      if (!mounted) return;
+      setState(() => loading = false);
+
+      if (result != null) {
+        debugPrint(
+          '[Checkout] COD success: orderId=${result.orderId}, '
+          'orderStatus=${result.orderStatus}',
+        );
+        () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('is_offer_flow');
+          await prefs.remove('offer_id');
+          await prefs.remove('offer_coupon');
+          await prefs.remove('offer_started_at');
+          await prefs.remove('offer_applied');
+        }();
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const OrderSuccessScreen()),
+          (route) => false,
+        );
+      }
+    } finally {
+      _checkoutInFlight = false;
+    }
   }
 
   void _stopCheckoutButtonLoading() {
@@ -693,10 +830,7 @@ class _CartScreenState extends State<CartScreen> {
       }
       final validRazorpayOrderId = razorpayOrderId!;
 
-      final razorpayKeyId = _firstNonEmpty(
-        checkout.razorpayKeyId,
-        razorPayKey,
-      );
+      final razorpayKeyId = _firstNonEmpty(checkout.razorpayKeyId, razorPayKey);
       if (razorpayKeyId == null) {
         _stopCheckoutButtonLoading();
         CustomSnackbars.showErrorSnack(
@@ -741,7 +875,11 @@ class _CartScreenState extends State<CartScreen> {
             CustomSnackbars.showErrorSnack(
               context: context,
               title: 'ERROR',
-              message: e.toString(),
+              message: friendlyErrorMessage(
+                e,
+                fallback:
+                    'Unable to open the payment screen. Please try again.',
+              ),
             );
           } finally {
             // Whether it opened or failed to, the button's job is done.
@@ -753,7 +891,10 @@ class _CartScreenState extends State<CartScreen> {
         CustomSnackbars.showErrorSnack(
           context: context,
           title: 'ERROR',
-          message: e.toString(),
+          message: friendlyErrorMessage(
+            e,
+            fallback: 'Unable to open the payment screen. Please try again.',
+          ),
         );
       }
     } finally {
@@ -772,7 +913,7 @@ class _CartScreenState extends State<CartScreen> {
                 CustomSnackbars.showErrorSnack(
                   context: context,
                   title: "Failed",
-                  message: "Something went wrong",
+                  message: state.message,
                 );
               }
               setState(() => loading = false);
@@ -792,6 +933,7 @@ class _CartScreenState extends State<CartScreen> {
                 _syncCartFromGetCart(state.cart);
               });
               _maybeAutoValidateOffer();
+              _maybeFetchEligiblePromotions();
               _refreshCheckout();
 
               final count = getCartItemCount();
@@ -839,17 +981,13 @@ class _CartScreenState extends State<CartScreen> {
         ),
         BlocListener<CheckoutCubit, CheckoutState>(
           listener: (context, state) {
-            if (state is CheckoutLoading) {
-              setState(() => _checkoutLoading = true);
-            } else if (state is CheckoutSuccess) {
+            if (state is CheckoutSuccess) {
               final data = state.model.data;
               setState(() {
                 _subtotal = (data?.itemsTotal ?? 0).toDouble();
                 _applyFlatCharges();
-                _checkoutLoading = false;
               });
             } else if (state is CheckoutFailure) {
-              setState(() => _checkoutLoading = false);
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Error",
@@ -858,6 +996,31 @@ class _CartScreenState extends State<CartScreen> {
                         ? "Failed to load checkout details"
                         : state.error,
               );
+            }
+          },
+        ),
+        BlocListener<EligiblePromotionsCubit, EligiblePromotionsState>(
+          listener: (context, state) {
+            if (state is EligiblePromotionsLoaded) {
+              setState(() {
+                _eligiblePromotions = state.model.promotions;
+                _promotionsLoading = false;
+                _promotionsFetched = true;
+                if (_selectedPromoCode != null &&
+                    !_eligiblePromotions.any(
+                      (p) => p.value == _selectedPromoCode,
+                    )) {
+                  _selectedPromoCode = null;
+                }
+              });
+              _refreshCheckout();
+            } else if (state is EligiblePromotionsFailure) {
+              setState(() {
+                _eligiblePromotions = [];
+                _promotionsLoading = false;
+                _promotionsFetched = true;
+              });
+              _refreshCheckout();
             }
           },
         ),
@@ -921,45 +1084,6 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
-        BlocListener<PaymentCubit, PaymentState>(
-          listener: (context, state) {
-            if (state is PaymentRefundSuccess) {
-              CustomSnackbars.showErrorSnack(
-                context: context,
-                title: 'Failed',
-                message: 'Payment failed. Refund will be initiated if debited.',
-              );
-            } else if (state is PaymentSuccess) {
-              CustomSnackbars.showSuccessSnack(
-                context: context,
-                title: 'Success',
-                message: 'Payment Successful!',
-              );
-              () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('is_offer_flow');
-                await prefs.remove('offer_id');
-                await prefs.remove('offer_coupon');
-                await prefs.remove('offer_started_at');
-                await prefs.remove('offer_applied');
-              }();
-
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                  (route) => false,
-                );
-              });
-            } else if (state is PaymentFailure) {
-              CustomSnackbars.showErrorSnack(
-                context: context,
-                title: 'Failed',
-                message: state.error.isEmpty ? "Payment Failed" : state.error,
-              );
-            }
-          },
-        ),
       ],
       child: WillPopScope(
         onWillPop: () async {
@@ -1011,254 +1135,256 @@ class _CartScreenState extends State<CartScreen> {
               widget.onBottomSheetVisibilityChanged?.call(cart.isNotEmpty);
             },
           ),
-          body: Column(
-            children: [
-              AddressCard(
-                address: selectedAddress,
-                onEdit: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddressScreen()),
-                  );
-
-                  final address = result?['address'] as String?;
-                  final addressId = result?['addressId'] as String?;
-                  if (address != null && address.isNotEmpty) {
-                    await _saveAddress(address, addressId: addressId);
-                    setState(() {
-                      selectedAddress = address;
-                      _selectedAddressId = addressId;
-                    });
-                    _refreshCheckout();
-                  }
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: InkWell(
-                  onTap: () async {
-                    final newNote = await showDialog<String>(
-                      context: context,
-                      builder:
-                          (context) => AlertDialog(
-                            title: const Text("📝 Add Notes"),
-                            content: TextField(
-                              controller: notesController,
-                              decoration: const InputDecoration(
-                                hintText: "e.g. Deliver between 5–6 PM",
-                              ),
-                              maxLines: 3,
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text("Cancel"),
-                              ),
-                              TextButton(
-                                onPressed:
-                                    () => Navigator.pop(
-                                      context,
-                                      notesController.text.trim(),
-                                    ),
-                                child: const Text("OK"),
-                              ),
-                            ],
-                          ),
+          body: AbsorbPointer(
+            // Only ever true while a payment operation (checkout/initiate,
+            // COD, or verify-payment) is in flight, so this doesn't block
+            // interaction outside that window.
+            absorbing: loading,
+            child: Column(
+              children: [
+                AddressCard(
+                  address: selectedAddress,
+                  onEdit: () async {
+                    final result = await Navigator.push<Map<String, dynamic>>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddressScreen()),
                     );
-                    if (newNote != null) {
-                      setState(() => notesController.text = newNote);
+
+                    final address = result?['address'] as String?;
+                    final addressId = result?['addressId'] as String?;
+                    if (address != null && address.isNotEmpty) {
+                      await _saveAddress(address, addressId: addressId);
+                      setState(() {
+                        selectedAddress = address;
+                        _selectedAddressId = addressId;
+                      });
+                      _refreshCheckout();
                     }
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.notes_rounded, color: Colors.orange),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            notesController.text.isEmpty
-                                ? "Add notes"
-                                : notesController.text,
-                            style: TextStyle(
-                              color:
-                                  notesController.text.isEmpty
-                                      ? Colors.grey
-                                      : Colors.black,
-                              fontStyle:
-                                  notesController.text.isEmpty
-                                      ? FontStyle.italic
-                                      : FontStyle.normal,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.edit, size: 18, color: Colors.grey),
-                      ],
-                    ),
-                  ),
                 ),
-              ),
-              Expanded(
-                child:
-                    selectedItems.isEmpty
-                        ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24.0,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  "Your cart is empty",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: InkWell(
+                    onTap: () async {
+                      final newNote = await showDialog<String>(
+                        context: context,
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text("📝 Add Notes"),
+                              content: TextField(
+                                controller: notesController,
+                                decoration: const InputDecoration(
+                                  hintText: "e.g. Deliver between 5–6 PM",
                                 ),
-                                const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    widget.onBottomSheetVisibilityChanged?.call(
-                                      false,
-                                    );
-                                    Navigator.of(context).pop();
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColor.PrimaryColor,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Add items",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                                maxLines: 3,
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.pop(
+                                        context,
+                                        notesController.text.trim(),
+                                      ),
+                                  child: const Text("OK"),
                                 ),
                               ],
                             ),
+                      );
+                      if (newNote != null) {
+                        setState(() => notesController.text = newNote);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        )
-                        : ListView.builder(
-                          itemCount: selectedItems.length + 1,
-                          itemBuilder: (ctx, i) {
-                            if (i < selectedItems.length) {
-                              final item = selectedItems[i];
-                              final currentQuantity = cart[item['name']] ?? 1;
-                              return CartItemCard(
-                                item: item,
-                                quantity: currentQuantity,
-                                enableIncrement:
-                                    widget.orderId == null && !_isCouponApplied,
-                                onQuantityChanged: (q) async {
-                                  final name = item['name'];
-                                  if (name == null) return;
-
-                                  if (q == currentQuantity) return;
-
-                                  if (q <= 0) {
-                                    setState(() {
-                                      cart.remove(name);
-                                      selectedItems.removeAt(i);
-                                    });
-                                  } else {
-                                    setState(() {
-                                      cart[name] = q;
-                                    });
-                                  }
-
-                                  final activeCartId = await _ensureCartId();
-                                  if (!_hasValidCartId(activeCartId)) return;
-
-                                  if (currentQuantity <= 0 && q > 0) {
-                                    final payload = _singleItemCartPayload(
-                                      item,
-                                      1,
-                                    );
-                                    if (payload == null) return;
-                                    await context
-                                        .read<ProductsAddToCartCubit>()
-                                        .addToCart(
-                                          activeCartId,
-                                          payload,
-                                          context: context,
-                                        );
-                                  } else {
-                                    await _updateExistingCartItemQuantity(
-                                      activeCartId!,
-                                      item,
-                                      q,
-                                    );
-                                  }
-                                  await context.read<GetCartCubit>().fetchCart(
-                                    context,
-                                  );
-                                  _refreshCheckout();
-
-                                  widget.onBottomSheetVisibilityChanged?.call(
-                                    cart.isNotEmpty,
-                                  );
-                                },
-                              );
-                            }
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 20,
-                                horizontal: 16,
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.notes_rounded, color: Colors.orange),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              notesController.text.isEmpty
+                                  ? "Add notes"
+                                  : notesController.text,
+                              style: TextStyle(
+                                color:
+                                    notesController.text.isEmpty
+                                        ? Colors.grey
+                                        : Colors.black,
+                                fontStyle:
+                                    notesController.text.isEmpty
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
                               ),
-                              child:
-                                  _checkoutLoading
-                                      ? const Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.all(20.0),
-                                          child: CupertinoActivityIndicator(),
-                                        ),
-                                      )
-                                      : CheckoutBottomBar(
-                                        subtotal:
-                                            _isCouponApplied ? 0 : _subtotal,
-                                        platformFee:
-                                            _isCouponApplied
-                                                ? 0
-                                                : _platformFee,
-                                        deliveryCharge:
-                                            _isCouponApplied
-                                                ? 0
-                                                : _deliveryCharge,
-                                        total:
-                                            _isCouponApplied
-                                                ? 1.0
-                                                : _grandTotal,
-                                        loading: loading,
-                                        onPlaceOrder: openCheckOut,
+                            ),
+                          ),
+                          const Icon(Icons.edit, size: 18, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (selectedItems.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: PromoCodeDropdown(
+                      promoCodes: _eligiblePromotions,
+                      loading: _promotionsLoading,
+                      selectedPromoCode: _selectedPromoCode,
+                      onChanged: (code) => setState(() => _selectedPromoCode = code),
+                    ),
+                  ),
+                Expanded(
+                  child:
+                      selectedItems.isEmpty
+                          ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    "Your cart is empty",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      widget.onBottomSheetVisibilityChanged
+                                          ?.call(false);
+                                      Navigator.of(context).pop();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColor.PrimaryColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                            );
-                          },
-                        ),
-              ),
-            ],
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Add items",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          : ListView.builder(
+                            itemCount: selectedItems.length + 1,
+                            itemBuilder: (ctx, i) {
+                              if (i < selectedItems.length) {
+                                final item = selectedItems[i];
+                                final currentQuantity = cart[item['name']] ?? 1;
+                                return CartItemCard(
+                                  item: item,
+                                  quantity: currentQuantity,
+                                  enableIncrement:
+                                      widget.orderId == null &&
+                                      !_isCouponApplied,
+                                  onQuantityChanged: (q) async {
+                                    final name = item['name'];
+                                    if (name == null) return;
+
+                                    if (q == currentQuantity) return;
+
+                                    if (q <= 0) {
+                                      setState(() {
+                                        cart.remove(name);
+                                        selectedItems.removeAt(i);
+                                      });
+                                    } else {
+                                      setState(() {
+                                        cart[name] = q;
+                                      });
+                                    }
+
+                                    final activeCartId = await _ensureCartId();
+                                    if (!_hasValidCartId(activeCartId)) return;
+
+                                    if (currentQuantity <= 0 && q > 0) {
+                                      final payload = _singleItemCartPayload(
+                                        item,
+                                        1,
+                                      );
+                                      if (payload == null) return;
+                                      await context
+                                          .read<ProductsAddToCartCubit>()
+                                          .addToCart(
+                                            activeCartId,
+                                            payload,
+                                            context: context,
+                                          );
+                                    } else {
+                                      await _updateExistingCartItemQuantity(
+                                        activeCartId!,
+                                        item,
+                                        q,
+                                      );
+                                    }
+                                    await context
+                                        .read<GetCartCubit>()
+                                        .fetchCart(context);
+                                    _refreshCheckout();
+
+                                    widget.onBottomSheetVisibilityChanged?.call(
+                                      cart.isNotEmpty,
+                                    );
+                                  },
+                                );
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20,
+                                  horizontal: 16,
+                                ),
+                                child: CheckoutBottomBar(
+                                  subtotal: _isCouponApplied ? 0 : _subtotal,
+                                  deliveryCharge:
+                                      _isCouponApplied ? 0 : _deliveryCharge,
+                                  total: _isCouponApplied ? 1.0 : _grandTotal,
+                                  loading: loading,
+                                  codAvailable:
+                                      _isCouponApplied ||
+                                      _hasEligiblePromotions,
+                                  onPlaceOrder: openCheckOut,
+                                  onCodOrder: openCodCheckout,
+                                ),
+                              );
+                            },
+                          ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

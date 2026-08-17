@@ -106,8 +106,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 CustomSnackbars.showErrorSnack(
                   context: context,
                   title: "Failed",
-                  message:
-                      "The OTP you entered is incorrect. Please try again.",
+                  message: state.message,
                 );
               }
             },
@@ -118,6 +117,12 @@ class _OtpScreenState extends State<OtpScreen> {
                 setState(() {
                   widget.otp = state.resendOtp.otp ?? '';
                 });
+              } else if (state is TriggerOtpError) {
+                CustomSnackbars.showErrorSnack(
+                  context: context,
+                  title: "Failed",
+                  message: state.message,
+                );
               }
             },
           ),
@@ -129,17 +134,11 @@ class _OtpScreenState extends State<OtpScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const MainDashboard()),
                 );
-                // } else {
-                //   Navigator.pushReplacement(
-                //     context,
-                //     MaterialPageRoute(builder: (_) => const NameInputScreen()),
-                //   );
-                // }
               } else if (state is CurrentCustomerError) {
                 CustomSnackbars.showErrorSnack(
                   context: context,
                   title: "Failed",
-                  message: "Something went wrong",
+                  message: state.message,
                 );
               }
             },

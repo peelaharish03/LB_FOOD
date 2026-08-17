@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/notifications/fcmToken/fcm_token_model.dart';
@@ -36,13 +37,13 @@ class FcmTokenRemoteDataSourceImpl implements FcmTokenRemoteDataSource {
       if (response.statusCode == 200) {
         return FcmTokenModel.fromJson(response.data);
       } else {
-        throw Exception(
-          'Failed to update FCM token: ${response.statusCode}',
-        );
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      debugPrint('Failed to update FCM token: $e');
-      throw Exception('Failed to update FCM token: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 
@@ -62,11 +63,13 @@ class FcmTokenRemoteDataSourceImpl implements FcmTokenRemoteDataSource {
         );
         return model;
       } else {
-        throw Exception('Failed to get FCM token: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      debugPrint('Failed to get FCM token: $e');
-      throw Exception('Failed to get FCM token: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

@@ -9,4 +9,16 @@ class CheckoutUseCase {
   Future<CheckoutModel> call(Map<String, dynamic> payload) async {
     return await repository.checkout(payload);
   }
+
+  Future<CheckoutModel> initiate(Map<String, dynamic> payload) async {
+    return await repository.initiateCheckout(payload);
+  }
+
+  Future<CheckoutModel> cod(Map<String, dynamic> payload) async {
+    return await repository.checkoutCod(payload);
+  }
+
+  Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload) async {
+    return await repository.verifyPayment(payload);
+  }
 }

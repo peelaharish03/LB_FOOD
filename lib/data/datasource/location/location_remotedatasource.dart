@@ -1,3 +1,4 @@
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'dart:convert';
 import 'package:local_basket/data/model/location/lattitude_longitude_model.dart';
 import 'package:local_basket/data/model/location/location_model.dart';
@@ -28,11 +29,11 @@ class LocationRemoteDataSourceImpl implements LocationRemoteDataSource {
         print('responce of  LocationSearchModel:: ${response.body}');
         return LocationSearchModel.fromJson(json.decode(response.body));
       } else {
-        throw Exception(
-            'Failed to load LocationSearchModel: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
     } catch (e) {
-      throw Exception('Failed to load LocationSearchModel: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw NetworkException("Unable to fetch location results. Please check your network and try again.");
     }
   }
 
@@ -50,11 +51,11 @@ class LocationRemoteDataSourceImpl implements LocationRemoteDataSource {
         print('responce of  LocationSearchModel:: ${response.body}');
         return LatLangModel.fromJson(json.decode(response.body));
       } else {
-        throw Exception(
-            'Failed to load LocationSearchModel: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
     } catch (e) {
-      throw Exception('Failed to load LocationSearchModel: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw NetworkException("Unable to fetch location results. Please check your network and try again.");
     }
   }
 }

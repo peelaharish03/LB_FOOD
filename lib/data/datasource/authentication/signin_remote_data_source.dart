@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/constants/global_exception_handler.dart';
 import '../../model/authentication/signin_model.dart';
 
 abstract class SignInRemoteDataSource {
@@ -26,24 +27,26 @@ class SignInRemoteDataSourceImpl implements SignInRemoteDataSource {
     };
 
     try {
-      print('Sending payload: $payload');
-
       final response = await client.request(
         '$baseUrl2$SigninUrl',
         options: Options(method: 'POST', extra: {'requiresAuth': false}),
         data: payload,
       );
-      print('url $baseUrl2$SigninUrl');
 
-      print('Response status code: ${response.statusCode}');
       if (response.statusCode == 200) {
-        print('Response data: ${response.data}');
         return SignInModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to load OTP data: ${response.statusCode}');
+        final code = response.data is Map ? response.data['code'] : null;
+        final message = response.data is Map
+            ? (response.data['message'] ?? 'Unable to verify OTP right now.')
+            : 'Unable to verify OTP right now.';
+        throw mapErrorCodeToException(code ?? response.statusCode ?? -1, message);
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      throw Exception('Failed to load OTP data: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to verify OTP right now. Please try again after some time.");
     }
   }
 }

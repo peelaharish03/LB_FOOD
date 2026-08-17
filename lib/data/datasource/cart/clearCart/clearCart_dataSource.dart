@@ -1,5 +1,6 @@
 
 import 'package:dio/dio.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/constants/api_constants.dart';
 import 'package:local_basket/data/model/cart/clearCart/clearCart_model.dart';
 
@@ -30,11 +31,13 @@ class ClearCartRemoteDataSourceImpl implements ClearCartRemoteDataSource {
         }
         return ClearCartModel(message: 'success', status: 'success', data: 1);
       } else {
-        throw Exception('Failed to ClearCart. Status code: ${response.statusCode}');
+        throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
       }
+    } on DioException catch (e) {
+      throw handleDioError(e);
     } catch (e) {
-      print('ClearCart Error: $e');
-      throw Exception('ClearCart failed: ${e.toString()}');
+      if (e is AppException) rethrow;
+      throw UnknownBackendException("Unable to complete this request. Please try again after some time.");
     }
   }
 }

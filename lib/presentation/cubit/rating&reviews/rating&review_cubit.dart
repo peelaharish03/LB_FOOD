@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_state.dart';
 
@@ -14,7 +15,7 @@ class RatingReviewCubit extends Cubit<RatingReviewState> {
       final response = await ratingReviewUseCase(payload);
       emit(RatingReviewSuccess(response));
     } catch (e) {
-      emit(RatingReviewFailure(e.toString()));
+      emit(RatingReviewFailure(friendlyErrorMessage(e)));
     }
   }
 }

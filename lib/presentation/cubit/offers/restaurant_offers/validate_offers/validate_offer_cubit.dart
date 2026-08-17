@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/domain/usecase/offers/restaurant_offers/validate_offer_usecase.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 
@@ -13,7 +14,7 @@ class ValidateOfferCubit extends Cubit<ValidateOfferState> {
       final result = await validateOfferUseCase.call(offerId);
       emit(ValidateOfferSuccess(validateOfferModel: result));
     } catch (e) {
-      emit(ValidateOfferFailure(error: e.toString()));
+      emit(ValidateOfferFailure(error: friendlyErrorMessage(e)));
     }
   }
 }

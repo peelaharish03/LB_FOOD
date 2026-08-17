@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_snackbar.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
 import 'package:local_basket/domain/usecase/address/defaultAddress/get/getDefaultAddress_usecase.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_state.dart';
@@ -27,7 +28,7 @@ class AddressSavetoCartCubit extends Cubit<AddressSavetoCartState> {
         final result = await useCase(addressId);
         emit(AddressSavetoCartSuccess(result));
       } catch (e) {
-        emit(AddressSavetoCartFailure(e.toString()));
+        emit(AddressSavetoCartFailure(friendlyErrorMessage(e)));
       }
     }
   }

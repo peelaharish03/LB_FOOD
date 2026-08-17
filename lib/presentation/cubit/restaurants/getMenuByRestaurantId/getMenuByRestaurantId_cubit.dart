@@ -1,4 +1,5 @@
 import 'package:local_basket/core/utils/cache_service.dart';
+import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/data/model/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_model.dart';
 import 'package:local_basket/domain/usecase/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_usecase.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_state.dart';
@@ -43,7 +44,7 @@ class GetMenuByRestaurantIdCubit extends Cubit<GetMenuByRestaurantIdState> {
       
       emit(GetMenuByRestaurantIdLoaded(result));
     } catch (e) {
-      emit(GetMenuByRestaurantIdError(e.toString()));
+      emit(GetMenuByRestaurantIdError(friendlyErrorMessage(e)));
     }
   }
 
