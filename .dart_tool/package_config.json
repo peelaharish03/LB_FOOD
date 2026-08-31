@@ -602,6 +602,24 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "os_detect",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/os_detect-2.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.5"
+    },
+    {
+      "name": "package_info_plus",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/package_info_plus-9.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "package_info_plus_platform_interface",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/package_info_plus_platform_interface-3.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
       "name": "path",
       "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/path-1.9.1",
       "packageUri": "lib/",
@@ -962,6 +980,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "upgrader",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/upgrader-13.7.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.5"
+    },
+    {
       "name": "url_launcher",
       "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/url_launcher-6.3.2",
       "packageUri": "lib/",
@@ -1038,6 +1062,12 @@
       "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/vector_math-2.2.0",
       "packageUri": "lib/",
       "languageVersion": "3.1"
+    },
+    {
+      "name": "version",
+      "rootUri": "file:///Users/juvi/.pub-cache/hosted/pub.dev/version-3.0.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
     },
     {
       "name": "video_player",

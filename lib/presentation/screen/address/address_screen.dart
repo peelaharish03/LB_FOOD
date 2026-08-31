@@ -2,6 +2,7 @@ import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/utils/address_formatter.dart';
+import 'package:local_basket/core/utils/location_validator.dart';
 import 'package:local_basket/data/model/address/getAddress/getAddress_model.dart';
 import 'package:local_basket/data/model/address/state/state_model.dart';
 import 'package:local_basket/presentation/cubit/address/city/getCities_cubit.dart';
@@ -16,10 +17,12 @@ import 'package:local_basket/presentation/cubit/address/state/getStates_state.da
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/presentation/screen/address/savedAddress_screen.dart';
+import 'package:local_basket/presentation/screen/widgets/dashboard/geo_location_picker_widget.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:latlong2/latlong.dart';
 
 class AddressScreen extends StatefulWidget {
   final Function(Content)? selectedAddress;
@@ -48,6 +51,11 @@ class _AddressScreenState extends State<AddressScreen>
   // save-address API are resolved by matching that text against these lists.
   List<StateModel> _states = [];
   List<CityModel> _allCities = [];
+
+  // Delivery location picked on the map. Required to save an address —
+  // also used to reject addresses outside the serviceable radius.
+  LatLng? _selectedLatLng;
+  bool _isLocationPicked = false;
 
   @override
   void initState() {
@@ -120,7 +128,6 @@ class _AddressScreenState extends State<AddressScreen>
     StateModel? defaultState;
     if (stateController.text.trim().isEmpty) {
       defaultState = _states.first;
-      print('📍 Defaulting State -> ${defaultState.name} (${defaultState.id})');
       setState(() {
         stateController.text = defaultState!.name;
       });
@@ -135,7 +142,6 @@ class _AddressScreenState extends State<AddressScreen>
           _allCities.where((c) => c.stateCode?.toLowerCase() == stateCode);
       final defaultCity =
           candidates.isNotEmpty ? candidates.first : _allCities.first;
-      print('📍 Defaulting City -> ${defaultCity.name} (${defaultCity.id})');
       setState(() {
         cityController.text = defaultCity.name;
       });
@@ -150,7 +156,6 @@ class _AddressScreenState extends State<AddressScreen>
         customerState.currentCustomerModel.mobile,
       );
       if (mobile.isNotEmpty) {
-        print('📍 Defaulting Phone Number -> $mobile');
         setState(() {
           phoneController.text = mobile;
         });
@@ -158,23 +163,71 @@ class _AddressScreenState extends State<AddressScreen>
     }
   }
 
-  void _saveAddress() {
-    print('🔘 Save Address button tapped');
+  Future<void> _pickLocation() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => LocationPickerPage(
+              onLocationSelected: (latLng, placemark) {
+                setState(() {
+                  _selectedLatLng = latLng;
+                  _isLocationPicked = true;
+                });
+              },
+            ),
+      ),
+    );
 
+    if (result == true) {
+      CustomSnackbars.showSuccessSnack(
+        context: context,
+        title: "Success",
+        message: "Location selected successfully",
+      );
+    }
+  }
+
+  void _saveAddress() {
     if (!_formKey.currentState!.validate()) {
-      print('❌ _saveAddress: form validation failed');
+      return;
+    }
+
+    if (!_isLocationPicked || _selectedLatLng == null) {
+      CustomSnackbars.showInfoSnack(
+        context: context,
+        title: "Location Required",
+        message: "Please select your delivery location on the map.",
+      );
+      return;
+    }
+
+    final isWithinServiceArea = LocationValidator.isWithinServiceArea(
+      _selectedLatLng!.latitude,
+      _selectedLatLng!.longitude,
+    );
+    if (!isWithinServiceArea) {
+      final distance = LocationValidator.calculateDistance(
+        _selectedLatLng!.latitude,
+        _selectedLatLng!.longitude,
+        ANAKAPALLI_LATITUDE,
+        ANAKAPALLI_LONGITUDE,
+      );
+      CustomSnackbars.showInfoSnack(
+        context: context,
+        title: "Out of Service Area",
+        message:
+            "This location is ${distance.toStringAsFixed(1)} km away, outside our "
+            "${SERVICE_RADIUS_KM.toStringAsFixed(0)} km delivery radius. Please pick a closer location.",
+      );
       return;
     }
 
     final stateText = stateController.text.trim();
     final cityText = cityController.text.trim();
-    print('🧾 _saveAddress: state="$stateText" city="$cityText"');
 
     final matchedState = _matchState(stateText);
     if (matchedState == null) {
-      print(
-        '❌ _saveAddress: no matching state for "$stateText" (${_states.length} states loaded)',
-      );
       CustomSnackbars.showInfoSnack(
         context: context,
         title: "Out of Service Area",
@@ -183,17 +236,11 @@ class _AddressScreenState extends State<AddressScreen>
       );
       return;
     }
-    print('✅ _saveAddress: matched state -> ${matchedState.id} (${matchedState.name})');
 
     final matchedCity = _matchCity(cityText, matchedState);
     if (matchedCity == null) {
-      print(
-        '❌ _saveAddress: no matching city for "$cityText" in state ${matchedState.code} '
-        '(${_allCities.length} cities loaded)',
-      );
       return;
     }
-    print('✅ _saveAddress: matched city -> ${matchedCity.id} (${matchedCity.name})');
 
     final addressLine1 = joinAddressParts([
       houseController.text,
@@ -207,9 +254,83 @@ class _AddressScreenState extends State<AddressScreen>
       "stateId": matchedState.id,
       "country": "IN",
       "postalCode": pincodeController.text.trim(),
+      "latitude": _selectedLatLng!.latitude,
+      "longitude": _selectedLatLng!.longitude,
     };
-    print('📤 Saving address with payload: $payload');
     context.read<SaveAddressCubit>().saveAddress(payload, context);
+  }
+
+  Widget _buildLocationPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              "Delivery Location",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+            const Text('*', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _pickLocation,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              color: _isLocationPicked ? null : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade400),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.location_pin,
+                  color:
+                      _isLocationPicked
+                          ? AppColor.PrimaryColor
+                          : Colors.grey.shade600,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _isLocationPicked && _selectedLatLng != null
+                        ? "Location selected (${_selectedLatLng!.latitude.toStringAsFixed(5)}, "
+                            "${_selectedLatLng!.longitude.toStringAsFixed(5)})"
+                        : "Select delivery location on map",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color:
+                          _isLocationPicked
+                              ? null
+                              : Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                Text(
+                  _isLocationPicked ? "Change" : "Select",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColor.PrimaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTextField({
@@ -297,6 +418,10 @@ class _AddressScreenState extends State<AddressScreen>
     _formKey.currentState?.reset();
     _applyDefaultPhone();
     _applyDefaultLocation();
+    setState(() {
+      _selectedLatLng = null;
+      _isLocationPicked = false;
+    });
   }
 
   @override
@@ -448,6 +573,8 @@ class _AddressScreenState extends State<AddressScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
+                        _buildLocationPicker(),
+                        const SizedBox(height: 16),
                         _buildTextField(
                           label: "Full Name",
                           controller: nameController,
@@ -544,12 +671,7 @@ class _AddressScreenState extends State<AddressScreen>
                                   onPressed:
                                       state is SaveAddressLoading
                                           ? null
-                                          : () {
-                                            print(
-                                              '🔘 Save Address button pressed (onPressed fired)',
-                                            );
-                                            _saveAddress();
-                                          },
+                                          : _saveAddress,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColor.PrimaryColor,
                                     foregroundColor: Colors.white,

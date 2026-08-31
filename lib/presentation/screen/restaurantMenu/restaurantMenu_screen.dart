@@ -40,6 +40,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, int> cart = {};
   int totalItems = 0, page = 0, size = 100;
+  static const int _searchPageSize = 20;
+  int get _effectiveMenuSize =>
+      searchText.trim().isEmpty ? size : _searchPageSize;
   PersistentBottomSheetController? _bottomSheetController;
   bool _isOfferFlow = false;
   bool isBottomSheetVisible = false;
@@ -495,8 +498,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       'b2bUnitId': widget.b2bUnitId,
       'search': searchText,
       'page': page,
-      'size': size,
+      'size': _effectiveMenuSize,
     });
+  }
+
+  String _menuItemKey(Content item) {
+    final code = item.shortCode?.trim() ?? '';
+    return code.isNotEmpty ? 'code:$code' : 'id:${item.id}';
+  }
+
+  List<Content> _dedupeMenuItems(List<Content> items) {
+    final seenKeys = <String>{};
+    final result = <Content>[];
+    for (final item in items) {
+      if (seenKeys.add(_menuItemKey(item))) {
+        result.add(item);
+      }
+    }
+    return result;
   }
 
   bool _matchesOfferBiryani(Content item) {
@@ -530,7 +549,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       'b2bUnitId': widget.b2bUnitId,
       'search': searchText,
       'page': page,
-      'size': size,
+      'size': _effectiveMenuSize,
     });
   }
 
@@ -547,7 +566,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         'b2bUnitId': widget.b2bUnitId,
         'search': searchText,
         'page': 0,
-        'size': size,
+        'size': _effectiveMenuSize,
       });
     } catch (e) {
       debugPrint('❌ Background menu refresh failed: $e');
@@ -1170,21 +1189,22 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       return const Center(child: Text("No cached menu items available"));
     }
 
-    // Apply the same filtering logic as the original BLoC builders
+    // Filtering by food type only — text search is handled server-side via searchTerm.
     final filteredItems =
         menuItems.where((item) {
           if (_isOfferFlow && (widget.couponCode?.isNotEmpty ?? false)) {
             if (!_matchesOfferBiryani(item)) return false;
           }
-          final matchesSearch = (item.name ?? "").toLowerCase().contains(
-            searchText.toLowerCase(),
-          );
           final matchesFilter =
               filterType == 'All' ||
               (filterType == 'Veg' && item.foodType == 'veg') ||
               (filterType == 'NonVeg' && item.foodType == 'nonveg');
-          return matchesSearch && matchesFilter;
+          return matchesFilter;
         }).toList();
+
+    if (filteredItems.isEmpty) {
+      return const Center(child: Text("No items to display"));
+    }
 
     return Column(
       children: [
@@ -1235,13 +1255,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           final isFirstPage = responsePage == 0;
           setState(() {
             if (isFirstPage) {
-              menuItems = state.model.content;
+              menuItems = _dedupeMenuItems(state.model.content);
             } else {
-              final existingIds = menuItems.map((e) => e.id.toString()).toSet();
+              final existingKeys = menuItems.map(_menuItemKey).toSet();
               menuItems.addAll(
-                state.model.content.where(
-                  (e) => !existingIds.contains(e.id.toString()),
-                ),
+                _dedupeMenuItems(
+                  state.model.content,
+                ).where((e) => !existingKeys.contains(_menuItemKey(e))),
               );
             }
             _isMenuLoaded = true;
@@ -1266,25 +1286,29 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         if (state is GetMenuByRestaurantIdLoading && menuItems.isEmpty) {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is GetMenuByRestaurantIdLoaded) {
+          // Filtering by food type only — text search is handled server-side via searchTerm.
           final filteredItems =
               menuItems.where((item) {
                 if (_isOfferFlow && (widget.couponCode?.isNotEmpty ?? false)) {
                   if (!_matchesOfferBiryani(item)) return false;
                 }
-                final matchesSearch = (item.name ?? "").toLowerCase().contains(
-                  searchText.toLowerCase(),
-                );
                 final matchesFilter =
                     filterType == 'All' ||
                     (filterType.toLowerCase() == 'veg' &&
                         item.foodType == 'veg') ||
                     (filterType.toLowerCase() == 'nonveg' &&
                         item.foodType == 'nonveg');
-                return matchesSearch && matchesFilter;
+                return matchesFilter;
               }).toList();
 
           if (filteredItems.isEmpty) {
-            return const Center(child: Text("No menu items available"));
+            return Center(
+              child: Text(
+                searchText.trim().isEmpty
+                    ? "No menu items available"
+                    : "No items to display",
+              ),
+            );
           }
           return Column(
             children: [

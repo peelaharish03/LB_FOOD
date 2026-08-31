@@ -57,6 +57,16 @@ String getMenuByRestaurantIdUrl(
   return '/api/products/b2b-unit/$b2bUnitId?storeId=$storeId&mobileOrWeb=True&page=$page&size=$size';
 }
 
+String getSearchProductsUrl(
+  String b2bUnitId,
+  String storeId,
+  int page,
+  int size,
+  String searchTerm,
+) {
+  return '/api/products/b2b-unit/$b2bUnitId/stores/$storeId?page=$page&size=$size&searchTerm=${Uri.encodeQueryComponent(searchTerm)}';
+}
+
 String getRestaurantsByProductNameUrl(
   String productName,
   double latitude,

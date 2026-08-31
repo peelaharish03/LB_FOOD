@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/core/constants/colors.dart';
+import 'package:local_basket/core/utils/app_update_checker.dart';
+import 'package:local_basket/core/utils/location_validator.dart';
 import 'package:local_basket/core/utils/push_notication_services.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 import 'package:local_basket/presentation/cubit/cart/clearCart/clearCart_cubit.dart';
@@ -29,47 +30,6 @@ import 'package:local_basket/presentation/screen/widgets/dashboard/locationHeade
 import 'package:local_basket/components/searchBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
-
-const double ANAKAPALLI_LATITUDE = 17.6869;
-const double ANAKAPALLI_LONGITUDE = 82.8580;
-const double SERVICE_RADIUS_KM = 40.0;
-
-class LocationValidator {
-  /// Calculate distance between two points using Haversine formula
-  static double calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const R = 6371; // Earth radius in kilometers
-    final dLat = _toRad(lat2 - lat1);
-    final dLon = _toRad(lon2 - lon1);
-    final a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRad(lat1)) *
-            math.cos(_toRad(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return R * c;
-  }
-
-  static double _toRad(double degree) {
-    return degree * math.pi / 180;
-  }
-
-  /// Check if location is within service radius
-  static bool isWithinServiceArea(double latitude, double longitude) {
-    final distance = calculateDistance(
-      latitude,
-      longitude,
-      ANAKAPALLI_LATITUDE,
-      ANAKAPALLI_LONGITUDE,
-    );
-    return distance <= SERVICE_RADIUS_KM;
-  }
-}
 
 class DashboardScreen extends StatefulWidget {
   final String? couponCode;
@@ -106,6 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _searchFocusNode = FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await checkForAppUpdate(context);
+      if (!mounted) return;
       debugPrint('🔄 Dashboard appeared → fetching stored FCM token');
       await context.read<FcmTokenCubit>().fetchFcmToken();
       await _requestNotificationPermission();
