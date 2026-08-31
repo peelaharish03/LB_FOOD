@@ -2,7 +2,7 @@ name: local_basket
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 4.0.2+52
+version: 4.0.2+53
 
 environment:
   sdk: ^3.7.0
@@ -48,6 +48,7 @@ dependencies:
   infinite_carousel: ^1.1.1
   flutter_slidable: ^3.0.1
   url_launcher: ^6.3.0
+  upgrader: ^13.7.0
 
 
 

@@ -24,8 +24,11 @@ class GetMenuByRestaurantIdRemoteDataSourceImpl
       final String b2bUnitId = params['b2bUnitId'];
       final int page = params['page'] ?? 0;
       final int size = params['size'] ?? 20;
+      final String searchTerm = (params['search'] ?? '').toString().trim();
 
-      final url = '$baseUrl${getMenuByRestaurantIdUrl(storeId, b2bUnitId, page, size)}';
+      final url = searchTerm.isNotEmpty
+          ? '$baseUrl${getSearchProductsUrl(b2bUnitId, storeId, page, size, searchTerm)}'
+          : '$baseUrl${getMenuByRestaurantIdUrl(storeId, b2bUnitId, page, size)}';
 
       final response = await client.request(
         url,
