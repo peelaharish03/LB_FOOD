@@ -11,19 +11,36 @@ class PromoCodeDropdown extends StatelessWidget {
   final String? selectedPromoCode;
   final ValueChanged<String?> onChanged;
 
+  /// When false the field is disabled and shows a hint row — used until a
+  /// payment method has been chosen, since eligible promos depend on it.
+  final bool enabled;
+  final String disabledHint;
+
   const PromoCodeDropdown({
     super.key,
     required this.promoCodes,
     required this.loading,
     required this.selectedPromoCode,
     required this.onChanged,
+    this.enabled = true,
+    this.disabledHint = "Select a payment method first",
   });
 
   @override
   Widget build(BuildContext context) {
     final hasPromoCodes = promoCodes.isNotEmpty;
 
-    final items = loading
+    final items = !enabled
+        ? [
+            DropdownMenuItem<String>(
+              enabled: false,
+              child: Text(
+                disabledHint,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          ]
+        : loading
         ? const [
             DropdownMenuItem<String>(
               enabled: false,
@@ -82,9 +99,9 @@ class PromoCodeDropdown extends StatelessWidget {
         ],
       ),
       child: DropdownButtonFormField<String>(
-        value: selectedPromoCode,
+        value: enabled ? selectedPromoCode : null,
         isExpanded: true,
-        hint: const Text("Select a promo code"),
+        hint: Text(enabled ? "Select a promo code" : disabledHint),
         icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColor.PrimaryColor),
         decoration: const InputDecoration(
           border: InputBorder.none,
@@ -95,7 +112,8 @@ class PromoCodeDropdown extends StatelessWidget {
         // Keep the field tappable even with nothing to pick, so opening it
         // is what reveals "No promo codes available" rather than the field
         // just being greyed out.
-        onChanged: hasPromoCodes && !loading ? onChanged : (_) {},
+        onChanged:
+            enabled && hasPromoCodes && !loading ? onChanged : (_) {},
       ),
     );
   }

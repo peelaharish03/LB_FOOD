@@ -7,11 +7,10 @@ class CheckoutBottomBar extends StatelessWidget {
   final double total;
   final bool loading;
 
-  /// When true, a coupon/promo code is applied and only Cash on Delivery is
-  /// offered for this order; otherwise only Pay Online (Razorpay) is offered.
-  final bool codAvailable;
+  /// Fires when the buyer taps "Place Order". The payment method to use is
+  /// chosen in the payment-method dropdown on the cart screen, so this bar
+  /// no longer branches its own label on COD vs online.
   final VoidCallback onPlaceOrder;
-  final VoidCallback onCodOrder;
 
   const CheckoutBottomBar({
     super.key,
@@ -20,8 +19,6 @@ class CheckoutBottomBar extends StatelessWidget {
     required this.total,
     required this.loading,
     required this.onPlaceOrder,
-    required this.onCodOrder,
-    this.codAvailable = false,
   });
 
   Widget buildPriceRow(String label, double value, {bool isTotal = false}) {
@@ -100,17 +97,11 @@ class CheckoutBottomBar extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: codAvailable
-                  ? local_basket_button.CustomButton(
-                      buttonText: "Confirm Order (Cash on Delivery)",
-                      onPressed: onCodOrder,
-                      isLoading: loading,
-                    )
-                  : local_basket_button.CustomButton(
-                      buttonText: "Place Order",
-                      onPressed: onPlaceOrder,
-                      isLoading: loading,
-                    ),
+              child: local_basket_button.CustomButton(
+                buttonText: "Place Order",
+                onPressed: onPlaceOrder,
+                isLoading: loading,
+              ),
             ),
           ],
         ),

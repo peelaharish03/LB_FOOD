@@ -95,45 +95,27 @@ class DioClient {
 
           // Prevent infinite loop if refresh token request itself fails
           final isRefreshingToken = error.requestOptions.path.contains(
-            'auth/refreshToken',
+            'auth/refresh',
           );
 
           if (statusCode == 401 &&
               !isRefreshingToken &&
               error.requestOptions.extra['requiresAuth'] != false) {
-            // FIX: Read refresh token from secure storage
-            final refreshToken = await secureStorage.read(key: 'REFRESH_TOKEN');
+            try {
+              // Shares one in-flight refresh across all requests that 401
+              // at the same time, instead of each racing to rotate the
+              // refresh token independently.
+              final newToken = await _refreshAccessToken();
 
-            if (refreshToken != null) {
-              try {
-                final refreshResponse = await dio.post(
-                  '$baseUrl2/auth/refreshToken',
-                  options: Options(extra: {'requiresAuth': false}),
-                  data: {'refreshToken': refreshToken},
-                );
+              final RequestOptions requestOptions = error.requestOptions;
+              requestOptions.headers["Authorization"] = "Bearer $newToken";
 
-                final newToken = refreshResponse.data['accessToken'];
-                final newRefreshToken = refreshResponse.data['refreshToken'];
-
-                await secureStorage.write(key: 'TOKEN', value: newToken);
-                await secureStorage.write(
-                  key: 'REFRESH_TOKEN',
-                  value: newRefreshToken,
-                );
-
-                final RequestOptions requestOptions = error.requestOptions;
-                requestOptions.headers["Authorization"] = "Bearer $newToken";
-
-                final response = await dio.fetch(requestOptions);
-                return handler.resolve(response);
-              } catch (e) {
-                log('Token refresh failed: $e');
-                await _signOutAndReturnToLogin();
-                return handler.reject(error);
-              }
-            } else {
-              // No refresh token on hand either — the session is simply gone.
+              final response = await dio.fetch(requestOptions);
+              return handler.resolve(response);
+            } catch (e) {
+              log('Token refresh failed: $e');
               await _signOutAndReturnToLogin();
+              return handler.reject(error);
             }
           }
 
@@ -141,6 +123,55 @@ class DioClient {
         },
       ),
     );
+  }
+
+  // In-flight refresh call, shared by every request that 401s while a
+  // refresh is already underway. Without this, N concurrent 401s would
+  // each POST /auth/refreshToken with the same (soon-to-be-rotated) old
+  // refresh token, and every rotation but the first would be rejected by
+  // the backend or clobber the token secure storage just wrote.
+  Future<String>? _refreshFuture;
+
+  Future<String> _refreshAccessToken() {
+    return _refreshFuture ??= _doRefreshAccessToken().whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  Future<String> _doRefreshAccessToken() async {
+    final refreshToken = await secureStorage.read(key: 'REFRESH_TOKEN');
+    if (refreshToken == null || refreshToken.isEmpty) {
+      // No refresh token on hand either — the session is simply gone.
+      throw StateError('No refresh token available');
+    }
+
+    // Must be the SAME deviceId that was sent at login — the backend binds
+    // the refresh token to that device and rejects a mismatch. Login
+    // currently sends the literal 'device-uuid-123' (see SignInCubit.signIn),
+    // NOT the real per-device id stored in prefs under 'device_id', so we
+    // must use the same literal here.
+    const deviceId = 'device-uuid-123';
+
+    final refreshResponse = await dio.post(
+      '$baseUrl/auth/refresh',
+      options: Options(extra: {'requiresAuth': false}),
+      data: {'refreshToken': refreshToken, 'deviceId': deviceId},
+    );
+
+    final data = refreshResponse.data;
+    if (data is! Map ||
+        data['accessToken'] is! String ||
+        data['refreshToken'] is! String) {
+      throw StateError('Unexpected refresh response: $data');
+    }
+
+    final newToken = data['accessToken'] as String;
+    final newRefreshToken = data['refreshToken'] as String;
+
+    await secureStorage.write(key: 'TOKEN', value: newToken);
+    await secureStorage.write(key: 'REFRESH_TOKEN', value: newRefreshToken);
+
+    return newToken;
   }
 
   bool _redirectingToLogin = false;
