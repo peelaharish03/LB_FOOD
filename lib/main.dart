@@ -30,6 +30,8 @@ import 'package:local_basket/presentation/cubit/orders/createOrder/createOrder_c
 import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory_cubit.dart';
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
@@ -137,6 +139,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<CreateComplaintCubit>()),
         BlocProvider(create: (_) => di.sl<CheckoutCubit>()),
         BlocProvider(create: (_) => di.sl<EligiblePromotionsCubit>()),
+        BlocProvider(create: (_) => di.sl<PaymentMethodsCubit>()),
+        BlocProvider(create: (_) => di.sl<DeliveryModesCubit>()),
         BlocProvider(create: (_) => di.sl<NotificationsCubit>()),
         BlocProvider(create: (_) => di.sl<FcmTokenCubit>()),
       ],

@@ -34,6 +34,8 @@ import 'package:local_basket/data/datasource/orders/reOrder/reOrder_dataSource.d
 import 'package:local_basket/data/datasource/cart/eligiblePromotions/eligiblePromotions_dataSource.dart';
 import 'package:local_basket/data/datasource/payment/checkout_datasource.dart';
 import 'package:local_basket/data/datasource/payment/payment_dataSource.dart';
+import 'package:local_basket/data/datasource/payment/paymentMethods/payment_methods_datasource.dart';
+import 'package:local_basket/data/datasource/payment/deliveryModes/delivery_modes_datasource.dart';
 import 'package:local_basket/data/datasource/rating&reviews/rating&review_datasource.dart';
 import 'package:local_basket/data/datasource/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_dataSource.dart';
 import 'package:local_basket/data/datasource/restaurants/getNearbyRestaurants/getNearByrestarants_dataSource.dart';
@@ -70,6 +72,8 @@ import 'package:local_basket/data/repositoryImpl/orders/reOrder/reOrder_repoImpl
 import 'package:local_basket/data/repositoryImpl/cart/eligiblePromotions/eligiblePromotions_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/checkout_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/payment/payment_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/payment/paymentMethods/payment_methods_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/payment/deliveryModes/delivery_modes_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/rating&reviews/rating&review_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/restaurants/getNearbyRestaurants/getNearByrestarants_repoImpl.dart';
@@ -105,6 +109,8 @@ import 'package:local_basket/domain/repository/orders/orderHistory/orderHistory_
 import 'package:local_basket/domain/repository/orders/reOrder/reOrder_repository.dart';
 import 'package:local_basket/domain/repository/cart/eligiblePromotions/eligiblePromotions_repository.dart';
 import 'package:local_basket/domain/repository/payment/checkout_repository.dart';
+import 'package:local_basket/domain/repository/payment/paymentMethods/payment_methods_repository.dart';
+import 'package:local_basket/domain/repository/payment/deliveryModes/delivery_modes_repository.dart';
 import 'package:local_basket/domain/repository/payment/payment_repository.dart';
 import 'package:local_basket/domain/repository/rating&reviews/rating&review_repository.dart';
 import 'package:local_basket/domain/repository/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_repository.dart';
@@ -141,6 +147,8 @@ import 'package:local_basket/domain/usecase/orders/orderHistory/orderHistory_use
 import 'package:local_basket/domain/usecase/orders/reOrder/reOrder_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/eligiblePromotions/eligiblePromotions_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/checkout_usecase.dart';
+import 'package:local_basket/domain/usecase/payment/paymentMethods/payment_methods_usecase.dart';
+import 'package:local_basket/domain/usecase/payment/deliveryModes/delivery_modes_usecase.dart';
 import 'package:local_basket/domain/usecase/payment/payment_usecase.dart';
 import 'package:local_basket/domain/usecase/rating&reviews/rating&review_usecase.dart';
 import 'package:local_basket/domain/usecase/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_usecase.dart';
@@ -177,6 +185,8 @@ import 'package:local_basket/presentation/cubit/orders/orderHistory/orderHistory
 import 'package:local_basket/presentation/cubit/orders/reOrder/reOrder_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/payment/payment_cubit.dart';
 import 'package:local_basket/presentation/cubit/rating&reviews/rating&review_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getMenuByRestaurantId/getMenuByRestaurantId_cubit.dart';
@@ -752,6 +762,38 @@ void init() {
   );
   sl.registerFactory(
     () => EligiblePromotionsCubit(sl<EligiblePromotionsUseCase>()),
+  );
+
+  //PaymentMethods
+  sl.registerLazySingleton<PaymentMethodsRemoteDataSource>(
+    () => PaymentMethodsRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<PaymentMethodsRepository>(
+    () => PaymentMethodsRepositoryImpl(
+      remoteDataSource: sl<PaymentMethodsRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => PaymentMethodsUseCase(repository: sl<PaymentMethodsRepository>()),
+  );
+  sl.registerFactory(
+    () => PaymentMethodsCubit(sl<PaymentMethodsUseCase>()),
+  );
+
+  //DeliveryModes
+  sl.registerLazySingleton<DeliveryModesRemoteDataSource>(
+    () => DeliveryModesRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<DeliveryModesRepository>(
+    () => DeliveryModesRepositoryImpl(
+      remoteDataSource: sl<DeliveryModesRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => DeliveryModesUseCase(repository: sl<DeliveryModesRepository>()),
+  );
+  sl.registerFactory(
+    () => DeliveryModesCubit(sl<DeliveryModesUseCase>()),
   );
 
   //Notifications

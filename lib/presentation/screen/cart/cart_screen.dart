@@ -3,8 +3,16 @@ import 'package:local_basket/presentation/cubit/authentication/currentcustomer/g
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 import 'package:local_basket/data/model/cart/eligiblePromotions/eligiblePromotions_model.dart';
 import 'package:local_basket/data/model/payment/checkout_model.dart';
+import 'package:local_basket/data/model/payment/paymentMethods/payment_methods_model.dart';
+import 'package:local_basket/data/model/payment/deliveryModes/delivery_modes_model.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_state.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_state.dart';
+import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_state.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/payment_method_dropdown.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/delivery_mode_dropdown.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
@@ -91,6 +99,55 @@ class _CartScreenState extends State<CartScreen> {
 
   bool get _hasEligiblePromotions => _eligiblePromotions.isNotEmpty;
 
+  // Stores whose orders can only be paid by Cash on Delivery — the online
+  // (Razorpay) option is hidden and only COD is offered when the cart belongs
+  // to one of these stores.
+  static const Set<String> _codOnlyStoreIds = {
+    '425cda1f-07ce-428f-a122-581bc3751448',
+  };
+
+  /// storeId of the cart currently loaded from the getCart API.
+  String? _cartStoreId;
+
+  /// True when the loaded cart belongs to a store that only allows COD.
+  bool get _isCodOnlyStore =>
+      _cartStoreId != null && _codOnlyStoreIds.contains(_cartStoreId);
+
+  // Payment method / delivery mode pickers. The lists come straight from
+  // their cubits (read in build via context.watch); only the current
+  // selection is kept as local state. The selected payment method's `code`
+  // goes to checkout as `paymentMethod`, the delivery mode's `code` as
+  // `shippingMethod`.
+  String? _selectedPaymentMethod;
+  String? _selectedDeliveryMode;
+
+  List<PaymentMethod> _paymentMethodsOf(PaymentMethodsState state) =>
+      state is PaymentMethodsLoaded ? state.model.activeMethods : const [];
+
+  List<DeliveryMode> _deliveryModesOf(DeliveryModesState state) =>
+      state is DeliveryModesLoaded ? state.model.activeModes : const [];
+
+  /// The payment method that checkout should use — the picked one, else the
+  /// first available. Null only when the API returned nothing.
+  PaymentMethod? _resolvePaymentMethod() {
+    final methods = _paymentMethodsOf(context.read<PaymentMethodsCubit>().state);
+    if (methods.isEmpty) return null;
+    return methods.firstWhere(
+      (m) => m.checkoutCode == _selectedPaymentMethod,
+      orElse: () => methods.first,
+    );
+  }
+
+  /// `shippingMethod` for checkout — the picked mode, else the first
+  /// available mode, else the STANDARD fallback.
+  String get _shippingMethod {
+    final modes = _deliveryModesOf(context.read<DeliveryModesCubit>().state);
+    final code = _selectedDeliveryMode;
+    if (code != null && modes.any((m) => m.checkoutCode == code)) return code;
+    if (modes.isNotEmpty) return modes.first.checkoutCode;
+    return 'STANDARD';
+  }
+
   void _applyFlatCharges() {
     final hasItems = selectedItems.isNotEmpty;
     final waiveDelivery = _isCouponApplied || _hasEligiblePromotions;
@@ -98,7 +155,17 @@ class _CartScreenState extends State<CartScreen> {
     _grandTotal = _subtotal + _deliveryCharge;
   }
 
-  Future<void> _maybeFetchEligiblePromotions() async {
+  /// Fetches the eligible promo codes for the current cart.
+  ///
+  /// [force] bypasses the "already fetched for this cart + payment method"
+  /// guard. [background] keeps the currently shown promo list visible while
+  /// the request is in flight (no loading spinner) — used when the payment
+  /// method changes, so the dropdown just swaps to the latest values once
+  /// the response arrives.
+  Future<void> _maybeFetchEligiblePromotions({
+    bool force = false,
+    bool background = false,
+  }) async {
     if (selectedItems.isEmpty) {
       if (_eligiblePromotions.isNotEmpty || _promotionsFetched) {
         setState(() {
@@ -110,17 +177,41 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
+    // Promo codes can only be picked once a payment method is chosen, and the
+    // eligible-promotions list is re-fetched whenever that choice changes.
+    if (_selectedPaymentMethod == null) return;
+
     final activeCartId = await _ensureCartId();
     if (!mounted) return;
     if (!_hasValidCartId(activeCartId)) return;
-    if (_promotionsFetchedForCartId == activeCartId) return;
-    _promotionsFetchedForCartId = activeCartId;
 
-    setState(() => _promotionsLoading = true);
+    final fetchKey = '$activeCartId|$_selectedPaymentMethod';
+    if (!force && _promotionsFetchedForCartId == fetchKey) return;
+    _promotionsFetchedForCartId = fetchKey;
+
+    if (!background) setState(() => _promotionsLoading = true);
+    debugPrint(
+      '[Promotions] fetch eligible: cartId=$activeCartId, '
+      'paymentMethod=$_selectedPaymentMethod, background=$background',
+    );
     await context.read<EligiblePromotionsCubit>().fetchEligiblePromotions({
       "cartId": activeCartId,
       "b2bUnitId": defaultB2bUnitId,
+      "paymentMethod": _selectedPaymentMethod,
     });
+  }
+
+  /// Called when the buyer changes the payment method — re-runs the
+  /// eligible-promotions API in the background and refreshes the promo
+  /// dropdown with the latest values.
+  void _onPaymentMethodChanged(String? code) {
+    if (code == _selectedPaymentMethod) return;
+    setState(() {
+      _selectedPaymentMethod = code;
+      // The previously picked promo may no longer apply to the new method.
+      _selectedPromoCode = null;
+    });
+    _maybeFetchEligiblePromotions(force: true, background: true);
   }
 
   @override
@@ -133,6 +224,8 @@ class _CartScreenState extends State<CartScreen> {
           ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
 
     context.read<GetCartCubit>().fetchCart(context);
+    context.read<PaymentMethodsCubit>().fetchPaymentMethods();
+    context.read<DeliveryModesCubit>().fetchDeliveryModes();
     _loadSavedAddress();
     context.read<GetAddressCubit>().fetchAddress(context);
     _initCartItems();
@@ -351,6 +444,8 @@ class _CartScreenState extends State<CartScreen> {
   void _syncCartFromGetCart(GetCartModel loadedCart) {
     cart.clear();
     selectedItems.clear();
+
+    _cartStoreId = loadedCart.storeId;
 
     for (final cartItem in loadedCart.cartItems) {
       final quantity = cartItem.quantity ?? 0;
@@ -676,7 +771,7 @@ class _CartScreenState extends State<CartScreen> {
 
     final payload = {
       "cartId": activeCartId,
-      "shippingMethod": "STANDARD",
+      "shippingMethod": _shippingMethod,
       "paymentMethod": paymentMethod,
       "shippingAddressId": _selectedAddressId ?? "",
       "b2bUnitId": defaultB2bUnitId,
@@ -719,9 +814,36 @@ class _CartScreenState extends State<CartScreen> {
     return initiated;
   }
 
+  /// Entry point for the bottom bar's "Place Order" button. Checks out with
+  /// the payment method chosen in the dropdown:
+  ///  - coupon applied / COD-only store → forced Cash on Delivery;
+  ///  - a method is selected → that method's `code` is sent to checkout;
+  ///  - nothing selected / API returned nothing → online (Razorpay) fallback.
+  Future<void> _onPlaceOrderPressed() async {
+    if (_isCouponApplied || _isCodOnlyStore) {
+      await openCodCheckout();
+      return;
+    }
+
+    final method = _resolvePaymentMethod();
+    if (method == null) {
+      await openCheckOut();
+      return;
+    }
+    await _startCheckoutForMethod(method);
+  }
+
+  Future<void> _startCheckoutForMethod(PaymentMethod method) async {
+    if (method.isCashOnDelivery) {
+      await openCodCheckout(paymentMethod: method.checkoutCode);
+    } else {
+      await openCheckOut(paymentMethod: method.checkoutCode);
+    }
+  }
+
   /// Cash-on-delivery checkout — creates the order directly with no
   /// payment gateway step. Only offered while a coupon is applied.
-  Future<void> openCodCheckout() async {
+  Future<void> openCodCheckout({String paymentMethod = "COD"}) async {
     if (_checkoutInFlight) return;
     _checkoutInFlight = true;
     try {
@@ -749,9 +871,9 @@ class _CartScreenState extends State<CartScreen> {
 
       final payload = {
         "cartId": activeCartId,
-        "shippingMethod": "STANDARD",
+        "shippingMethod": _shippingMethod,
         "shippingAddressId": _selectedAddressId ?? "",
-        "paymentMethod": "COD",
+        "paymentMethod": paymentMethod,
         "b2bUnitId": defaultB2bUnitId,
         if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
       };
@@ -790,7 +912,7 @@ class _CartScreenState extends State<CartScreen> {
     if (mounted) setState(() => loading = false);
   }
 
-  Future<void> openCheckOut() async {
+  Future<void> openCheckOut({String paymentMethod = "RAZORPAY"}) async {
     // Guard set synchronously (no await before it) so a fast double-tap
     // can't slip a second call in before `loading` flips the button off,
     // which was causing two checkout orders + two Razorpay opens.
@@ -812,7 +934,7 @@ class _CartScreenState extends State<CartScreen> {
       if (mounted) setState(() => loading = true);
 
       debugPrint('[Razorpay] Pay Online; creating checkout order');
-      final checkout = await _submitCartCheckout("RAZORPAY");
+      final checkout = await _submitCartCheckout(paymentMethod);
       if (checkout == null) {
         _stopCheckoutButtonLoading();
         return;
@@ -904,6 +1026,25 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Payment methods / delivery modes are read straight from their cubits
+    // so the dropdowns render as soon as the APIs respond, regardless of
+    // when this widget was built.
+    final paymentMethodsState = context.watch<PaymentMethodsCubit>().state;
+    final deliveryModesState = context.watch<DeliveryModesCubit>().state;
+    final paymentMethods = _paymentMethodsOf(paymentMethodsState);
+    final deliveryModes = _deliveryModesOf(deliveryModesState);
+
+    // Selected code, but only if it's still one of the available options —
+    // DropdownButtonFormField asserts the value exists in its items.
+    final paymentDropdownValue = paymentMethods
+            .any((m) => m.checkoutCode == _selectedPaymentMethod)
+        ? _selectedPaymentMethod
+        : (paymentMethods.isNotEmpty ? paymentMethods.first.checkoutCode : null);
+    final deliveryDropdownValue = deliveryModes
+            .any((m) => m.checkoutCode == _selectedDeliveryMode)
+        ? _selectedDeliveryMode
+        : (deliveryModes.isNotEmpty ? deliveryModes.first.checkoutCode : null);
+
     return MultiBlocListener(
       listeners: [
         BlocListener<ProductsAddToCartCubit, ProductsAddToCartState>(
@@ -1021,6 +1162,39 @@ class _CartScreenState extends State<CartScreen> {
                 _promotionsFetched = true;
               });
               _refreshCheckout();
+            }
+          },
+        ),
+        // Once the methods/modes arrive, default the selection to the first
+        // one so checkout always has a code to send. Rendering reads the
+        // lists directly from the cubits via context.watch in build().
+        BlocListener<PaymentMethodsCubit, PaymentMethodsState>(
+          listener: (context, state) {
+            if (state is! PaymentMethodsLoaded) return;
+            final methods = state.model.activeMethods;
+            final stillValid =
+                methods.any((m) => m.checkoutCode == _selectedPaymentMethod);
+            if (!stillValid) {
+              setState(() {
+                _selectedPaymentMethod =
+                    methods.isNotEmpty ? methods.first.checkoutCode : null;
+              });
+              // Payment method is now known — (re)load the promo codes for it.
+              _maybeFetchEligiblePromotions(force: true);
+            }
+          },
+        ),
+        BlocListener<DeliveryModesCubit, DeliveryModesState>(
+          listener: (context, state) {
+            if (state is! DeliveryModesLoaded) return;
+            final modes = state.model.activeModes;
+            final stillValid =
+                modes.any((m) => m.checkoutCode == _selectedDeliveryMode);
+            if (!stillValid) {
+              setState(() {
+                _selectedDeliveryMode =
+                    modes.isNotEmpty ? modes.first.checkoutCode : null;
+              });
             }
           },
         ),
@@ -1162,85 +1336,35 @@ class _CartScreenState extends State<CartScreen> {
                     }
                   },
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  child: InkWell(
-                    onTap: () async {
-                      final newNote = await showDialog<String>(
-                        context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text("📝 Add Notes"),
-                              content: TextField(
-                                controller: notesController,
-                                decoration: const InputDecoration(
-                                  hintText: "e.g. Deliver between 5–6 PM",
-                                ),
-                                maxLines: 3,
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Cancel"),
-                                ),
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.pop(
-                                        context,
-                                        notesController.text.trim(),
-                                      ),
-                                  child: const Text("OK"),
-                                ),
-                              ],
-                            ),
-                      );
-                      if (newNote != null) {
-                        setState(() => notesController.text = newNote);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.notes_rounded, color: Colors.orange),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              notesController.text.isEmpty
-                                  ? "Add notes"
-                                  : notesController.text,
-                              style: TextStyle(
-                                color:
-                                    notesController.text.isEmpty
-                                        ? Colors.grey
-                                        : Colors.black,
-                                fontStyle:
-                                    notesController.text.isEmpty
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                              ),
-                            ),
-                          ),
-                          const Icon(Icons.edit, size: 18, color: Colors.grey),
-                        ],
-                      ),
+                // Payment method + delivery mode selectors sit above the
+                // promo-code dropdown. The "Add notes" field was removed.
+                // The payment dropdown is always shown while the cart has
+                // items (even in the coupon / COD-only flows, where checkout
+                // still forces COD regardless of the pick).
+                if (selectedItems.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                    child: PaymentMethodDropdown(
+                      methods: paymentMethods,
+                      loading: paymentMethodsState is PaymentMethodsLoading ||
+                          paymentMethodsState is PaymentMethodsInitial,
+                      selectedCode: paymentDropdownValue,
+                      onChanged: _onPaymentMethodChanged,
                     ),
                   ),
-                ),
+                // Delivery-mode dropdown is only shown when the API returns
+                // more than one active mode; a single mode is applied silently.
+                if (selectedItems.isNotEmpty && deliveryModes.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: DeliveryModeDropdown(
+                      modes: deliveryModes,
+                      loading: deliveryModesState is DeliveryModesLoading,
+                      selectedCode: deliveryDropdownValue,
+                      onChanged: (code) =>
+                          setState(() => _selectedDeliveryMode = code),
+                    ),
+                  ),
                 if (selectedItems.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -1248,6 +1372,7 @@ class _CartScreenState extends State<CartScreen> {
                       promoCodes: _eligiblePromotions,
                       loading: _promotionsLoading,
                       selectedPromoCode: _selectedPromoCode,
+                      enabled: _selectedPaymentMethod != null,
                       onChanged: (code) => setState(() => _selectedPromoCode = code),
                     ),
                   ),
@@ -1373,11 +1498,7 @@ class _CartScreenState extends State<CartScreen> {
                                       _isCouponApplied ? 0 : _deliveryCharge,
                                   total: _isCouponApplied ? 1.0 : _grandTotal,
                                   loading: loading,
-                                  codAvailable:
-                                      _isCouponApplied ||
-                                      _hasEligiblePromotions,
-                                  onPlaceOrder: openCheckOut,
-                                  onCodOrder: openCodCheckout,
+                                  onPlaceOrder: _onPlaceOrderPressed,
                                 ),
                               );
                             },
