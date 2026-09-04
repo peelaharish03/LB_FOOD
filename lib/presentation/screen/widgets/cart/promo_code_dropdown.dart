@@ -1,5 +1,5 @@
-import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/cart/eligiblePromotions/eligiblePromotions_model.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/cart_select_field.dart';
 import 'package:flutter/material.dart';
 
 /// Promo-code selector shown above the cart items. Opens like a normal
@@ -30,91 +30,84 @@ class PromoCodeDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasPromoCodes = promoCodes.isNotEmpty;
 
-    final items = !enabled
+    final List<DropdownMenuItem<String>> items = !enabled
         ? [
             DropdownMenuItem<String>(
               enabled: false,
               child: Text(
                 disabledHint,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Colors.white70),
               ),
             ),
           ]
         : loading
-        ? const [
-            DropdownMenuItem<String>(
-              enabled: false,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    "Checking available promo codes...",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ]
-        : hasPromoCodes
-            ? promoCodes
-                .map(
-                  (promo) => DropdownMenuItem<String>(
-                    value: promo.value,
-                    child: Text(
-                      promo.description?.trim().isNotEmpty == true
-                          ? "${promo.displayLabel} — ${promo.description}"
-                          : promo.displayLabel,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                )
-                .toList()
-            : const [
+            ? const [
                 DropdownMenuItem<String>(
                   enabled: false,
-                  child: Text(
-                    "No promo codes available",
-                    style: TextStyle(color: Colors.grey),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        "Checking available promo codes...",
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
                   ),
                 ),
-              ];
+              ]
+            : hasPromoCodes
+                ? promoCodes
+                    .map(
+                      (promo) => DropdownMenuItem<String>(
+                        value: promo.value,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_offer_rounded, size: 16),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                promo.description?.trim().isNotEmpty == true
+                                    ? "${promo.displayLabel} — ${promo.description}"
+                                    : promo.displayLabel,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList()
+                : const [
+                    DropdownMenuItem<String>(
+                      enabled: false,
+                      child: Text(
+                        "No promo codes available",
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: DropdownButtonFormField<String>(
-        value: enabled ? selectedPromoCode : null,
-        isExpanded: true,
-        hint: Text(enabled ? "Select a promo code" : disabledHint),
-        icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColor.PrimaryColor),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          prefixIcon: Icon(Icons.local_offer_outlined),
-          labelText: "Promo Code",
-        ),
-        items: items,
-        // Keep the field tappable even with nothing to pick, so opening it
-        // is what reveals "No promo codes available" rather than the field
-        // just being greyed out.
-        onChanged:
-            enabled && hasPromoCodes && !loading ? onChanged : (_) {},
-      ),
+    return CartSelectField(
+      icon: Icons.local_offer_outlined,
+      label: "Promo code",
+      hint: enabled ? "Select a promo code" : disabledHint,
+      value: enabled ? selectedPromoCode : null,
+      items: items,
+      // Keep the field tappable even with nothing to pick, so opening it is
+      // what reveals "No promo codes available" rather than it just being
+      // greyed out. Only fully disable it before a payment method is chosen.
+      onChanged: !enabled
+          ? null
+          : (hasPromoCodes && !loading ? onChanged : (_) {}),
     );
   }
 }

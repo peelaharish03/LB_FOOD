@@ -11,6 +11,8 @@ import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddr
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_state.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_state.dart';
+import 'package:local_basket/presentation/cubit/address/updateAddress/updateAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/updateAddress/updateAddress_state.dart';
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/state/getStates_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/state/getStates_state.dart';
@@ -27,7 +29,16 @@ import 'package:latlong2/latlong.dart';
 class AddressScreen extends StatefulWidget {
   final Function(Content)? selectedAddress;
 
-  const AddressScreen({super.key, this.selectedAddress});
+  /// True when opened from the cart to pick a delivery address (tapping a
+  /// saved address pops back with it). False (default, e.g. from Profile)
+  /// keeps the user on this screen and just updates the default.
+  final bool selectionMode;
+
+  const AddressScreen({
+    super.key,
+    this.selectedAddress,
+    this.selectionMode = false,
+  });
   @override
   State<AddressScreen> createState() => _AddressScreenState();
 }
@@ -56,6 +67,17 @@ class _AddressScreenState extends State<AddressScreen>
   // also used to reject addresses outside the serviceable radius.
   LatLng? _selectedLatLng;
   bool _isLocationPicked = false;
+
+  // Non-null while the "Add New Address" tab is being reused to edit an
+  // existing saved address. Controls the screen title, the submit button
+  // label, and whether submit hits the save (POST) or update (PUT) API.
+  Content? _editingAddress;
+
+  // Address type picked via the selectable Home / Workplace / Others chips.
+  // Sent as `addressType` to the save (POST) and update (PUT) APIs.
+  String _selectedAddressType = 'HOME';
+
+  bool get _isEditing => _editingAddress != null;
 
   @override
   void initState() {
@@ -90,6 +112,17 @@ class _AddressScreenState extends State<AddressScreen>
 
   void _fetchCurrentCustomer() =>
       context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
+
+  // Maps whatever the backend stored for addressType onto one of the three
+  // chip values so the right chip highlights when editing.
+  String _normalizeAddressType(String? raw) {
+    final value = (raw ?? '').trim().toUpperCase();
+    if (value.isEmpty || value == 'HOME') return 'HOME';
+    if (value == 'WORK' || value == 'OFFICE' || value == 'WORKPLACE') {
+      return 'WORK';
+    }
+    return 'OTHER';
+  }
 
   String _normalizePhoneNumber(String? raw) {
     final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
@@ -188,12 +221,38 @@ class _AddressScreenState extends State<AddressScreen>
     }
   }
 
+  /// Prefills the "Add New Address" form with an existing address and
+  /// switches to that tab so the same form can be reused to edit it.
+  void _startEditingAddress(Content address) {
+    final item = address.address;
+    setState(() {
+      _editingAddress = address;
+      nameController.text = item?.name ?? address.userName ?? '';
+      phoneController.text = _normalizePhoneNumber(item?.mobileNumber);
+      houseController.text = item?.line1 ?? '';
+      streetController.text = item?.line2 ?? '';
+      landmarkController.text = '';
+      _selectedAddressType = _normalizeAddressType(item?.addressType);
+      if ((item?.state ?? '').isNotEmpty) stateController.text = item!.state!;
+      if ((item?.city ?? '').isNotEmpty) cityController.text = item!.city!;
+      pincodeController.text = item?.postalCode ?? '';
+      // Editing keeps the existing pin unless the user re-picks it.
+      _selectedLatLng = null;
+      _isLocationPicked = false;
+    });
+    _applyDefaultLocation();
+    _applyDefaultPhone();
+    _tabController.animateTo(1);
+  }
+
   void _saveAddress() {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (!_isLocationPicked || _selectedLatLng == null) {
+    // A fresh address must be pinned on the map. When editing, the user may
+    // keep the existing pin; only validate if they picked a new one.
+    if (!_isEditing && (!_isLocationPicked || _selectedLatLng == null)) {
       CustomSnackbars.showInfoSnack(
         context: context,
         title: "Location Required",
@@ -202,25 +261,27 @@ class _AddressScreenState extends State<AddressScreen>
       return;
     }
 
-    final isWithinServiceArea = LocationValidator.isWithinServiceArea(
-      _selectedLatLng!.latitude,
-      _selectedLatLng!.longitude,
-    );
-    if (!isWithinServiceArea) {
-      final distance = LocationValidator.calculateDistance(
+    if (_selectedLatLng != null) {
+      final isWithinServiceArea = LocationValidator.isWithinServiceArea(
         _selectedLatLng!.latitude,
         _selectedLatLng!.longitude,
-        ANAKAPALLI_LATITUDE,
-        ANAKAPALLI_LONGITUDE,
       );
-      CustomSnackbars.showInfoSnack(
-        context: context,
-        title: "Out of Service Area",
-        message:
-            "This location is ${distance.toStringAsFixed(1)} km away, outside our "
-            "${SERVICE_RADIUS_KM.toStringAsFixed(0)} km delivery radius. Please pick a closer location.",
-      );
-      return;
+      if (!isWithinServiceArea) {
+        final distance = LocationValidator.calculateDistance(
+          _selectedLatLng!.latitude,
+          _selectedLatLng!.longitude,
+          ANAKAPALLI_LATITUDE,
+          ANAKAPALLI_LONGITUDE,
+        );
+        CustomSnackbars.showInfoSnack(
+          context: context,
+          title: "Out of Service Area",
+          message:
+              "This location is ${distance.toStringAsFixed(1)} km away, outside our "
+              "${SERVICE_RADIUS_KM.toStringAsFixed(0)} km delivery radius. Please pick a closer location.",
+        );
+        return;
+      }
     }
 
     final stateText = stateController.text.trim();
@@ -248,6 +309,46 @@ class _AddressScreenState extends State<AddressScreen>
       streetController.text,
     ]);
 
+    if (_isEditing) {
+      final addressId = _editingAddress!.id;
+      if (addressId == null || addressId.isEmpty) return;
+
+      final line2 = streetController.text.trim();
+      final fullText = joinAddressParts([
+        addressLine1,
+        line2,
+        cityText,
+        stateText,
+        pincodeController.text.trim(),
+      ]);
+
+      final payload = <String, dynamic>{
+        "name": nameController.text.trim(),
+        "addressType": _selectedAddressType,
+        "mobileNumber": phoneController.text.trim(),
+        "line1": addressLine1,
+        "line2": line2,
+        "stateId": matchedState.id,
+        "cityId": matchedCity.id,
+        "country": "IN",
+        "postalCode": pincodeController.text.trim(),
+        "fullText": fullText,
+      };
+      if ((_editingAddress!.userId ?? '').isNotEmpty) {
+        payload["userId"] = _editingAddress!.userId;
+      }
+      if (_selectedLatLng != null) {
+        payload["latitude"] = _selectedLatLng!.latitude;
+        payload["longitude"] = _selectedLatLng!.longitude;
+      }
+      context.read<UpdateAddressCubit>().updateAddress(
+        addressId,
+        payload,
+        context,
+      );
+      return;
+    }
+
     final payload = {
       "addressLine1": addressLine1,
       "cityId": matchedCity.id,
@@ -256,6 +357,8 @@ class _AddressScreenState extends State<AddressScreen>
       "postalCode": pincodeController.text.trim(),
       "latitude": _selectedLatLng!.latitude,
       "longitude": _selectedLatLng!.longitude,
+      "name": nameController.text.trim(),
+      "addressType": _selectedAddressType,
     };
     context.read<SaveAddressCubit>().saveAddress(payload, context);
   }
@@ -328,6 +431,81 @@ class _AddressScreenState extends State<AddressScreen>
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  // Home / Workplace / Others shown side by side; exactly one stays selected
+  // and its value ("HOME" / "WORK" / "OTHER") is sent as `addressType`.
+  Widget _buildAddressTypeSelector() {
+    const options = [
+      ['Home', 'HOME'],
+      ['Workplace', 'WORK'],
+      ['Others', 'OTHER'],
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              "Address Type",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+            const Text('*', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (final option in options) ...[
+              Expanded(
+                child: InkWell(
+                  onTap:
+                      () => setState(() => _selectedAddressType = option[1]),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color:
+                          _selectedAddressType == option[1]
+                              ? AppColor.PrimaryColor.withValues(alpha: 0.10)
+                              : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color:
+                            _selectedAddressType == option[1]
+                                ? AppColor.PrimaryColor
+                                : Colors.grey.shade400,
+                        width: _selectedAddressType == option[1] ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      option[0],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            _selectedAddressType == option[1]
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                        color:
+                            _selectedAddressType == option[1]
+                                ? AppColor.PrimaryColor
+                                : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (option != options.last) const SizedBox(width: 10),
+            ],
+          ],
         ),
       ],
     );
@@ -416,12 +594,22 @@ class _AddressScreenState extends State<AddressScreen>
 
   void _clearForm() {
     _formKey.currentState?.reset();
-    _applyDefaultPhone();
-    _applyDefaultLocation();
+    nameController.clear();
+    phoneController.clear();
+    houseController.clear();
+    streetController.clear();
+    landmarkController.clear();
+    stateController.clear();
+    cityController.clear();
+    pincodeController.clear();
     setState(() {
+      _editingAddress = null;
+      _selectedAddressType = 'HOME';
       _selectedLatLng = null;
       _isLocationPicked = false;
     });
+    _applyDefaultPhone();
+    _applyDefaultLocation();
   }
 
   @override
@@ -481,6 +669,29 @@ class _AddressScreenState extends State<AddressScreen>
                   }
                 },
               ),
+              BlocListener<UpdateAddressCubit, UpdateAddressState>(
+                listener: (context, state) {
+                  if (state is UpdateAddressSuccess) {
+                    CustomSnackbars.showSuccessSnack(
+                      context: scaffoldContext,
+                      title: "Success",
+                      message: "Address Updated Successfully",
+                    );
+                    _clearForm();
+                    _fetchAddresses();
+                    _tabController.animateTo(0);
+                  } else if (state is UpdateAddressFailure) {
+                    CustomSnackbars.showErrorSnack(
+                      context: scaffoldContext,
+                      title: "Failed",
+                      message:
+                          state.error.isEmpty
+                              ? "Failed to Update Address"
+                              : state.error,
+                    );
+                  }
+                },
+              ),
               BlocListener<DeleteAddressCubit, DeleteAddressState>(
                 listener: (context, state) {
                   if (state is DeleteAddressSuccess) {
@@ -499,6 +710,9 @@ class _AddressScreenState extends State<AddressScreen>
                               ? "Failed to Delete Address"
                               : state.error,
                     );
+                    // Keep the visible list in sync with the server even when
+                    // the delete is reported as failed.
+                    _fetchAddresses();
                   }
                 },
               ),
@@ -552,9 +766,11 @@ class _AddressScreenState extends State<AddressScreen>
               controller: _tabController,
               children: [
                 SavedAddressesView(
+                  selectionMode: widget.selectionMode,
                   onAddNewAddressTap: () {
                     _tabController.animateTo(1);
                   },
+                  onEditAddress: _startEditingAddress,
                 ),
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -565,7 +781,7 @@ class _AddressScreenState extends State<AddressScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Add New Address",
+                          _isEditing ? "Edit Address" : "Add New Address",
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -574,6 +790,8 @@ class _AddressScreenState extends State<AddressScreen>
                         ),
                         const SizedBox(height: 20),
                         _buildLocationPicker(),
+                        const SizedBox(height: 16),
+                        _buildAddressTypeSelector(),
                         const SizedBox(height: 16),
                         _buildTextField(
                           label: "Full Name",
@@ -614,9 +832,11 @@ class _AddressScreenState extends State<AddressScreen>
                         _buildTextField(
                           label: "Street / Locality",
                           controller: streetController,
+                          required: !_isEditing,
                           validator:
                               (v) =>
-                                  (v == null || v.trim().isEmpty)
+                                  (!_isEditing &&
+                                          (v == null || v.trim().isEmpty))
                                       ? 'Please enter street/locality'
                                       : null,
                         ),
@@ -664,43 +884,54 @@ class _AddressScreenState extends State<AddressScreen>
                         ),
                         const SizedBox(height: 24),
                         BlocBuilder<SaveAddressCubit, SaveAddressState>(
-                          builder:
-                              (context, state) => SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed:
-                                      state is SaveAddressLoading
-                                          ? null
-                                          : _saveAddress,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColor.PrimaryColor,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                          builder: (context, saveState) {
+                            return BlocBuilder<
+                              UpdateAddressCubit,
+                              UpdateAddressState
+                            >(
+                              builder: (context, updateState) {
+                                final isLoading =
+                                    saveState is SaveAddressLoading ||
+                                    updateState is UpdateAddressLoading;
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: isLoading ? null : _saveAddress,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColor.PrimaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 0,
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 0,
+                                    child:
+                                        isLoading
+                                            ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child:
+                                                  CupertinoActivityIndicator(
+                                                    color: Colors.white,
+                                                  ),
+                                            )
+                                            : Text(
+                                              _isEditing
+                                                  ? "Edit Address"
+                                                  : "Save Address",
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                   ),
-                                  child:
-                                      state is SaveAddressLoading
-                                          ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CupertinoActivityIndicator(
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                          : const Text(
-                                            "Save Address",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                ),
-                              ),
+                                );
+                              },
+                            );
+                          },
                         ),
                       ],
                     ),

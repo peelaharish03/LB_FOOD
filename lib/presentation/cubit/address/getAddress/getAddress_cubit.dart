@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/core/network/network_service.dart';
@@ -12,25 +13,44 @@ class GetAddressCubit extends Cubit<GetAddressState> {
   GetAddressCubit(this.getAddressUseCase, this.networkService)
       : super(GetAddressInitial());
 
+  static const String _tag = '[GetAddress][Cubit]';
+
   Future<void> fetchAddress(context) async {
-    bool isConnected = await networkService.hasInternetConnection();
-    print(isConnected);
+    final stopwatch = Stopwatch()..start();
+    debugPrint('$_tag ▶️ fetchAddress() called');
+
+    final bool isConnected = await networkService.hasInternetConnection();
+    debugPrint('$_tag    hasInternetConnection = $isConnected');
+
     if (!isConnected) {
-      print("No Internet Connection");
+      debugPrint('$_tag ⛔ aborting → no internet connection');
       CustomSnackbars.showErrorSnack(
         context: context,
         title: 'Alert',
         message: 'Please check Internet Connection',
       );
       return;
-    } else {
-      emit(GetAddressLoading());
-      try {
-        final result = await getAddressUseCase();
-        emit(GetAddressSuccess(result));
-      } catch (e) {
-        emit(GetAddressFailure(friendlyErrorMessage(e)));
-      }
+    }
+
+    debugPrint('$_tag    emit → GetAddressLoading');
+    emit(GetAddressLoading());
+    try {
+      final result = await getAddressUseCase();
+      stopwatch.stop();
+      debugPrint(
+        '$_tag ✅ emit → GetAddressSuccess '
+        '(${result.content.length} address(es), ${stopwatch.elapsedMilliseconds}ms)',
+      );
+      emit(GetAddressSuccess(result));
+    } catch (e, st) {
+      stopwatch.stop();
+      final message = friendlyErrorMessage(e);
+      debugPrint(
+        '$_tag ❌ emit → GetAddressFailure "$message" '
+        '(${stopwatch.elapsedMilliseconds}ms) raw=$e',
+      );
+      debugPrint('$_tag    stack: $st');
+      emit(GetAddressFailure(message));
     }
   }
 }

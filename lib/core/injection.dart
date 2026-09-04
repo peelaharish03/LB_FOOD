@@ -8,6 +8,7 @@ import 'package:local_basket/data/datasource/address/deleteAddress/deleteAddress
 import 'package:local_basket/data/datasource/address/getAddress/getAddress_dataSource.dart';
 import 'package:local_basket/data/datasource/address/city/city_dataSource.dart';
 import 'package:local_basket/data/datasource/address/saveAddress/saveAddress_dataSource.dart';
+import 'package:local_basket/data/datasource/address/updateAddress/updateAddress_dataSource.dart';
 import 'package:local_basket/data/datasource/address/state/state_dataSource.dart';
 import 'package:local_basket/data/datasource/authentication/current_customer_remote_data_source.dart';
 import 'package:local_basket/data/datasource/authentication/deleteAccount_dataSource.dart';
@@ -46,6 +47,7 @@ import 'package:local_basket/data/repositoryImpl/address/deleteAddress/deleteAdd
 import 'package:local_basket/data/repositoryImpl/address/getAddress/getAddress_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/city/city_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/saveAddress/saveAddress_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/address/updateAddress/updateAddress_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/address/state/state_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/current_customer_repository_impl.dart';
 import 'package:local_basket/data/repositoryImpl/authentication/deleteAccount_repoImpl.dart';
@@ -84,6 +86,7 @@ import 'package:local_basket/domain/repository/address/deleteAddress/deleteAddre
 import 'package:local_basket/domain/repository/address/getAddress/getAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/city/city_repository.dart';
 import 'package:local_basket/domain/repository/address/saveAddress/saveAddress_repository.dart';
+import 'package:local_basket/domain/repository/address/updateAddress/updateAddress_repository.dart';
 import 'package:local_basket/domain/repository/address/state/state_repository.dart';
 import 'package:local_basket/domain/repository/authentication/current_customer_repository.dart';
 import 'package:local_basket/domain/repository/authentication/deleteAccount_repository.dart';
@@ -122,6 +125,7 @@ import 'package:local_basket/domain/usecase/address/deleteAddress/deleteAddress_
 import 'package:local_basket/domain/usecase/address/getAddress/getAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/city/getCities_usecase.dart';
 import 'package:local_basket/domain/usecase/address/saveAddress/saveAddress_usecase.dart';
+import 'package:local_basket/domain/usecase/address/updateAddress/updateAddress_usecase.dart';
 import 'package:local_basket/domain/usecase/address/state/getStates_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/current_customer_usecase.dart';
 import 'package:local_basket/domain/usecase/authentication/deleteAccount_usecase.dart';
@@ -161,6 +165,7 @@ import 'package:local_basket/presentation/cubit/address/city/getCities_cubit.dar
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/state/getStates_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/updateAddress/updateAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/update/update_current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/deleteAccount/deleteAccount_cubit.dart';
@@ -590,7 +595,27 @@ void init() {
     () => DeleteAddressUseCase(repository: sl<DeleteAddressRepository>()),
   );
   sl.registerFactory(
-    () => DeleteAddressCubit(sl<DeleteAddressUseCase>(), sl<NetworkService>()),
+    () => DeleteAddressCubit(
+      sl<DeleteAddressUseCase>(),
+      sl<GetAddressUseCase>(),
+      sl<NetworkService>(),
+    ),
+  );
+
+  //UpdateAddress
+  sl.registerLazySingleton<UpdateAddressRemoteDataSource>(
+    () => UpdateAddressRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<UpdateAddressRepository>(
+    () => UpdateAddressRepositoryImpl(
+      remoteDataSource: sl<UpdateAddressRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => UpdateAddressUseCase(repository: sl<UpdateAddressRepository>()),
+  );
+  sl.registerFactory(
+    () => UpdateAddressCubit(sl<UpdateAddressUseCase>(), sl<NetworkService>()),
   );
 
   //UpdateCurrentCustomer

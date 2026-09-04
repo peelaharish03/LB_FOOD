@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/data/model/payment/deliveryModes/delivery_modes_model.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/cart_select_field.dart';
 
 /// Delivery-mode selector shown above the promo-code dropdown in the cart.
 /// Only rendered when the delivery-modes API returns more than one active
@@ -23,7 +23,7 @@ class DeliveryModeDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasModes = modes.isNotEmpty;
 
-    final items = loading
+    final List<DropdownMenuItem<String>> items = loading
         ? const [
             DropdownMenuItem<String>(
               enabled: false,
@@ -33,12 +33,15 @@ class DeliveryModeDropdown extends StatelessWidget {
                   SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
                   ),
                   SizedBox(width: 10),
                   Text(
                     "Loading delivery modes...",
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.white70),
                   ),
                 ],
               ),
@@ -63,37 +66,18 @@ class DeliveryModeDropdown extends StatelessWidget {
                   enabled: false,
                   child: Text(
                     "No delivery modes available",
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.white70),
                   ),
                 ),
               ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: DropdownButtonFormField<String>(
-        value: selectedCode,
-        isExpanded: true,
-        hint: const Text("Select a delivery mode"),
-        icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColor.PrimaryColor),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          prefixIcon: Icon(Icons.local_shipping_outlined),
-          labelText: "Delivery Mode",
-        ),
-        items: items,
-        onChanged: hasModes && !loading ? onChanged : (_) {},
-      ),
+    return CartSelectField(
+      icon: Icons.local_shipping_outlined,
+      label: "Delivery mode",
+      hint: "Select a delivery mode",
+      value: selectedCode,
+      items: items,
+      onChanged: hasModes && !loading ? onChanged : (_) {},
     );
   }
 }

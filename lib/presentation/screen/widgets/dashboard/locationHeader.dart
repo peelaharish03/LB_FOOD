@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 
 class LocationHeader extends StatefulWidget {
@@ -21,6 +22,9 @@ class LocationHeader extends StatefulWidget {
 
 class _LocationHeaderState extends State<LocationHeader>
     with WidgetsBindingObserver {
+  static const String _cityPrefsKey = 'cached_location_city';
+  static const String _areaPrefsKey = 'cached_location_area';
+
   String _city = "";
   String _area = "";
   bool _isLoading = true;
@@ -29,9 +33,27 @@ class _LocationHeaderState extends State<LocationHeader>
   @override
   void initState() {
     super.initState();
+    // Show the last resolved address immediately so the header never falls
+    // back to a shimmer while the (usually unchanged) address re-resolves.
+    _loadCachedAddress();
     if (widget.latitude != null && widget.longitude != null) {
       _getAddress(widget.latitude!, widget.longitude!);
     }
+  }
+
+  Future<void> _loadCachedAddress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final city = prefs.getString(_cityPrefsKey);
+      final area = prefs.getString(_areaPrefsKey);
+      if (!mounted || city == null || city.isEmpty) return;
+      setState(() {
+        _city = city;
+        _area = area ?? '';
+        _isLoading = false;
+        _hasTriedFetchingLocation = true;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -143,16 +165,39 @@ class _LocationHeaderState extends State<LocationHeader>
       Placemark place = places.first;
 
       if (!mounted) return;
+      final city = place.locality ?? "Unknown";
+      final area =
+          "${place.subLocality ?? ''}, ${place.administrativeArea ?? ''} ${place.postalCode ?? ''}";
       setState(() {
-        _city = place.locality ?? "Unknown";
-        _area =
-            "${place.subLocality ?? ''}, ${place.administrativeArea ?? ''} ${place.postalCode ?? ''}";
+        _city = city;
+        _area = area;
         _isLoading = false;
         _hasTriedFetchingLocation = true;
       });
+      _cacheAddress(city, area);
     } catch (e) {
+      // Keep whatever address is already on screen (cached or previously
+      // resolved) rather than replacing it with an error on a transient
+      // geocoding failure.
+      if (_city.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _hasTriedFetchingLocation = true;
+          });
+        }
+        return;
+      }
       _setError("Unknown", "Unable to fetch address");
     }
+  }
+
+  Future<void> _cacheAddress(String city, String area) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cityPrefsKey, city);
+      await prefs.setString(_areaPrefsKey, area);
+    } catch (_) {}
   }
 
   void _setError(String city, String area) {

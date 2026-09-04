@@ -3,12 +3,9 @@ import 'package:local_basket/presentation/cubit/authentication/currentcustomer/g
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
 import 'package:local_basket/data/model/cart/eligiblePromotions/eligiblePromotions_model.dart';
 import 'package:local_basket/data/model/payment/checkout_model.dart';
-import 'package:local_basket/data/model/payment/paymentMethods/payment_methods_model.dart';
 import 'package:local_basket/data/model/payment/deliveryModes/delivery_modes_model.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_state.dart';
-import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_cubit.dart';
-import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_state.dart';
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_state.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/payment_method_dropdown.dart';
@@ -35,6 +32,7 @@ import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_st
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
@@ -88,6 +86,15 @@ class _CartScreenState extends State<CartScreen> {
   double _grandTotal = 0.0;
   bool _checkoutInFlight = false;
 
+  // Price breakdown from the checkout preview (`/api/carts/checkout`) — the
+  // only source of the actually-applied charges. Null until a preview runs.
+  double? _previewItemsTotal;
+  double? _previewDelivery;
+  double? _previewTax;
+  double? _previewDiscount;
+  double? _previewGrandTotal;
+  bool _chargesPreviewInFlight = false;
+
   // Promo codes (promotions/eligible API) — when the cart has any eligible
   // promo code, Cash on Delivery becomes available and delivery charges are
   // waived for the order, same as the legacy single-item coupon flow.
@@ -113,30 +120,20 @@ class _CartScreenState extends State<CartScreen> {
   bool get _isCodOnlyStore =>
       _cartStoreId != null && _codOnlyStoreIds.contains(_cartStoreId);
 
-  // Payment method / delivery mode pickers. The lists come straight from
-  // their cubits (read in build via context.watch); only the current
-  // selection is kept as local state. The selected payment method's `code`
-  // goes to checkout as `paymentMethod`, the delivery mode's `code` as
-  // `shippingMethod`.
+  // Payment method / delivery mode pickers. The payment picker is a fixed
+  // two-choice control (COD / online); the delivery-mode list still comes
+  // from its cubit. Only the current selection is kept as local state. The
+  // selected payment method's `code` goes to checkout as `paymentMethod`,
+  // the delivery mode's `code` as `shippingMethod`.
+  static const String _codPaymentCode = PaymentMethodDropdown.codCode;
+  static const String _onlinePaymentCode = PaymentMethodDropdown.onlineCode;
+
+  // Starts null so the buyer always makes an explicit choice.
   String? _selectedPaymentMethod;
   String? _selectedDeliveryMode;
 
-  List<PaymentMethod> _paymentMethodsOf(PaymentMethodsState state) =>
-      state is PaymentMethodsLoaded ? state.model.activeMethods : const [];
-
   List<DeliveryMode> _deliveryModesOf(DeliveryModesState state) =>
       state is DeliveryModesLoaded ? state.model.activeModes : const [];
-
-  /// The payment method that checkout should use — the picked one, else the
-  /// first available. Null only when the API returned nothing.
-  PaymentMethod? _resolvePaymentMethod() {
-    final methods = _paymentMethodsOf(context.read<PaymentMethodsCubit>().state);
-    if (methods.isEmpty) return null;
-    return methods.firstWhere(
-      (m) => m.checkoutCode == _selectedPaymentMethod,
-      orElse: () => methods.first,
-    );
-  }
 
   /// `shippingMethod` for checkout — the picked mode, else the first
   /// available mode, else the STANDARD fallback.
@@ -201,10 +198,15 @@ class _CartScreenState extends State<CartScreen> {
     });
   }
 
-  /// Called when the buyer changes the payment method — re-runs the
-  /// eligible-promotions API in the background and refreshes the promo
-  /// dropdown with the latest values.
-  void _onPaymentMethodChanged(String? code) {
+  /// Called when the buyer changes the payment method — persists the choice
+  /// onto the cart, then re-runs the eligible-promotions API and refreshes
+  /// the promo dropdown and the checkout charge preview.
+  ///
+  /// The eligible-promotions call is made twice on purpose: once right away so
+  /// the dropdown reacts immediately, and again after the payment method has
+  /// been written onto the cart — the backend sometimes returns extra promo
+  /// codes only once the cart itself carries the new payment method.
+  Future<void> _onPaymentMethodChanged(String? code) async {
     if (code == _selectedPaymentMethod) return;
     setState(() {
       _selectedPaymentMethod = code;
@@ -212,6 +214,96 @@ class _CartScreenState extends State<CartScreen> {
       _selectedPromoCode = null;
     });
     _maybeFetchEligiblePromotions(force: true, background: true);
+    await _persistCartContext();
+    if (!mounted) return;
+    _maybeFetchEligiblePromotions(force: true, background: true);
+    _refreshChargesPreview();
+  }
+
+  /// Called when the buyer picks (or clears) a promo code — persists it onto
+  /// the cart, refreshes the checkout charge preview and flashes a brief
+  /// confirmation toast that auto-dismisses after 2 seconds.
+  void _onPromoCodeChanged(String? code) {
+    if (code == _selectedPromoCode) return;
+    setState(() => _selectedPromoCode = code);
+    _persistCartContext();
+    _refreshChargesPreview();
+    if (code != null && code.isNotEmpty) {
+      CustomSnackbars.showSuccessSnack(
+        context: context,
+        title: "Promo code applied",
+        message: "Successfully added promo code \"$code\" to your cart",
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  /// Pushes the current payment-method / promo-code / shipping-method picks
+  /// onto the cart. There is no cart-level update endpoint, so this re-sends
+  /// one existing cart line via PUT with the context fields attached, then
+  /// refetches the cart to resync totals.
+  Future<void> _persistCartContext() async {
+    if (_selectedPaymentMethod == null) return;
+    if (selectedItems.isEmpty) return;
+
+    final activeCartId = await _ensureCartId();
+    if (!mounted || !_hasValidCartId(activeCartId)) return;
+
+    final item = selectedItems.first;
+    final cartItemId = await _cartItemIdForProduct(item);
+    if (!mounted || !_hasValidCartId(cartItemId)) {
+      debugPrint('[CartContext] no cart item id; skipping persist');
+      return;
+    }
+
+    final quantity =
+        cart[item['name']] ?? ((item['quantity'] as num?)?.toInt() ?? 1);
+    final payload = <String, dynamic>{
+      "quantity": quantity,
+      "paymentMethod": _selectedPaymentMethod,
+      "shippingMethod": _shippingMethod,
+      if (_selectedPromoCode != null) "couponCode": _selectedPromoCode,
+    };
+
+    debugPrint('[CartContext] persist via PUT items/$cartItemId: $payload');
+    await context.read<UpdateCartItemsCubit>().updateCartItem(
+      payload,
+      activeCartId!,
+      cartItemId!,
+      context,
+    );
+    if (!mounted) return;
+    await context.read<GetCartCubit>().fetchCart(context);
+  }
+
+  /// Refreshes the price breakdown (delivery / tax / discount / total) shown
+  /// under the collapsible charges section by calling the checkout preview
+  /// endpoint — the only source of the applied charges. Needs an address and
+  /// a payment method to be chosen first.
+  Future<void> _refreshChargesPreview() async {
+    if (_chargesPreviewInFlight) return;
+    if (selectedItems.isEmpty) return;
+    if (_selectedPaymentMethod == null) return;
+    if (_selectedAddressId == null || _selectedAddressId!.isEmpty) return;
+
+    final activeCartId = await _ensureCartId();
+    if (!mounted || !_hasValidCartId(activeCartId)) return;
+
+    _chargesPreviewInFlight = true;
+    try {
+      final payload = {
+        "cartId": activeCartId,
+        "shippingMethod": _shippingMethod,
+        "paymentMethod": _selectedPaymentMethod,
+        "shippingAddressId": _selectedAddressId ?? "",
+        "b2bUnitId": defaultB2bUnitId,
+        if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
+      };
+      debugPrint('[Checkout] charge preview: $payload');
+      await context.read<CheckoutCubit>().fetchCheckout(payload);
+    } finally {
+      _chargesPreviewInFlight = false;
+    }
   }
 
   @override
@@ -224,7 +316,6 @@ class _CartScreenState extends State<CartScreen> {
           ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
 
     context.read<GetCartCubit>().fetchCart(context);
-    context.read<PaymentMethodsCubit>().fetchPaymentMethods();
     context.read<DeliveryModesCubit>().fetchDeliveryModes();
     _loadSavedAddress();
     context.read<GetAddressCubit>().fetchAddress(context);
@@ -705,7 +796,36 @@ class _CartScreenState extends State<CartScreen> {
   ) {
     final productId = _productIdForPayload(item);
     if (productId == null) return null;
-    return {"productId": productId, "quantity": quantity};
+    return {
+      "productId": productId,
+      "quantity": quantity,
+      ..._selectedCartContextFields(),
+    };
+  }
+
+  /// The buyer's current picks (payment method, shipping method and the promo
+  /// code chosen from the eligible-promotions list) that ride along with the
+  /// add-items-to-cart request. Each key is only included once a value is
+  /// available, so nothing changes until the user actually makes a choice.
+  Map<String, dynamic> _selectedCartContextFields() {
+    final fields = <String, dynamic>{};
+
+    final paymentMethod = _selectedPaymentMethod?.trim();
+    if (paymentMethod != null && paymentMethod.isNotEmpty) {
+      fields["paymentMethod"] = paymentMethod;
+    }
+
+    final shippingMethod = _shippingMethod;
+    if (shippingMethod.isNotEmpty) {
+      fields["shippingMethod"] = shippingMethod;
+    }
+
+    final couponCode = _selectedPromoCode?.trim();
+    if (couponCode != null && couponCode.isNotEmpty) {
+      fields["couponCode"] = couponCode;
+    }
+
+    return fields;
   }
 
   String? _cartItemIdFromState(dynamic productId) {
@@ -817,27 +937,28 @@ class _CartScreenState extends State<CartScreen> {
   /// Entry point for the bottom bar's "Place Order" button. Checks out with
   /// the payment method chosen in the dropdown:
   ///  - coupon applied / COD-only store → forced Cash on Delivery;
-  ///  - a method is selected → that method's `code` is sent to checkout;
-  ///  - nothing selected / API returned nothing → online (Razorpay) fallback.
+  ///  - nothing selected → prompt the buyer to pick one;
+  ///  - COD → COD checkout API; online → Razorpay checkout.
   Future<void> _onPlaceOrderPressed() async {
     if (_isCouponApplied || _isCodOnlyStore) {
       await openCodCheckout();
       return;
     }
 
-    final method = _resolvePaymentMethod();
+    final method = _selectedPaymentMethod;
     if (method == null) {
-      await openCheckOut();
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: "Attention",
+        message: "Please select a payment method",
+      );
       return;
     }
-    await _startCheckoutForMethod(method);
-  }
 
-  Future<void> _startCheckoutForMethod(PaymentMethod method) async {
-    if (method.isCashOnDelivery) {
-      await openCodCheckout(paymentMethod: method.checkoutCode);
+    if (method == _codPaymentCode) {
+      await openCodCheckout(paymentMethod: _codPaymentCode);
     } else {
-      await openCheckOut(paymentMethod: method.checkoutCode);
+      await openCheckOut(paymentMethod: _onlinePaymentCode);
     }
   }
 
@@ -1026,20 +1147,14 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Payment methods / delivery modes are read straight from their cubits
-    // so the dropdowns render as soon as the APIs respond, regardless of
-    // when this widget was built.
-    final paymentMethodsState = context.watch<PaymentMethodsCubit>().state;
+    // Delivery modes are read straight from the cubit so the dropdown renders
+    // as soon as the API responds. The payment picker is a fixed two-choice
+    // control that needs no API.
     final deliveryModesState = context.watch<DeliveryModesCubit>().state;
-    final paymentMethods = _paymentMethodsOf(paymentMethodsState);
     final deliveryModes = _deliveryModesOf(deliveryModesState);
 
     // Selected code, but only if it's still one of the available options —
     // DropdownButtonFormField asserts the value exists in its items.
-    final paymentDropdownValue = paymentMethods
-            .any((m) => m.checkoutCode == _selectedPaymentMethod)
-        ? _selectedPaymentMethod
-        : (paymentMethods.isNotEmpty ? paymentMethods.first.checkoutCode : null);
     final deliveryDropdownValue = deliveryModes
             .any((m) => m.checkoutCode == _selectedDeliveryMode)
         ? _selectedDeliveryMode
@@ -1120,12 +1235,41 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
+        BlocListener<UpdateCartItemsCubit, UpdateCartItemsState>(
+          listener: (context, state) {
+            if (state is UpdateCartItemsFailure) {
+              CustomSnackbars.showErrorSnack(
+                context: context,
+                title: "Error",
+                message: state.error.isEmpty
+                    ? "Couldn't update the cart"
+                    : state.error,
+              );
+            }
+          },
+        ),
         BlocListener<CheckoutCubit, CheckoutState>(
           listener: (context, state) {
             if (state is CheckoutSuccess) {
               final data = state.model.data;
               setState(() {
                 _subtotal = (data?.itemsTotal ?? 0).toDouble();
+                _previewItemsTotal = data?.itemsTotal?.toDouble();
+                _previewDelivery = data?.deliveryCharge?.toDouble();
+                _previewTax = data?.taxTotal?.toDouble();
+                _previewGrandTotal =
+                    data?.grandTotal?.toDouble() ??
+                    state.model.totalAmount?.toDouble();
+                final items = _previewItemsTotal;
+                final grand = _previewGrandTotal;
+                if (items != null && grand != null) {
+                  final charges =
+                      (_previewDelivery ?? 0) + (_previewTax ?? 0);
+                  final discount = items + charges - grand;
+                  _previewDiscount = discount > 0 ? discount : 0;
+                } else {
+                  _previewDiscount = null;
+                }
                 _applyFlatCharges();
               });
             } else if (state is CheckoutFailure) {
@@ -1165,25 +1309,9 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
-        // Once the methods/modes arrive, default the selection to the first
+        // Once the delivery modes arrive, default the selection to the first
         // one so checkout always has a code to send. Rendering reads the
-        // lists directly from the cubits via context.watch in build().
-        BlocListener<PaymentMethodsCubit, PaymentMethodsState>(
-          listener: (context, state) {
-            if (state is! PaymentMethodsLoaded) return;
-            final methods = state.model.activeMethods;
-            final stillValid =
-                methods.any((m) => m.checkoutCode == _selectedPaymentMethod);
-            if (!stillValid) {
-              setState(() {
-                _selectedPaymentMethod =
-                    methods.isNotEmpty ? methods.first.checkoutCode : null;
-              });
-              // Payment method is now known — (re)load the promo codes for it.
-              _maybeFetchEligiblePromotions(force: true);
-            }
-          },
-        ),
+        // list directly from the cubit via context.watch in build().
         BlocListener<DeliveryModesCubit, DeliveryModesState>(
           listener: (context, state) {
             if (state is! DeliveryModesLoaded) return;
@@ -1321,7 +1449,9 @@ class _CartScreenState extends State<CartScreen> {
                   onEdit: () async {
                     final result = await Navigator.push<Map<String, dynamic>>(
                       context,
-                      MaterialPageRoute(builder: (_) => const AddressScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const AddressScreen(selectionMode: true),
+                      ),
                     );
 
                     final address = result?['address'] as String?;
@@ -1333,6 +1463,7 @@ class _CartScreenState extends State<CartScreen> {
                         _selectedAddressId = addressId;
                       });
                       _refreshCheckout();
+                      _refreshChargesPreview();
                     }
                   },
                 ),
@@ -1345,10 +1476,7 @@ class _CartScreenState extends State<CartScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                     child: PaymentMethodDropdown(
-                      methods: paymentMethods,
-                      loading: paymentMethodsState is PaymentMethodsLoading ||
-                          paymentMethodsState is PaymentMethodsInitial,
-                      selectedCode: paymentDropdownValue,
+                      selectedCode: _selectedPaymentMethod,
                       onChanged: _onPaymentMethodChanged,
                     ),
                   ),
@@ -1373,7 +1501,7 @@ class _CartScreenState extends State<CartScreen> {
                       loading: _promotionsLoading,
                       selectedPromoCode: _selectedPromoCode,
                       enabled: _selectedPaymentMethod != null,
-                      onChanged: (code) => setState(() => _selectedPromoCode = code),
+                      onChanged: _onPromoCodeChanged,
                     ),
                   ),
                 Expanded(
@@ -1493,10 +1621,21 @@ class _CartScreenState extends State<CartScreen> {
                                   horizontal: 16,
                                 ),
                                 child: CheckoutBottomBar(
-                                  subtotal: _isCouponApplied ? 0 : _subtotal,
-                                  deliveryCharge:
-                                      _isCouponApplied ? 0 : _deliveryCharge,
-                                  total: _isCouponApplied ? 1.0 : _grandTotal,
+                                  itemTotal: _isCouponApplied
+                                      ? 0
+                                      : (_previewItemsTotal ?? _subtotal),
+                                  deliveryCharge: _isCouponApplied
+                                      ? 0
+                                      : (_previewDelivery ?? _deliveryCharge),
+                                  tax: _isCouponApplied
+                                      ? 0
+                                      : (_previewTax ?? 0),
+                                  discount: _isCouponApplied
+                                      ? 0
+                                      : (_previewDiscount ?? 0),
+                                  total: _isCouponApplied
+                                      ? 1.0
+                                      : (_previewGrandTotal ?? _grandTotal),
                                   loading: loading,
                                   onPlaceOrder: _onPlaceOrderPressed,
                                 ),

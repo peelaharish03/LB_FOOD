@@ -6,6 +6,7 @@ class CustomSnackbars {
     required BuildContext context,
     required String title,
     required String message,
+    Duration? duration,
   }) {
     _showOverlaySnackbar(
       context: context,
@@ -15,6 +16,7 @@ class CustomSnackbars {
       backgroundColor: const Color(0xFFDCFCE7),
       iconColor: const Color(0xFF22C55E),
       textColor: const Color(0xFF166534),
+      duration: duration,
     );
   }
 
@@ -58,6 +60,7 @@ class CustomSnackbars {
     required Color backgroundColor,
     required Color iconColor,
     required Color textColor,
+    Duration? duration,
   }) {
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -135,7 +138,7 @@ class CustomSnackbars {
     overlay.insert(overlayEntry);
     animationController.forward();
 
-    Timer(const Duration(seconds: 3), () async {
+    Timer(duration ?? const Duration(seconds: 3), () async {
       await animationController.reverse();
       overlayEntry.remove();
       animationController.dispose();
