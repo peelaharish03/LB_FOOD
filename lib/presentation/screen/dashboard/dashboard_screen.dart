@@ -66,6 +66,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _searchFocusNode = FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Show the last known location + cached store list straight away so the
+      // header/list never flash a shimmer on a revisit. The real permission +
+      // GPS refresh below then runs silently in the background.
+      await _primeLocationFromCache();
+      if (!mounted) return;
       await checkForAppUpdate(context);
       if (!mounted) return;
       debugPrint('🔄 Dashboard appeared → fetching stored FCM token');
@@ -96,11 +101,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // Loads the last saved coordinates (and, implicitly, the globally cached
+  // nearby-store list) so the UI can render immediately instead of showing a
+  // loading shimmer every time this screen is opened.
+  Future<void> _primeLocationFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLat = prefs.getDouble('saved_latitude');
+      final savedLng = prefs.getDouble('saved_longitude');
+
+      if (savedLat == null || savedLng == null || !mounted) return;
+
+      setState(() {
+        latitude = savedLat;
+        longitude = savedLng;
+        isLocationInitializing = false;
+      });
+
+      _checkServiceArea(savedLat, savedLng);
+      if (_isOutOfServiceArea || !mounted) return;
+
+      // Emits the cached list synchronously (no loading state) when the
+      // repository cache is still warm; only hits the network otherwise.
+      final cubit = context.read<GetNearbyRestaurantsCubit>();
+      if (cubit.state is GetNearbyRestaurantsLoaded) {
+        cubit.pollNearbyRestaurants(_nearbyStoresParams());
+      } else {
+        cubit.fetchNearbyRestaurants(_nearbyStoresParams());
+      }
+      _startStoreStatusPolling();
+    } catch (e) {
+      debugPrint('⚠️ Failed to prime location from cache: $e');
+    }
+  }
+
   Future<void> _requestLocationPermission() async {
     if (_isRequestingPermission) return;
     _isRequestingPermission = true;
 
-    setState(() => isLocationInitializing = true);
+    // Only show the header shimmer when we have nothing to display yet.
+    if (latitude == null || longitude == null) {
+      setState(() => isLocationInitializing = true);
+    }
 
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -232,6 +274,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _loadCoordinatesAndFetchRestaurants(forceRefresh: true);
   }
 
+  // ~55m; small GPS drift below this is ignored so the header/list don't
+  // rebuild (and re-shimmer) on every coordinate jitter.
+  static const double _coordChangeThreshold = 0.0005;
+
+  bool _coordsChanged(double newLat, double newLng) {
+    if (latitude == null || longitude == null) return true;
+    return (latitude! - newLat).abs() > _coordChangeThreshold ||
+        (longitude! - newLng).abs() > _coordChangeThreshold;
+  }
+
   Future<void> _loadCoordinatesAndFetchRestaurants({
     bool forceRefresh = false,
   }) async {
@@ -244,34 +296,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (!mounted) return;
 
-      setState(() {
-        latitude = position.latitude;
-        longitude = position.longitude;
-      });
+      if (_coordsChanged(position.latitude, position.longitude)) {
+        setState(() {
+          latitude = position.latitude;
+          longitude = position.longitude;
+        });
+      }
 
-      await prefs.setDouble('saved_latitude', latitude!);
-      await prefs.setDouble('saved_longitude', longitude!);
+      await prefs.setDouble('saved_latitude', position.latitude);
+      await prefs.setDouble('saved_longitude', position.longitude);
 
-      _checkServiceArea(latitude!, longitude!);
+      _checkServiceArea(position.latitude, position.longitude);
     } catch (e) {
       debugPrint("⚠️ Failed to get current position: $e");
 
       final savedLat = prefs.getDouble('saved_latitude');
       final savedLng = prefs.getDouble('saved_longitude');
 
-      if (!mounted) return;
-
-      setState(() {
-        latitude = savedLat;
-        longitude = savedLng;
-      });
-
-      if (latitude == null || longitude == null) {
+      if (savedLat == null || savedLng == null) {
         debugPrint("❌ No valid coordinates found. Skipping fetch.");
         return;
       }
 
-      _checkServiceArea(latitude!, longitude!);
+      if (_coordsChanged(savedLat, savedLng)) {
+        setState(() {
+          latitude = savedLat;
+          longitude = savedLng;
+        });
+      }
+
+      _checkServiceArea(savedLat, savedLng);
     }
     if (!mounted) return;
 
@@ -281,9 +335,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     debugPrint(" Fetching restaurants with lat=$latitude, lon=$longitude");
 
-    context
-        .read<GetNearbyRestaurantsCubit>()
-        .fetchNearbyRestaurants(_nearbyStoresParams(), forceRefresh: forceRefresh);
+    // If a list is already on screen, refresh it silently in the background
+    // (no loading shimmer). Only fall back to a visible load when we have
+    // nothing to show yet or the user explicitly pulled to refresh.
+    final cubit = context.read<GetNearbyRestaurantsCubit>();
+    if (!forceRefresh && cubit.state is GetNearbyRestaurantsLoaded) {
+      cubit.pollNearbyRestaurants(_nearbyStoresParams());
+    } else {
+      cubit.fetchNearbyRestaurants(
+        _nearbyStoresParams(),
+        forceRefresh: forceRefresh,
+      );
+    }
 
     _startStoreStatusPolling();
   }
@@ -405,15 +468,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildNearbyRestaurants() {
-    if (isLocationInitializing) {
-      return _buildShimmerRestaurants();
-    }
-
     return BlocBuilder<GetNearbyRestaurantsCubit, GetNearbyRestaurantsState>(
       builder: (context, state) {
-        if (state is GetNearbyRestaurantsLoading) {
-          return const Center(child: CupertinoActivityIndicator());
-        } else if (state is GetNearbyRestaurantsLoaded) {
+        if (state is GetNearbyRestaurantsLoaded) {
           if (state.model.content.isEmpty) {
             return const Center(child: Text("No restaurants found"));
           }
@@ -425,8 +482,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getB2bUnitId: (r) => r.b2bUnitId,
             getActive: (r) => (r.active ?? true) && _isWithinStoreServiceHours(),
           );
-        } else {
+        } else if (state is GetNearbyRestaurantsError) {
           return const Center(child: Text("Failed loading restaurants"));
+        } else {
+          // Initial / Loading with nothing cached yet → first-load shimmer.
+          return _buildShimmerRestaurants();
         }
       },
     );
@@ -629,7 +689,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           ),
                                         )
                                         : LocationHeader(
-                                          key: ValueKey('$latitude$longitude'),
+                                          key: ValueKey(
+                                            '${latitude?.toStringAsFixed(3)},'
+                                            '${longitude?.toStringAsFixed(3)}',
+                                          ),
                                           latitude: latitude,
                                           longitude: longitude,
                                           onLocationChanged: _onLocationChanged,

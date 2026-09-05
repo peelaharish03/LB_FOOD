@@ -102,7 +102,11 @@ const paymentReFund = '/order/payments/refund';
 const paymentRefundStatus = '/order/payments/refunds';
 const createOrderUrl = '/order/api/orders/create';
 const reOrderUrl = '/order/api/orders/reorder';
-const deleteAddressUrl = '/usermgmt/api/addresses';
+// Address edit/delete share one path, keyed only by addressId:
+//   PUT    $baseUrl$updateAddressUrl/{addressId}  (with body)
+//   DELETE $baseUrl$deleteAddressUrl/{addressId}  (no body)
+const updateAddressUrl = '/api/addresses';
+const deleteAddressUrl = '/api/addresses';
 const defaultAddressUrl = '/usermgmt/api/addresses/setdefaultAddress';
 const addressSavetoCartUrl = '/order/api/carts/address?addressId';
 

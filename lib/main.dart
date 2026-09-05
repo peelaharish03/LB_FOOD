@@ -5,6 +5,7 @@ import 'package:local_basket/firebase_options.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/get/getDefaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/defaultAddress/post/defaultAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/deleteAddress/deleteAddress_cubit.dart';
+import 'package:local_basket/presentation/cubit/address/updateAddress/updateAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/city/getCities_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/getAddress/getAddress_cubit.dart';
 import 'package:local_basket/presentation/cubit/address/saveAddress/saveAddress_cubit.dart';
@@ -129,6 +130,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<ClearCartCubit>()),
         BlocProvider(create: (_) => di.sl<ReOrderCubit>()),
         BlocProvider(create: (_) => di.sl<DeleteAddressCubit>()),
+        BlocProvider(create: (_) => di.sl<UpdateAddressCubit>()),
         BlocProvider(create: (_) => di.sl<UpdateCurrentCustomerCubit>()),
         BlocProvider(create: (_) => di.sl<DefaultAddressCubit>()),
         BlocProvider(create: (_) => di.sl<AddressSavetoCartCubit>()),

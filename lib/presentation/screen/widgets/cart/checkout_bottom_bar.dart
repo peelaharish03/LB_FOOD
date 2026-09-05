@@ -1,9 +1,16 @@
 import 'package:local_basket/components/custom_button.dart' as local_basket_button;
 import 'package:flutter/material.dart';
 
-class CheckoutBottomBar extends StatelessWidget {
-  final double subtotal;
+class CheckoutBottomBar extends StatefulWidget {
+  /// Price of the products only (cart items total), always visible.
+  final double itemTotal;
+
+  /// Charges hidden behind the down-arrow until expanded.
   final double deliveryCharge;
+  final double tax;
+  final double discount;
+
+  /// Grand total, always visible.
   final double total;
   final bool loading;
 
@@ -14,14 +21,28 @@ class CheckoutBottomBar extends StatelessWidget {
 
   const CheckoutBottomBar({
     super.key,
-    required this.subtotal,
+    required this.itemTotal,
     required this.deliveryCharge,
+    required this.tax,
+    required this.discount,
     required this.total,
     required this.loading,
     required this.onPlaceOrder,
   });
 
-  Widget buildPriceRow(String label, double value, {bool isTotal = false}) {
+  @override
+  State<CheckoutBottomBar> createState() => _CheckoutBottomBarState();
+}
+
+class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
+  bool _expanded = false;
+
+  Widget _buildPriceRow(
+    String label,
+    double value, {
+    bool isTotal = false,
+    bool negative = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -36,7 +57,7 @@ class CheckoutBottomBar extends StatelessWidget {
             ),
           ),
           Text(
-            "₹${value.toStringAsFixed(2)}",
+            "${negative ? '-' : ''}₹${value.toStringAsFixed(2)}",
             style: TextStyle(
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
@@ -45,6 +66,59 @@ class CheckoutBottomBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildItemTotalRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Text(
+            "Item Total",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: 22,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "₹${widget.itemTotal.toStringAsFixed(2)}",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCharges() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPriceRow("Delivery Charge", widget.deliveryCharge),
+        _buildPriceRow("Taxes & Fees", widget.tax),
+        if (widget.discount > 0)
+          _buildPriceRow("Discount", widget.discount, negative: true),
+      ],
     );
   }
 
@@ -84,10 +158,17 @@ class CheckoutBottomBar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  buildPriceRow("Subtotal", subtotal),
-                  buildPriceRow("Delivery Charge", deliveryCharge),
+                  _buildItemTotalRow(),
+                  AnimatedCrossFade(
+                    duration: const Duration(milliseconds: 200),
+                    crossFadeState: _expanded
+                        ? CrossFadeState.showFirst
+                        : CrossFadeState.showSecond,
+                    firstChild: _buildCharges(),
+                    secondChild: const SizedBox(width: double.infinity),
+                  ),
                   const Divider(height: 24, thickness: 1),
-                  buildPriceRow("Total", total, isTotal: true),
+                  _buildPriceRow("Total", widget.total, isTotal: true),
                 ],
               ),
             ),
@@ -99,8 +180,8 @@ class CheckoutBottomBar extends StatelessWidget {
               height: 52,
               child: local_basket_button.CustomButton(
                 buttonText: "Place Order",
-                onPressed: onPlaceOrder,
-                isLoading: loading,
+                onPressed: widget.onPlaceOrder,
+                isLoading: widget.loading,
               ),
             ),
           ],
