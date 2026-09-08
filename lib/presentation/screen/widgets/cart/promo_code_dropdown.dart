@@ -102,6 +102,9 @@ class PromoCodeDropdown extends StatelessWidget {
       hint: enabled ? "Select a promo code" : disabledHint,
       value: enabled ? selectedPromoCode : null,
       items: items,
+      // Shown on the closed field itself, not just inside the opened menu,
+      // so it doesn't look idle/unresponsive while promo codes are fetched.
+      busy: enabled && loading,
       // Keep the field tappable even with nothing to pick, so opening it is
       // what reveals "No promo codes available" rather than it just being
       // greyed out. Only fully disable it before a payment method is chosen.
