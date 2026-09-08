@@ -460,13 +460,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${distanceKm.toStringAsFixed(2)} km away';
   }
 
-  // Stores only take orders between 12 PM and 11 PM; outside that window
-  // every store shows as inactive regardless of its own `active` flag.
-  bool _isWithinStoreServiceHours() {
-    final hour = DateTime.now().hour;
-    return hour >= 12 && hour < 23;
-  }
-
   Widget _buildNearbyRestaurants() {
     return BlocBuilder<GetNearbyRestaurantsCubit, GetNearbyRestaurantsState>(
       builder: (context, state) {
@@ -480,7 +473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getCategory: (r) => _formatDistance(r.distanceKm),
             getId: (r) => (r.id ?? "").toString(),
             getB2bUnitId: (r) => r.b2bUnitId,
-            getActive: (r) => (r.active ?? true) && _isWithinStoreServiceHours(),
+            getActive: (r) => r.active ?? true,
           );
         } else if (state is GetNearbyRestaurantsError) {
           return const Center(child: Text("Failed loading restaurants"));
@@ -518,7 +511,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             getCategory: (store) => _formatDistance(store.distanceKm),
             getId: (store) => (store.id ?? "").toString(),
             getB2bUnitId: (store) => store.b2bUnitId,
-            getActive: (store) => (store.active ?? true) && _isWithinStoreServiceHours(),
+            getActive: (store) => store.active ?? true,
           );
         } else if (state is GetRestaurantsByProductNameFailure) {
           return Center(child: Text(state.error));

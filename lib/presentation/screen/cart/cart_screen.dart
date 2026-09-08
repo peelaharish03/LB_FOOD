@@ -9,7 +9,6 @@ import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligible
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_state.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/payment_method_dropdown.dart';
-import 'package:local_basket/presentation/screen/widgets/cart/delivery_mode_dropdown.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
@@ -17,7 +16,10 @@ import 'package:local_basket/presentation/cubit/payment/checkout/checkout_state.
 import 'package:local_basket/presentation/screen/widgets/cart/address_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
-import 'package:local_basket/presentation/screen/widgets/cart/promo_code_dropdown.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/cart_options_section.dart';
+import 'package:local_basket/presentation/screen/widgets/cart/empty_cart_view.dart';
+import 'package:local_basket/presentation/screen/cart/cart_prefs.dart';
+import 'package:local_basket/presentation/screen/cart/razorpay_checkout_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -86,14 +88,32 @@ class _CartScreenState extends State<CartScreen> {
   double _grandTotal = 0.0;
   bool _checkoutInFlight = false;
 
-  // Price breakdown from the checkout preview (`/api/carts/checkout`) — the
-  // only source of the actually-applied charges. Null until a preview runs.
+  // Delivery charge, tax, platform fee, total discount and grand total
+  // exactly as reported on the cart itself (`deliveryCharge` / `totalTax` /
+  // `platformFee` / `totalDiscount` / `grandTotal`) — the single source of
+  // truth for the checkout bottom bar's breakdown dropdown and its Total.
+  double _cartDeliveryCharge = 0.0;
+  double _cartTaxTotal = 0.0;
+  double _cartPlatformFee = 0.0;
+  double _cartTotalDiscount = 0.0;
+  double _cartGrandTotal = 0.0;
+
+  // Price breakdown from the checkout-preview endpoint (`/api/carts/checkout`).
+  // This is the only response that reflects the *chosen payment method* — the
+  // plain getCart figures don't move when the cart item's `paymentMethod`
+  // changes, but the preview applies the COD fee / online discount / delivery
+  // waiver. Null until a preview runs; the bottom bar falls back to the
+  // getCart values (`_cart*`) whenever a field is absent here.
   double? _previewItemsTotal;
-  double? _previewDelivery;
-  double? _previewTax;
-  double? _previewDiscount;
+  double? _previewTaxTotal;
+  double? _previewDeliveryCharge;
   double? _previewGrandTotal;
+
   bool _chargesPreviewInFlight = false;
+
+  // Set once, after the first cart has loaded, so the payment picker can be
+  // defaulted to Online Payment when the cart carries no saved method.
+  bool _defaultPaymentApplied = false;
 
   // Promo codes (promotions/eligible API) — when the cart has any eligible
   // promo code, Cash on Delivery becomes available and delivery charges are
@@ -106,20 +126,6 @@ class _CartScreenState extends State<CartScreen> {
 
   bool get _hasEligiblePromotions => _eligiblePromotions.isNotEmpty;
 
-  // Stores whose orders can only be paid by Cash on Delivery — the online
-  // (Razorpay) option is hidden and only COD is offered when the cart belongs
-  // to one of these stores.
-  static const Set<String> _codOnlyStoreIds = {
-    '425cda1f-07ce-428f-a122-581bc3751448',
-  };
-
-  /// storeId of the cart currently loaded from the getCart API.
-  String? _cartStoreId;
-
-  /// True when the loaded cart belongs to a store that only allows COD.
-  bool get _isCodOnlyStore =>
-      _cartStoreId != null && _codOnlyStoreIds.contains(_cartStoreId);
-
   // Payment method / delivery mode pickers. The payment picker is a fixed
   // two-choice control (COD / online); the delivery-mode list still comes
   // from its cubit. Only the current selection is kept as local state. The
@@ -128,9 +134,74 @@ class _CartScreenState extends State<CartScreen> {
   static const String _codPaymentCode = PaymentMethodDropdown.codCode;
   static const String _onlinePaymentCode = PaymentMethodDropdown.onlineCode;
 
-  // Starts null so the buyer always makes an explicit choice.
+  // Starts null so the buyer always makes an explicit choice. Once a choice
+  // has been persisted onto the cart it is restored from the getCart response
+  // (`paymentMethod`) on every re-entry, so the buyer isn't asked again for
+  // the same cart.
   String? _selectedPaymentMethod;
   String? _selectedDeliveryMode;
+
+  /// Maps whatever the cart reports in `paymentMethod` back onto one of the
+  /// two picker codes (COD / online), so a previously chosen method is
+  /// re-selected when the screen is reopened.
+  String? _normalizePaymentMethod(String? raw) {
+    final value = raw?.trim().toUpperCase();
+    if (value == null || value.isEmpty) return null;
+    if (value == _codPaymentCode ||
+        value.contains('COD') ||
+        value.contains('CASH')) {
+      return _codPaymentCode;
+    }
+    if (value == _onlinePaymentCode ||
+        value.contains('RAZOR') ||
+        value.contains('ONLINE') ||
+        value.contains('PREPAID')) {
+      return _onlinePaymentCode;
+    }
+    return null;
+  }
+
+  /// Grand total to show on the bottom bar. Prefers the cart's own
+  /// `grandTotal`; if the backend hasn't computed it yet (0 before a payment
+  /// method / address is set) falls back to a local sum of the cart charges.
+  double get _effectiveGrandTotal {
+    if (_cartGrandTotal > 0) return _cartGrandTotal;
+    final computed = _subtotal +
+        _cartDeliveryCharge +
+        _cartTaxTotal +
+        _cartPlatformFee -
+        _cartTotalDiscount;
+    return computed > 0 ? computed : _subtotal;
+  }
+
+  // Figures shown on the checkout bottom bar. Each prefers the payment-method
+  // aware checkout-preview value and falls back to the plain cart value when
+  // the preview hasn't produced one. Delivery charge deliberately accepts a
+  // preview value of 0 (a genuine waiver) — hence the null check rather than
+  // `> 0`. Platform fee and discount have no preview equivalent, so those
+  // stay on the cart figures.
+  double get _displayItemTotal =>
+      (_previewItemsTotal != null && _previewItemsTotal! > 0)
+          ? _previewItemsTotal!
+          : _subtotal;
+
+  double get _displayDeliveryCharge =>
+      _previewDeliveryCharge ?? _cartDeliveryCharge;
+
+  double get _displayTax =>
+      (_previewTaxTotal != null && _previewTaxTotal! > 0)
+          ? _previewTaxTotal!
+          : _cartTaxTotal;
+
+  double get _displayGrandTotal =>
+      (_previewGrandTotal != null && _previewGrandTotal! > 0)
+          ? _previewGrandTotal!
+          : _effectiveGrandTotal;
+
+  // True while a just-picked payment method is being persisted onto the cart
+  // and the promo/charges preview is being refreshed for it — shown as a
+  // spinner on the payment field itself so the pick doesn't look ignored.
+  bool _paymentContextSyncing = false;
 
   List<DeliveryMode> _deliveryModesOf(DeliveryModesState state) =>
       state is DeliveryModesLoaded ? state.model.activeModes : const [];
@@ -212,12 +283,17 @@ class _CartScreenState extends State<CartScreen> {
       _selectedPaymentMethod = code;
       // The previously picked promo may no longer apply to the new method.
       _selectedPromoCode = null;
+      _paymentContextSyncing = true;
     });
-    _maybeFetchEligiblePromotions(force: true, background: true);
-    await _persistCartContext();
-    if (!mounted) return;
-    _maybeFetchEligiblePromotions(force: true, background: true);
-    _refreshChargesPreview();
+    try {
+      _maybeFetchEligiblePromotions(force: true, background: true);
+      await _persistCartContext();
+      if (!mounted) return;
+      _maybeFetchEligiblePromotions(force: true, background: true);
+      await _refreshChargesPreview();
+    } finally {
+      if (mounted) setState(() => _paymentContextSyncing = false);
+    }
   }
 
   /// Called when the buyer picks (or clears) a promo code — persists it onto
@@ -247,12 +323,21 @@ class _CartScreenState extends State<CartScreen> {
     if (selectedItems.isEmpty) return;
 
     final activeCartId = await _ensureCartId();
-    if (!mounted || !_hasValidCartId(activeCartId)) return;
+    if (!mounted || !_hasValidCartId(activeCartId)) {
+      debugPrint(
+        '[CartContext] no valid cartId (activeCartId=$activeCartId); '
+        'skipping persist',
+      );
+      return;
+    }
 
     final item = selectedItems.first;
     final cartItemId = await _cartItemIdForProduct(item);
     if (!mounted || !_hasValidCartId(cartItemId)) {
-      debugPrint('[CartContext] no cart item id; skipping persist');
+      debugPrint(
+        '[CartContext] no cart item id for product '
+        '${item['productId']} in cart $activeCartId; skipping persist',
+      );
       return;
     }
 
@@ -274,6 +359,17 @@ class _CartScreenState extends State<CartScreen> {
     );
     if (!mounted) return;
     await context.read<GetCartCubit>().fetchCart(context);
+    final refreshed = context.read<GetCartCubit>().state;
+    if (refreshed is GetCartLoaded) {
+      final c = refreshed.cart;
+      debugPrint(
+        '[CartContext] after persist, cart refreshed: id=${c.id} '
+        'paymentMethod=${c.paymentMethod} deliveryCharge=${c.deliveryCharge} '
+        'platformFee=${c.platformFee} grandTotal=${c.grandTotal}',
+      );
+    } else {
+      debugPrint('[CartContext] after persist, GetCartCubit state=$refreshed');
+    }
   }
 
   /// Refreshes the price breakdown (delivery / tax / discount / total) shown
@@ -325,8 +421,7 @@ class _CartScreenState extends State<CartScreen> {
       _refreshCheckout();
     });
     () async {
-      final prefs = await SharedPreferences.getInstance();
-      final applied = prefs.getBool('offer_applied') ?? false;
+      final applied = await CartPrefs.isOfferApplied();
       if (applied && mounted && getCartItemCount() == 1) {
         setState(() => _isCouponApplied = true);
       }
@@ -386,14 +481,7 @@ class _CartScreenState extends State<CartScreen> {
         title: 'Success',
         message: 'Payment Successful!',
       );
-      () async {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('is_offer_flow');
-        await prefs.remove('offer_id');
-        await prefs.remove('offer_coupon');
-        await prefs.remove('offer_started_at');
-        await prefs.remove('offer_applied');
-      }();
+      CartPrefs.clearOfferFlowAndApplied();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -407,14 +495,35 @@ class _CartScreenState extends State<CartScreen> {
 
   void _onPaymentFailure(dynamic response) async {
     if (!mounted) return;
-    debugPrint('[Razorpay] failure: ${_formatRazorpayFailure(response)}');
+
+    final failure = response is PaymentFailureResponse ? response : null;
+
+    // The buyer closed the Razorpay sheet without attempting a payment at
+    // all (back button / swipe-away) — Razorpay reports this the same way as
+    // a real failure, but no payment was ever made, so there is nothing to
+    // verify with the backend. Reporting it as a "FAILURE" anyway is what
+    // was finalizing the order tied to this cart server-side and left the
+    // cart looking cleared on return. Just leave the cart exactly as it was.
+    if (failure?.code == Razorpay.PAYMENT_CANCELLED) {
+      debugPrint('[Razorpay] cancelled by user before any payment attempt');
+      CustomSnackbars.showInfoSnack(
+        context: context,
+        title: 'Payment Cancelled',
+        message: 'You cancelled the payment. Your cart is unchanged.',
+      );
+      setState(() => loading = false);
+      return;
+    }
+
+    final failureMessage = RazorpayCheckoutHelper.formatFailure(response);
+    debugPrint('[Razorpay] failure: $failureMessage');
     CustomSnackbars.showErrorSnack(
       context: context,
       title: 'Failed',
-      message: _formatRazorpayFailure(response),
+      message: failureMessage,
     );
 
-    final error = response is PaymentFailureResponse ? response.error : null;
+    final error = failure?.error;
     final metadata = error?['metadata'];
 
     final payload = {
@@ -444,17 +553,16 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _loadSavedAddress() async {
-    final prefs = await SharedPreferences.getInstance();
+    final saved = await CartPrefs.readDeliveryAddress();
+    if (!mounted) return;
     setState(() {
-      selectedAddress = prefs.getString('delivery_address') ?? "Add Address";
-      _selectedAddressId = prefs.getString('delivery_address_id');
+      selectedAddress = saved.address;
+      _selectedAddressId = saved.addressId;
     });
   }
 
   Future<void> _clearSavedAddress() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('delivery_address');
-    await prefs.remove('delivery_address_id');
+    await CartPrefs.clearDeliveryAddress();
     if (!mounted) return;
     setState(() {
       selectedAddress = "Add Address";
@@ -471,10 +579,10 @@ class _CartScreenState extends State<CartScreen> {
       }
       if (_offerValidationInFlight) return;
 
-      final prefs = await SharedPreferences.getInstance();
-      final isOfferFlow = prefs.getBool('is_offer_flow') ?? false;
-      final stickyApplied = prefs.getBool('offer_applied') ?? false;
-      final offerId = (prefs.getString('offer_id') ?? '').trim();
+      final flags = await CartPrefs.readOfferFlow();
+      final isOfferFlow = flags.isOfferFlow;
+      final stickyApplied = flags.stickyApplied;
+      final offerId = flags.offerId;
 
       final hasExactlyOne = getCartItemCount() == 1;
       if (hasExactlyOne) {
@@ -495,15 +603,8 @@ class _CartScreenState extends State<CartScreen> {
     } catch (_) {}
   }
 
-  Future<void> _saveAddress(String address, {String? addressId}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('delivery_address', address);
-    if (addressId != null && addressId.isNotEmpty) {
-      await prefs.setString('delivery_address_id', addressId);
-    } else {
-      await prefs.remove('delivery_address_id');
-    }
-  }
+  Future<void> _saveAddress(String address, {String? addressId}) =>
+      CartPrefs.saveDeliveryAddress(address, addressId: addressId);
 
   String _formatAddress(dynamic content) {
     final item = content.address;
@@ -530,13 +631,38 @@ class _CartScreenState extends State<CartScreen> {
         }
       }
     }
+    _seedProvisionalTotals();
+  }
+
+  /// Best-effort totals computed from whatever cart data is already known
+  /// locally (e.g. `widget.cartItems`, passed in from the screen that opened
+  /// the cart) so the checkout bottom bar shows a real number on the very
+  /// first frame instead of 0 while the getCart API call is still in
+  /// flight — otherwise the first open after adding an item briefly (or, on
+  /// a slow connection, not-so-briefly) showed an incorrect total until the
+  /// fetch resolved. `_syncCartFromGetCart` overwrites these with the
+  /// authoritative server values as soon as that response lands.
+  void _seedProvisionalTotals() {
+    if (selectedItems.isEmpty) return;
+    final itemsTotal = selectedItems.fold<double>(0.0, (sum, item) {
+      final totalPrice = (item['totalPrice'] as num?)?.toDouble();
+      if (totalPrice != null) return sum + totalPrice;
+      final quantity = (item['quantity'] as num?)?.toDouble() ?? 1;
+      final unitPrice =
+          (item['unitPrice'] as num?)?.toDouble() ??
+          (item['price'] as num?)?.toDouble() ??
+          0;
+      return sum + (unitPrice * quantity);
+    });
+    if (itemsTotal <= 0) return;
+    _subtotal = itemsTotal;
+    _cartDeliveryCharge = _defaultDeliveryCharge;
+    _cartGrandTotal = _subtotal + _cartDeliveryCharge;
   }
 
   void _syncCartFromGetCart(GetCartModel loadedCart) {
     cart.clear();
     selectedItems.clear();
-
-    _cartStoreId = loadedCart.storeId;
 
     for (final cartItem in loadedCart.cartItems) {
       final quantity = cartItem.quantity ?? 0;
@@ -573,7 +699,40 @@ class _CartScreenState extends State<CartScreen> {
       });
     }
 
-    _subtotal = (loadedCart.subTotal ?? 0).toDouble();
+    // Sum the items' own totalPrice rather than trusting the cart's subTotal
+    // field directly, so the total shown always matches what the items list
+    // displays even if the cart response's aggregate field lags behind.
+    final itemsTotalPrice = selectedItems.fold<double>(
+      0.0,
+      (sum, item) => sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0),
+    );
+    _subtotal =
+        itemsTotalPrice > 0
+            ? itemsTotalPrice
+            : (loadedCart.subTotal ?? 0).toDouble();
+    _cartDeliveryCharge = (loadedCart.deliveryCharge ?? 0).toDouble();
+    _cartTaxTotal = (loadedCart.totalTax ?? 0).toDouble();
+    _cartPlatformFee = (loadedCart.platformFee ?? 0).toDouble();
+    _cartTotalDiscount = (loadedCart.totalDiscount ?? 0).toDouble();
+    _cartGrandTotal = (loadedCart.grandTotal ?? 0).toDouble();
+
+    // Restore the payment method the cart already carries — but never
+    // clobber a choice the buyer just made that is still being written
+    // (`_paymentContextSyncing`) or one already selected this session.
+    final restoredPaymentMethod =
+        _normalizePaymentMethod(loadedCart.paymentMethod);
+    if (restoredPaymentMethod != null &&
+        _selectedPaymentMethod == null &&
+        !_paymentContextSyncing) {
+      _selectedPaymentMethod = restoredPaymentMethod;
+    }
+    debugPrint(
+      '[Cart] synced cartId=${loadedCart.id} '
+      'paymentMethod=${loadedCart.paymentMethod} '
+      'subtotal=$_subtotal deliveryCharge=$_cartDeliveryCharge '
+      'platformFee=$_cartPlatformFee totalDiscount=$_cartTotalDiscount '
+      'grandTotal=$_cartGrandTotal',
+    );
     _applyFlatCharges();
   }
 
@@ -620,32 +779,9 @@ class _CartScreenState extends State<CartScreen> {
         normalized.toLowerCase() != 'null';
   }
 
-  String? _firstNonEmpty(String? primary, String fallback) {
-    final primaryValue = primary?.trim();
-    if (primaryValue != null && primaryValue.isNotEmpty) return primaryValue;
-
-    final fallbackValue = fallback.trim();
-    return fallbackValue.isEmpty ? null : fallbackValue;
-  }
-
-  String? _trimmedValue(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
-
-  String? _formattedContact(String? value) {
-    final trimmed = _trimmedValue(value);
-    if (trimmed == null) return null;
-    if (trimmed.startsWith('+')) return trimmed;
-
-    final digitsOnly = trimmed.replaceAll(RegExp(r'\D'), '');
-    if (digitsOnly.length == 10) return '+91$digitsOnly';
-    if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
-      return '+$digitsOnly';
-    }
-    return digitsOnly.isEmpty ? trimmed : digitsOnly;
-  }
-
+  /// Buyer contact details passed to Razorpay's `prefill`. Needs the customer
+  /// cubit, so it stays on the screen; the string tidying lives in
+  /// [RazorpayCheckoutHelper].
   Map<String, dynamic> _razorpayPrefill() {
     final prefill = <String, dynamic>{};
 
@@ -654,16 +790,16 @@ class _CartScreenState extends State<CartScreen> {
       if (state is CurrentCustomerLoaded) {
         final customer = state.currentCustomerModel;
         final name =
-            _trimmedValue(
+            RazorpayCheckoutHelper.trimmedOrNull(
               [customer.firstName, customer.lastName]
                   .whereType<String>()
                   .map((part) => part.trim())
                   .where((part) => part.isNotEmpty)
                   .join(' '),
             ) ??
-            _trimmedValue(customer.username);
-        final email = _trimmedValue(customer.email);
-        final contact = _formattedContact(customer.mobile);
+            RazorpayCheckoutHelper.trimmedOrNull(customer.username);
+        final email = RazorpayCheckoutHelper.trimmedOrNull(customer.email);
+        final contact = RazorpayCheckoutHelper.formattedContact(customer.mobile);
 
         if (name != null) prefill['name'] = name;
         if (email != null) prefill['email'] = email;
@@ -672,114 +808,6 @@ class _CartScreenState extends State<CartScreen> {
     } catch (_) {}
 
     return prefill;
-  }
-
-  Map<String, dynamic> _razorpayNotes(CheckoutModel checkout) {
-    final notes = <String, dynamic>{};
-
-    void addNote(String key, Object? value) {
-      final text = value?.toString().trim();
-      if (text != null && text.isNotEmpty) notes[key] = text;
-    }
-
-    addNote('appOrderId', checkout.orderId);
-    addNote('razorpayOrderId', checkout.razorpayOrderId);
-    addNote('orderStatus', checkout.orderStatus);
-    addNote('paymentStatus', checkout.paymentStatus);
-    addNote('fraudFlagged', checkout.fraudFlagged);
-    addNote('cartId', cartId);
-    if (checkout.crossSellProductIds.isNotEmpty) {
-      addNote('crossSellProductIds', checkout.crossSellProductIds.join(','));
-    }
-
-    return notes;
-  }
-
-  Map<String, dynamic> _razorpayUpiFirstConfig() {
-    return {
-      'display': {
-        'blocks': {
-          'upi_apps': {
-            'name': 'Pay via UPI',
-            'instruments': [
-              {'method': 'upi'},
-            ],
-          },
-          'other_methods': {
-            'name': 'Cards, Wallets & Netbanking',
-            'instruments': [
-              {'method': 'card'},
-              {'method': 'wallet'},
-              {'method': 'netbanking'},
-            ],
-          },
-        },
-        'sequence': ['block.upi_apps', 'block.other_methods'],
-        'preferences': {'show_default_blocks': true},
-      },
-    };
-  }
-
-  Map<String, dynamic> _razorpayCheckoutOptions({
-    required String key,
-    required int amountInPaise,
-    required String razorpayOrderId,
-    required CheckoutModel checkout,
-  }) {
-    return {
-      'key': key,
-      'amount': amountInPaise,
-      'currency': 'INR',
-      'name': 'Local Basket',
-      'order_id': razorpayOrderId,
-      'method': 'upi',
-      'description': 'Cart Payment',
-      'prefill': _razorpayPrefill(),
-      'notes': _razorpayNotes(checkout),
-      'config': _razorpayUpiFirstConfig(),
-      'retry': {'enabled': true, 'max_count': 1},
-      'timeout': 60,
-      'theme': {'color': '#081724'},
-    };
-  }
-
-  int _checkoutAmountInPaise(CheckoutModel checkout) {
-    final amount =
-        checkout.totalAmount ?? checkout.data?.grandTotal ?? _grandTotal;
-    return (amount * 100).round();
-  }
-
-  String _maskedRazorpayKey(String key) {
-    final trimmed = key.trim();
-    if (trimmed.length <= 8) return '****';
-    return '${trimmed.substring(0, 8)}...${trimmed.substring(trimmed.length - 4)}';
-  }
-
-  String _formatRazorpayFailure(dynamic response) {
-    if (response is PaymentFailureResponse) {
-      final details = <String>[];
-      final message = response.message?.trim();
-      final code = response.code;
-      final error = response.error;
-      final reason = error?['reason']?.toString().trim();
-      final description = error?['description']?.toString().trim();
-
-      if (message != null && message.isNotEmpty) details.add(message);
-      if (code != null) details.add('Code: $code');
-      if (reason != null && reason.isNotEmpty && reason != message) {
-        details.add('Reason: $reason');
-      }
-      if (description != null &&
-          description.isNotEmpty &&
-          description != message) {
-        details.add(description);
-      }
-
-      return details.isEmpty ? 'Payment failed' : details.join('\n');
-    }
-
-    final message = response?.toString().trim();
-    return message == null || message.isEmpty ? 'Payment failed' : message;
   }
 
   String? _productIdForPayload(Map<String, dynamic> item) {
@@ -925,7 +953,7 @@ class _CartScreenState extends State<CartScreen> {
         'razorpayOrderId=${initiated.razorpayOrderId}, '
         'totalAmount=${initiated.totalAmount}, '
         'grandTotal=${initiated.data?.grandTotal}, '
-        'key=${initiated.razorpayKeyId == null ? null : _maskedRazorpayKey(initiated.razorpayKeyId!)}',
+        'key=${initiated.razorpayKeyId == null ? null : RazorpayCheckoutHelper.maskKey(initiated.razorpayKeyId!)}',
       );
     } else {
       debugPrint('[Checkout] initiate failed: response is null');
@@ -936,11 +964,11 @@ class _CartScreenState extends State<CartScreen> {
 
   /// Entry point for the bottom bar's "Place Order" button. Checks out with
   /// the payment method chosen in the dropdown:
-  ///  - coupon applied / COD-only store → forced Cash on Delivery;
+  ///  - coupon applied → forced Cash on Delivery;
   ///  - nothing selected → prompt the buyer to pick one;
   ///  - COD → COD checkout API; online → Razorpay checkout.
   Future<void> _onPlaceOrderPressed() async {
-    if (_isCouponApplied || _isCodOnlyStore) {
+    if (_isCouponApplied) {
       await openCodCheckout();
       return;
     }
@@ -1009,14 +1037,7 @@ class _CartScreenState extends State<CartScreen> {
           '[Checkout] COD success: orderId=${result.orderId}, '
           'orderStatus=${result.orderStatus}',
         );
-        () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('is_offer_flow');
-          await prefs.remove('offer_id');
-          await prefs.remove('offer_coupon');
-          await prefs.remove('offer_started_at');
-          await prefs.remove('offer_applied');
-        }();
+        CartPrefs.clearOfferFlowAndApplied();
 
         Navigator.pushAndRemoveUntil(
           context,
@@ -1073,7 +1094,10 @@ class _CartScreenState extends State<CartScreen> {
       }
       final validRazorpayOrderId = razorpayOrderId!;
 
-      final razorpayKeyId = _firstNonEmpty(checkout.razorpayKeyId, razorPayKey);
+      final razorpayKeyId = RazorpayCheckoutHelper.firstNonEmpty(
+        checkout.razorpayKeyId,
+        razorPayKey,
+      );
       if (razorpayKeyId == null) {
         _stopCheckoutButtonLoading();
         CustomSnackbars.showErrorSnack(
@@ -1084,7 +1108,10 @@ class _CartScreenState extends State<CartScreen> {
         return;
       }
 
-      final amountInPaise = _checkoutAmountInPaise(checkout);
+      final amountInPaise = RazorpayCheckoutHelper.amountInPaise(
+        checkout,
+        _grandTotal,
+      );
       if (amountInPaise <= 0) {
         _stopCheckoutButtonLoading();
         CustomSnackbars.showErrorSnack(
@@ -1102,15 +1129,17 @@ class _CartScreenState extends State<CartScreen> {
           try {
             debugPrint(
               'Opening Razorpay checkout: orderId=$validRazorpayOrderId, '
-              'amount=$amountInPaise, key=${_maskedRazorpayKey(razorpayKeyId)}',
+              'amount=$amountInPaise, '
+              'key=${RazorpayCheckoutHelper.maskKey(razorpayKeyId)}',
             );
 
             _razorpay.open(
-              _razorpayCheckoutOptions(
+              RazorpayCheckoutHelper.checkoutOptions(
                 key: razorpayKeyId,
                 amountInPaise: amountInPaise,
                 razorpayOrderId: validRazorpayOrderId,
-                checkout: checkout,
+                prefill: _razorpayPrefill(),
+                notes: RazorpayCheckoutHelper.notesFor(checkout, cartId),
               ),
             );
           } catch (e) {
@@ -1142,6 +1171,28 @@ class _CartScreenState extends State<CartScreen> {
       }
     } finally {
       _checkoutInFlight = false;
+    }
+  }
+
+  /// Pops the cart screen back to its opener, handing back the current
+  /// quantities, and drops the transient offer-flow prefs on the way out.
+  void _popWithCartResult({bool notifyBottomSheet = false}) {
+    CartPrefs.clearOfferFlowAndApplied();
+
+    final updatedCart = <dynamic, int>{};
+    for (var item in selectedItems) {
+      final productId = item['productId'] ?? item['id'];
+      final qty = cart[item['name']] ?? 0;
+      if (qty > 0) updatedCart[productId] = qty;
+    }
+
+    Navigator.pop(context, {
+      'updatedCart': updatedCart,
+      'cartItemsLength': getCartItemCount(),
+    });
+
+    if (notifyBottomSheet) {
+      widget.onBottomSheetVisibilityChanged?.call(cart.isNotEmpty);
     }
   }
 
@@ -1189,20 +1240,35 @@ class _CartScreenState extends State<CartScreen> {
                 _syncCartFromGetCart(state.cart);
               });
               _maybeAutoValidateOffer();
+
+              // Default the payment picker to Online Payment on the first
+              // cart load, but only when the cart carries no method of its
+              // own — a previously saved choice (restored inside
+              // `_syncCartFromGetCart`) always wins. Routed through
+              // `_onPaymentMethodChanged` so the pick is persisted onto the
+              // cart and the promo list / charge preview refresh, exactly as
+              // a manual pick would.
+              if (!_defaultPaymentApplied && selectedItems.isNotEmpty) {
+                _defaultPaymentApplied = true;
+                if (_selectedPaymentMethod == null) {
+                  _onPaymentMethodChanged(_onlinePaymentCode);
+                }
+              }
+
               _maybeFetchEligiblePromotions();
               _refreshCheckout();
+              // Keep the checkout charge preview in step with the cart that
+              // just loaded (self-guards when there's no payment method /
+              // address yet).
+              _refreshChargesPreview();
 
               final count = getCartItemCount();
               if (count != 1 && _isCouponApplied) {
-                () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('offer_applied');
-                }();
+                CartPrefs.removeOfferApplied();
                 if (mounted) setState(() => _isCouponApplied = false);
               } else if (count == 1) {
                 () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  final sticky = prefs.getBool('offer_applied') ?? false;
+                  final sticky = await CartPrefs.isOfferApplied();
                   if (sticky && mounted) {
                     setState(() => _isCouponApplied = true);
                   }
@@ -1232,6 +1298,9 @@ class _CartScreenState extends State<CartScreen> {
                 }
               }
               _refreshCheckout();
+              // Now that an address is set, the checkout preview can run and
+              // bring back the payment-method-aware breakdown.
+              _refreshChargesPreview();
             }
           },
         ),
@@ -1251,25 +1320,26 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<CheckoutCubit, CheckoutState>(
           listener: (context, state) {
             if (state is CheckoutSuccess) {
-              final data = state.model.data;
+              // The checkout-preview response is the only one that reflects
+              // the chosen payment method (COD fee / online discount /
+              // delivery waiver), so its breakdown feeds the bottom bar via
+              // `_preview*` — but only the fields it actually returned; a
+              // missing field leaves the previous value (and the getCart
+              // fallback) in place rather than blanking a correct total.
+              final model = state.model;
+              final breakdown = model.data;
               setState(() {
-                _subtotal = (data?.itemsTotal ?? 0).toDouble();
-                _previewItemsTotal = data?.itemsTotal?.toDouble();
-                _previewDelivery = data?.deliveryCharge?.toDouble();
-                _previewTax = data?.taxTotal?.toDouble();
-                _previewGrandTotal =
-                    data?.grandTotal?.toDouble() ??
-                    state.model.totalAmount?.toDouble();
-                final items = _previewItemsTotal;
-                final grand = _previewGrandTotal;
-                if (items != null && grand != null) {
-                  final charges =
-                      (_previewDelivery ?? 0) + (_previewTax ?? 0);
-                  final discount = items + charges - grand;
-                  _previewDiscount = discount > 0 ? discount : 0;
-                } else {
-                  _previewDiscount = null;
+                final itemsTotal = breakdown?.itemsTotal?.toDouble();
+                final taxTotal = breakdown?.taxTotal?.toDouble();
+                final deliveryCharge = breakdown?.deliveryCharge?.toDouble();
+                final grandTotal =
+                    (model.totalAmount ?? breakdown?.grandTotal)?.toDouble();
+                if (itemsTotal != null) _previewItemsTotal = itemsTotal;
+                if (taxTotal != null) _previewTaxTotal = taxTotal;
+                if (deliveryCharge != null) {
+                  _previewDeliveryCharge = deliveryCharge;
                 }
+                if (grandTotal != null) _previewGrandTotal = grandTotal;
                 _applyFlatCharges();
               });
             } else if (state is CheckoutFailure) {
@@ -1345,10 +1415,7 @@ class _CartScreenState extends State<CartScreen> {
                 setState(() {
                   _isCouponApplied = true;
                 });
-                () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('offer_applied', true);
-                }();
+                CartPrefs.setOfferApplied(true);
                 _refreshCheckout();
               } else {
                 CustomSnackbars.showErrorSnack(
@@ -1360,14 +1427,7 @@ class _CartScreenState extends State<CartScreen> {
                 setState(() {
                   _isCouponApplied = false;
                 });
-                () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('offer_applied');
-                  await prefs.remove('is_offer_flow');
-                  await prefs.remove('offer_id');
-                  await prefs.remove('offer_coupon');
-                  await prefs.remove('offer_started_at');
-                }();
+                CartPrefs.clearOfferFlowAndApplied();
               }
             } else if (state is ValidateOfferFailure) {
               CustomSnackbars.showErrorSnack(
@@ -1375,67 +1435,21 @@ class _CartScreenState extends State<CartScreen> {
                 title: "Error",
                 message: state.error,
               );
-              () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('offer_applied');
-                await prefs.remove('is_offer_flow');
-                await prefs.remove('offer_id');
-                await prefs.remove('offer_coupon');
-                await prefs.remove('offer_started_at');
-              }();
+              CartPrefs.clearOfferFlowAndApplied();
             }
           },
         ),
       ],
       child: WillPopScope(
         onWillPop: () async {
-          () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('is_offer_flow');
-            await prefs.remove('offer_id');
-            await prefs.remove('offer_coupon');
-            await prefs.remove('offer_started_at');
-          }();
-
-          final updatedCart = <dynamic, int>{};
-          for (var item in selectedItems) {
-            final productId = item['productId'] ?? item['id'];
-            final qty = cart[item['name']] ?? 0;
-            if (qty > 0) updatedCart[productId] = qty;
-          }
-
-          Navigator.pop(context, {
-            'updatedCart': updatedCart,
-            'cartItemsLength': getCartItemCount(),
-          });
+          _popWithCartResult();
           return false;
         },
         child: Scaffold(
           backgroundColor: AppColor.White,
           appBar: CustomAppBar(
             title: "Cart (${getCartItemCount()} items)",
-            onBackPressed: () {
-              () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('is_offer_flow');
-                await prefs.remove('offer_id');
-                await prefs.remove('offer_coupon');
-                await prefs.remove('offer_started_at');
-              }();
-              final updatedCart = <dynamic, int>{};
-              for (var item in selectedItems) {
-                final productId = item['productId'] ?? item['id'];
-                final qty = cart[item['name']] ?? 0;
-                if (qty > 0) updatedCart[productId] = qty;
-              }
-
-              Navigator.pop(context, {
-                'updatedCart': updatedCart,
-                'cartItemsLength': getCartItemCount(),
-              });
-
-              widget.onBottomSheetVisibilityChanged?.call(cart.isNotEmpty);
-            },
+            onBackPressed: () => _popWithCartResult(notifyBottomSheet: true),
           ),
           body: AbsorbPointer(
             // Only ever true while a payment operation (checkout/initiate,
@@ -1467,89 +1481,32 @@ class _CartScreenState extends State<CartScreen> {
                     }
                   },
                 ),
-                // Payment method + delivery mode selectors sit above the
-                // promo-code dropdown. The "Add notes" field was removed.
-                // The payment dropdown is always shown while the cart has
-                // items (even in the coupon / COD-only flows, where checkout
-                // still forces COD regardless of the pick).
+                // Payment method / delivery mode / promo-code selectors sit
+                // above the item list, only while the cart has items.
                 if (selectedItems.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                    child: PaymentMethodDropdown(
-                      selectedCode: _selectedPaymentMethod,
-                      onChanged: _onPaymentMethodChanged,
-                    ),
-                  ),
-                // Delivery-mode dropdown is only shown when the API returns
-                // more than one active mode; a single mode is applied silently.
-                if (selectedItems.isNotEmpty && deliveryModes.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: DeliveryModeDropdown(
-                      modes: deliveryModes,
-                      loading: deliveryModesState is DeliveryModesLoading,
-                      selectedCode: deliveryDropdownValue,
-                      onChanged: (code) =>
-                          setState(() => _selectedDeliveryMode = code),
-                    ),
-                  ),
-                if (selectedItems.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: PromoCodeDropdown(
-                      promoCodes: _eligiblePromotions,
-                      loading: _promotionsLoading,
-                      selectedPromoCode: _selectedPromoCode,
-                      enabled: _selectedPaymentMethod != null,
-                      onChanged: _onPromoCodeChanged,
-                    ),
+                  CartOptionsSection(
+                    selectedPaymentMethod: _selectedPaymentMethod,
+                    paymentBusy: _paymentContextSyncing,
+                    onPaymentMethodChanged: _onPaymentMethodChanged,
+                    deliveryModes: deliveryModes,
+                    deliveryModesLoading:
+                        deliveryModesState is DeliveryModesLoading,
+                    deliveryDropdownValue: deliveryDropdownValue,
+                    onDeliveryModeChanged: (code) =>
+                        setState(() => _selectedDeliveryMode = code),
+                    promoCodes: _eligiblePromotions,
+                    promotionsLoading: _promotionsLoading,
+                    selectedPromoCode: _selectedPromoCode,
+                    onPromoCodeChanged: _onPromoCodeChanged,
                   ),
                 Expanded(
                   child:
                       selectedItems.isEmpty
-                          ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    "Your cart is empty",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      widget.onBottomSheetVisibilityChanged
-                                          ?.call(false);
-                                      Navigator.of(context).pop();
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColor.PrimaryColor,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      "Add items",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          ? EmptyCartView(
+                            onAddItems: () {
+                              widget.onBottomSheetVisibilityChanged?.call(false);
+                              Navigator.of(context).pop();
+                            },
                           )
                           : ListView.builder(
                             itemCount: selectedItems.length + 1,
@@ -1621,21 +1578,25 @@ class _CartScreenState extends State<CartScreen> {
                                   horizontal: 16,
                                 ),
                                 child: CheckoutBottomBar(
-                                  itemTotal: _isCouponApplied
-                                      ? 0
-                                      : (_previewItemsTotal ?? _subtotal),
-                                  deliveryCharge: _isCouponApplied
-                                      ? 0
-                                      : (_previewDelivery ?? _deliveryCharge),
-                                  tax: _isCouponApplied
-                                      ? 0
-                                      : (_previewTax ?? 0),
-                                  discount: _isCouponApplied
-                                      ? 0
-                                      : (_previewDiscount ?? 0),
-                                  total: _isCouponApplied
-                                      ? 1.0
-                                      : (_previewGrandTotal ?? _grandTotal),
+                                  // Item total, delivery charge, tax,
+                                  // platform fee, discount and the grand
+                                  // total all come straight from the getCart
+                                  // response — not the checkout-preview
+                                  // endpoint (which can come back as 0
+                                  // before a payment method/address is
+                                  // chosen) and not gated behind
+                                  // `_isCouponApplied`, whose sticky,
+                                  // locally-persisted flag can outlive the
+                                  // cart it was set for and used to force a
+                                  // stale hardcoded total (e.g. showing 1
+                                  // instead of the real grandTotal) even
+                                  // when the cart has no coupon applied.
+                                  itemTotal: _displayItemTotal,
+                                  deliveryCharge: _displayDeliveryCharge,
+                                  tax: _displayTax,
+                                  discount: _cartTotalDiscount,
+                                  platformFee: _cartPlatformFee,
+                                  total: _displayGrandTotal,
                                   loading: loading,
                                   onPlaceOrder: _onPlaceOrderPressed,
                                 ),

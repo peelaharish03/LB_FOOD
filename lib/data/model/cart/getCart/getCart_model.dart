@@ -7,6 +7,8 @@ class GetCartModel {
     required this.subTotal,
     required this.totalDiscount,
     required this.totalTax,
+    required this.platformFee,
+    required this.deliveryCharge,
     required this.grandTotal,
     required this.couponCode,
     required this.notes,
@@ -16,6 +18,7 @@ class GetCartModel {
     required this.version,
     required this.storeSwitched,
     required this.previousStoreId,
+    this.paymentMethod,
   });
 
   final String? id;
@@ -25,6 +28,8 @@ class GetCartModel {
   final num? subTotal;
   final num? totalDiscount;
   final num? totalTax;
+  final num? platformFee;
+  final num? deliveryCharge;
   final num? grandTotal;
   final String? couponCode;
   final String? notes;
@@ -34,6 +39,7 @@ class GetCartModel {
   final int? version;
   final bool? storeSwitched;
   final String? previousStoreId;
+  final String? paymentMethod;
 
   List<CartItem> get cartItems => items;
   String? get businessId => storeId;
@@ -56,6 +62,8 @@ class GetCartModel {
       subTotal: _toNum(json["subTotal"]),
       totalDiscount: _toNum(json["totalDiscount"]),
       totalTax: _toNum(json["totalTax"]),
+      platformFee: _toNum(json["platformFee"]),
+      deliveryCharge: _toNum(json["deliveryCharge"]),
       grandTotal: _toNum(json["grandTotal"]),
       couponCode: json["couponCode"],
       notes: json["notes"],
@@ -75,6 +83,7 @@ class GetCartModel {
       version: json["version"],
       storeSwitched: json["storeSwitched"],
       previousStoreId: json["previousStoreId"]?.toString(),
+      paymentMethod: json["paymentMethod"]?.toString(),
     );
   }
 
@@ -86,6 +95,8 @@ class GetCartModel {
     "subTotal": subTotal,
     "totalDiscount": totalDiscount,
     "totalTax": totalTax,
+    "platformFee": platformFee,
+    "deliveryCharge": deliveryCharge,
     "grandTotal": grandTotal,
     "couponCode": couponCode,
     "notes": notes,
@@ -95,6 +106,7 @@ class GetCartModel {
     "version": version,
     "storeSwitched": storeSwitched,
     "previousStoreId": previousStoreId,
+    "paymentMethod": paymentMethod,
   };
 }
 

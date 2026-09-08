@@ -14,10 +14,16 @@ class PaymentMethodDropdown extends StatelessWidget {
   final String? selectedCode;
   final ValueChanged<String?> onChanged;
 
+  /// True while the picked method is still being synced onto the cart
+  /// (persisting it + refreshing promo codes/charges) — shown as a spinner
+  /// on the field so switching methods doesn't look like it did nothing.
+  final bool busy;
+
   const PaymentMethodDropdown({
     super.key,
     required this.selectedCode,
     required this.onChanged,
+    this.busy = false,
   });
 
   @override
@@ -28,6 +34,7 @@ class PaymentMethodDropdown extends StatelessWidget {
       hint: "Select payment method",
       value: selectedCode,
       onChanged: onChanged,
+      busy: busy,
       items: const [
         DropdownMenuItem<String>(
           value: codCode,

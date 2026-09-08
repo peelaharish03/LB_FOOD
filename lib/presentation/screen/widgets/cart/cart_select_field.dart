@@ -19,6 +19,11 @@ class CartSelectField extends StatelessWidget {
   /// Null disables the control (greyed, not tappable).
   final ValueChanged<String?>? onChanged;
 
+  /// True while this field's own data is still loading in the background —
+  /// shows a small spinner in place of the chevron so the field visibly
+  /// reads as "busy" instead of looking idle/unresponsive while it waits.
+  final bool busy;
+
   const CartSelectField({
     super.key,
     required this.icon,
@@ -27,6 +32,7 @@ class CartSelectField extends StatelessWidget {
     required this.value,
     required this.items,
     required this.onChanged,
+    this.busy = false,
   });
 
   @override
@@ -156,10 +162,19 @@ class CartSelectField extends StatelessWidget {
               ],
             ),
           ),
-          Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: hasValue ? accent : AppColor.Grey1,
-          ),
+          busy
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(accent),
+                  ),
+                )
+              : Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: hasValue ? accent : AppColor.Grey1,
+                ),
         ],
       ),
     );

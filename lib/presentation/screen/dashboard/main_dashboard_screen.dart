@@ -188,7 +188,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
           /// 🥩 Fresh Meat Banner
           _BannerCard(
-            title: "Fresh Meat",
+            title: "Fresh Zone ",
             subtitle: "Top quality, handpicked cuts",
             imageUrl:
                 "https://images.pexels.com/photos/10201880/pexels-photo-10201880.jpeg",

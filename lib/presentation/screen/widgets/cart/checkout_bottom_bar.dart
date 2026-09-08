@@ -2,15 +2,21 @@ import 'package:local_basket/components/custom_button.dart' as local_basket_butt
 import 'package:flutter/material.dart';
 
 class CheckoutBottomBar extends StatefulWidget {
-  /// Price of the products only (cart items total), always visible.
+  /// Price of the products only (cart items total).
   final double itemTotal;
 
-  /// Charges hidden behind the down-arrow until expanded.
+  /// Charges shown in the always-visible breakdown, straight from the cart.
   final double deliveryCharge;
   final double tax;
+
+  /// Total discount as reported by the cart itself (`totalDiscount`).
   final double discount;
 
-  /// Grand total, always visible.
+  /// Platform fee as reported by the cart itself (`platformFee`) — always
+  /// shown, even when zero.
+  final double platformFee;
+
+  /// Grand total — always visible; tapping its arrow reveals the breakdown.
   final double total;
   final bool loading;
 
@@ -25,6 +31,7 @@ class CheckoutBottomBar extends StatefulWidget {
     required this.deliveryCharge,
     required this.tax,
     required this.discount,
+    required this.platformFee,
     required this.total,
     required this.loading,
     required this.onPlaceOrder,
@@ -69,17 +76,35 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
     );
   }
 
-  Widget _buildItemTotalRow() {
+  /// The itemised breakdown, revealed under the Total row when expanded.
+  Widget _buildCharges() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPriceRow("Item Total", widget.itemTotal),
+        _buildPriceRow("Delivery Charge", widget.deliveryCharge),
+        _buildPriceRow("Taxes & Fees", widget.tax),
+        if (widget.discount > 0)
+          _buildPriceRow("Discount", widget.discount, negative: true),
+        _buildPriceRow("Platform Fee", widget.platformFee),
+        const Divider(height: 24, thickness: 1),
+      ],
+    );
+  }
+
+  /// Always-visible Total row with the expand/collapse toggle for the
+  /// breakdown above it.
+  Widget _buildTotalRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Text(
-            "Item Total",
+          const Text(
+            "Total",
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
             ),
           ),
           InkWell(
@@ -98,27 +123,15 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
           ),
           const Spacer(),
           Text(
-            "₹${widget.itemTotal.toStringAsFixed(2)}",
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
+            "₹${widget.total.toStringAsFixed(2)}",
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCharges() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildPriceRow("Delivery Charge", widget.deliveryCharge),
-        _buildPriceRow("Taxes & Fees", widget.tax),
-        if (widget.discount > 0)
-          _buildPriceRow("Discount", widget.discount, negative: true),
-      ],
     );
   }
 
@@ -158,7 +171,10 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildItemTotalRow(),
+                  // Only the grand Total is shown by default; the itemised
+                  // breakdown (item total, delivery, taxes, discount, platform
+                  // fee — exactly as the cart reports them) drops down when the
+                  // arrow on the Total row is tapped.
                   AnimatedCrossFade(
                     duration: const Duration(milliseconds: 200),
                     crossFadeState: _expanded
@@ -167,8 +183,7 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
                     firstChild: _buildCharges(),
                     secondChild: const SizedBox(width: double.infinity),
                   ),
-                  const Divider(height: 24, thickness: 1),
-                  _buildPriceRow("Total", widget.total, isTotal: true),
+                  _buildTotalRow(),
                 ],
               ),
             ),
