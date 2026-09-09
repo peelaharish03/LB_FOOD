@@ -35,6 +35,8 @@ import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsA
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_state.dart';
+import 'package:local_basket/presentation/cubit/cart/applyCoupon/applyCoupon_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/applyCoupon/applyCoupon_state.dart';
 import 'package:local_basket/presentation/screen/address/address_screen.dart';
 import 'package:local_basket/presentation/screen/dashboard/dashboard_screen.dart';
 import 'package:local_basket/presentation/screen/order/orderSuccess_screen.dart';
@@ -123,6 +125,10 @@ class _CartScreenState extends State<CartScreen> {
   bool _promotionsFetched = false;
   String? _selectedPromoCode;
   String? _promotionsFetchedForCartId;
+
+  // True while a cart-level coupon apply / remove call is in flight — shown as
+  // a spinner on the promo field so the pick doesn't look ignored.
+  bool _promoApplying = false;
 
   bool get _hasEligiblePromotions => _eligiblePromotions.isNotEmpty;
 
@@ -279,13 +285,25 @@ class _CartScreenState extends State<CartScreen> {
   /// codes only once the cart itself carries the new payment method.
   Future<void> _onPaymentMethodChanged(String? code) async {
     if (code == _selectedPaymentMethod) return;
+    // The previously picked promo may no longer apply to the new method — drop
+    // it from the cart via the coupon endpoint before switching.
+    final promoToClear = _selectedPromoCode;
     setState(() {
       _selectedPaymentMethod = code;
-      // The previously picked promo may no longer apply to the new method.
       _selectedPromoCode = null;
       _paymentContextSyncing = true;
     });
     try {
+      if (promoToClear != null) {
+        final activeCartId = await _ensureCartId();
+        if (mounted && _hasValidCartId(activeCartId)) {
+          await context.read<ApplyCouponCubit>().removeCoupon(
+            activeCartId!,
+            promoToClear,
+          );
+        }
+        if (!mounted) return;
+      }
       _maybeFetchEligiblePromotions(force: true, background: true);
       await _persistCartContext();
       if (!mounted) return;
@@ -296,20 +314,76 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  /// Called when the buyer picks (or clears) a promo code — persists it onto
-  /// the cart, refreshes the checkout charge preview and flashes a brief
-  /// confirmation toast that auto-dismisses after 2 seconds.
-  void _onPromoCodeChanged(String? code) {
-    if (code == _selectedPromoCode) return;
-    setState(() => _selectedPromoCode = code);
-    _persistCartContext();
+  /// Called when the buyer picks (or clears) a promo code from the cart
+  /// screen. The promo code is applied to / removed from the cart through the
+  /// dedicated cart-level coupon endpoints
+  /// (`POST` / `DELETE /api/carts/{cartId}/coupon?code=…`) — it is no longer
+  /// piggy-backed on the add-item / update-item cart calls. Afterwards the
+  /// cart is refetched and the checkout charge preview refreshed.
+  Future<void> _onPromoCodeChanged(String? code) async {
+    final newCode = (code == null || code.trim().isEmpty) ? null : code.trim();
+    final previousCode = _selectedPromoCode;
+    if (newCode == previousCode) return;
+    if (_promoApplying) return;
+
+    final activeCartId = await _ensureCartId();
+    if (!mounted) return;
+    if (!_hasValidCartId(activeCartId)) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: "Error",
+        message: "Cart id not found",
+      );
+      return;
+    }
+
+    setState(() {
+      _promoApplying = true;
+      _selectedPromoCode = newCode;
+    });
+
+    bool ok;
+    if (newCode != null) {
+      ok = await context.read<ApplyCouponCubit>().applyCoupon(
+        activeCartId!,
+        newCode,
+        context: context,
+      );
+    } else {
+      ok = await context.read<ApplyCouponCubit>().removeCoupon(
+        activeCartId!,
+        previousCode ?? "",
+        context: context,
+      );
+    }
+    if (!mounted) return;
+
+    if (!ok) {
+      // Roll back to the previous selection — the listener shows the error.
+      setState(() {
+        _selectedPromoCode = previousCode;
+        _promoApplying = false;
+      });
+      return;
+    }
+
+    await context.read<GetCartCubit>().fetchCart(context);
+    if (!mounted) return;
+    setState(() => _promoApplying = false);
     _refreshChargesPreview();
-    if (code != null && code.isNotEmpty) {
+
+    if (newCode != null) {
       CustomSnackbars.showSuccessSnack(
         context: context,
         title: "Promo code applied",
-        message: "Successfully added promo code \"$code\" to your cart",
+        message: "Successfully added promo code \"$newCode\" to your cart",
         duration: const Duration(seconds: 2),
+      );
+    } else {
+      CustomSnackbars.showInfoSnack(
+        context: context,
+        title: "Promo code removed",
+        message: "The promo code has been removed from your cart",
       );
     }
   }
@@ -343,11 +417,12 @@ class _CartScreenState extends State<CartScreen> {
 
     final quantity =
         cart[item['name']] ?? ((item['quantity'] as num?)?.toInt() ?? 1);
+    // NOTE: the promo code is intentionally NOT sent here — it is applied to
+    // the cart through the dedicated coupon endpoint in `_onPromoCodeChanged`.
     final payload = <String, dynamic>{
       "quantity": quantity,
       "paymentMethod": _selectedPaymentMethod,
       "shippingMethod": _shippingMethod,
-      if (_selectedPromoCode != null) "couponCode": _selectedPromoCode,
     };
 
     debugPrint('[CartContext] persist via PUT items/$cartItemId: $payload');
@@ -726,6 +801,17 @@ class _CartScreenState extends State<CartScreen> {
         !_paymentContextSyncing) {
       _selectedPaymentMethod = restoredPaymentMethod;
     }
+
+    // Reflect a coupon already applied to the cart server-side in the promo
+    // dropdown — but never clobber a pick the buyer is mid-applying
+    // (`_promoApplying`).
+    if (!_promoApplying) {
+      final restoredCoupon = loadedCart.couponCode?.trim();
+      _selectedPromoCode =
+          (restoredCoupon != null && restoredCoupon.isNotEmpty)
+              ? restoredCoupon
+              : null;
+    }
     debugPrint(
       '[Cart] synced cartId=${loadedCart.id} '
       'paymentMethod=${loadedCart.paymentMethod} '
@@ -831,10 +917,11 @@ class _CartScreenState extends State<CartScreen> {
     };
   }
 
-  /// The buyer's current picks (payment method, shipping method and the promo
-  /// code chosen from the eligible-promotions list) that ride along with the
-  /// add-items-to-cart request. Each key is only included once a value is
-  /// available, so nothing changes until the user actually makes a choice.
+  /// The buyer's current picks (payment method, shipping method) that ride
+  /// along with the add-items-to-cart request. Each key is only included once a
+  /// value is available, so nothing changes until the user actually makes a
+  /// choice. The promo code is deliberately excluded — it is applied to the
+  /// cart via the dedicated coupon endpoint in `_onPromoCodeChanged`.
   Map<String, dynamic> _selectedCartContextFields() {
     final fields = <String, dynamic>{};
 
@@ -846,11 +933,6 @@ class _CartScreenState extends State<CartScreen> {
     final shippingMethod = _shippingMethod;
     if (shippingMethod.isNotEmpty) {
       fields["shippingMethod"] = shippingMethod;
-    }
-
-    final couponCode = _selectedPromoCode?.trim();
-    if (couponCode != null && couponCode.isNotEmpty) {
-      fields["couponCode"] = couponCode;
     }
 
     return fields;
@@ -1354,6 +1436,20 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
+        BlocListener<ApplyCouponCubit, ApplyCouponState>(
+          listener: (context, state) {
+            if (state is ApplyCouponFailure) {
+              CustomSnackbars.showErrorSnack(
+                context: context,
+                title: "Promo code",
+                message: state.error.isEmpty
+                    ? "Couldn't update the promo code"
+                    : state.error,
+              );
+              if (mounted) setState(() => _promoApplying = false);
+            }
+          },
+        ),
         BlocListener<EligiblePromotionsCubit, EligiblePromotionsState>(
           listener: (context, state) {
             if (state is EligiblePromotionsLoaded) {
@@ -1496,6 +1592,7 @@ class _CartScreenState extends State<CartScreen> {
                         setState(() => _selectedDeliveryMode = code),
                     promoCodes: _eligiblePromotions,
                     promotionsLoading: _promotionsLoading,
+                    promoApplying: _promoApplying,
                     selectedPromoCode: _selectedPromoCode,
                     onPromoCodeChanged: _onPromoCodeChanged,
                   ),

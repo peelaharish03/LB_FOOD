@@ -21,6 +21,7 @@ class CartOptionsSection extends StatelessWidget {
 
   final List<EligiblePromotion> promoCodes;
   final bool promotionsLoading;
+  final bool promoApplying;
   final String? selectedPromoCode;
   final ValueChanged<String?> onPromoCodeChanged;
 
@@ -35,6 +36,7 @@ class CartOptionsSection extends StatelessWidget {
     required this.onDeliveryModeChanged,
     required this.promoCodes,
     required this.promotionsLoading,
+    required this.promoApplying,
     required this.selectedPromoCode,
     required this.onPromoCodeChanged,
   });
@@ -72,6 +74,7 @@ class CartOptionsSection extends StatelessWidget {
           child: PromoCodeDropdown(
             promoCodes: promoCodes,
             loading: promotionsLoading,
+            applying: promoApplying,
             selectedPromoCode: selectedPromoCode,
             enabled: selectedPaymentMethod != null,
             onChanged: onPromoCodeChanged,

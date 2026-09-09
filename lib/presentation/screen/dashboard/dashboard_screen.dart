@@ -24,7 +24,6 @@ import 'package:local_basket/presentation/screen/profile/profile_screen.dart';
 import 'package:local_basket/presentation/screen/restaurantMenu/restaurantMenu_screen.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/LocationPermissionDialog.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/bottom_card_widget.dart';
-import 'package:local_basket/presentation/screen/widgets/dashboard/clear_cart_dialog.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/foodItemCard.dart';
 import 'package:local_basket/presentation/screen/widgets/dashboard/locationHeader.dart';
 import 'package:local_basket/components/searchBar.dart';
@@ -183,13 +182,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       _isRequestingPermission = false;
     }
-  }
-
-  Future<void> _clearCart() async {
-    await context
-        .read<ClearCartCubit>()
-        .clearCart(context, cartId: cartData?.id);
-    await _fetchCart();
   }
 
   Future<void> _maybeClearCartForOfferFlow() async {
@@ -817,15 +809,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
               ? BottomCartCard(
                 itemCount: cartData?.totalCount ?? 0,
-                onDeletePressed: () {
-                  showDialog(
-                    context: context,
-                    builder:
-                        (context) => ClearCartDialog(
-                          onClear: () async => await _clearCart(),
-                        ),
-                  );
-                },
                 onTap: () async {
                   await Navigator.push(
                     context,

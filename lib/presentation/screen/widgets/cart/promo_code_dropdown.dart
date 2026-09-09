@@ -5,16 +5,26 @@ import 'package:flutter/material.dart';
 /// Promo-code selector shown above the cart items. Opens like a normal
 /// dropdown; if the cart has no eligible promo codes, opening it shows a
 /// single "No promo codes available" row instead of a blank menu.
+///
+/// When a promo code is applied, a "Don't apply a promo code" row is added at
+/// the top so the buyer can clear it again (which removes the coupon from the
+/// cart).
 class PromoCodeDropdown extends StatelessWidget {
   final List<EligiblePromotion> promoCodes;
   final bool loading;
   final String? selectedPromoCode;
   final ValueChanged<String?> onChanged;
 
+  /// True while the cart-level coupon apply / remove request is in flight.
+  final bool applying;
+
   /// When false the field is disabled and shows a hint row — used until a
   /// payment method has been chosen, since eligible promos depend on it.
   final bool enabled;
   final String disabledHint;
+
+  /// Sentinel value for the "no promo code" row.
+  static const String noneValue = '__none__';
 
   const PromoCodeDropdown({
     super.key,
@@ -22,6 +32,7 @@ class PromoCodeDropdown extends StatelessWidget {
     required this.loading,
     required this.selectedPromoCode,
     required this.onChanged,
+    this.applying = false,
     this.enabled = true,
     this.disabledHint = "Select a payment method first",
   });
@@ -29,6 +40,7 @@ class PromoCodeDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPromoCodes = promoCodes.isNotEmpty;
+    final busy = enabled && (loading || applying);
 
     final List<DropdownMenuItem<String>> items = !enabled
         ? [
@@ -65,8 +77,22 @@ class PromoCodeDropdown extends StatelessWidget {
                 ),
               ]
             : hasPromoCodes
-                ? promoCodes
-                    .map(
+                ? <DropdownMenuItem<String>>[
+                    if (selectedPromoCode != null &&
+                        selectedPromoCode!.isNotEmpty)
+                      const DropdownMenuItem<String>(
+                        value: noneValue,
+                        child: Row(
+                          children: [
+                            Icon(Icons.block_rounded, size: 16),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text("Don't apply a promo code"),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ...promoCodes.map(
                       (promo) => DropdownMenuItem<String>(
                         value: promo.value,
                         child: Row(
@@ -84,8 +110,8 @@ class PromoCodeDropdown extends StatelessWidget {
                           ],
                         ),
                       ),
-                    )
-                    .toList()
+                    ),
+                  ]
                 : const [
                     DropdownMenuItem<String>(
                       enabled: false,
@@ -103,14 +129,17 @@ class PromoCodeDropdown extends StatelessWidget {
       value: enabled ? selectedPromoCode : null,
       items: items,
       // Shown on the closed field itself, not just inside the opened menu,
-      // so it doesn't look idle/unresponsive while promo codes are fetched.
-      busy: enabled && loading,
+      // so it doesn't look idle/unresponsive while promo codes are fetched
+      // or a coupon apply / remove call is in flight.
+      busy: busy,
       // Keep the field tappable even with nothing to pick, so opening it is
       // what reveals "No promo codes available" rather than it just being
       // greyed out. Only fully disable it before a payment method is chosen.
       onChanged: !enabled
           ? null
-          : (hasPromoCodes && !loading ? onChanged : (_) {}),
+          : ((hasPromoCodes && !loading && !applying)
+              ? (value) => onChanged(value == noneValue ? null : value)
+              : (_) {}),
     );
   }
 }
