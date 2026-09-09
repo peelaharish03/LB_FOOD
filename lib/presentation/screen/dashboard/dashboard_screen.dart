@@ -347,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return {
       "latitude": latitude,
       "longitude": longitude,
-      "radius": 5,
+      "radius": 3,
       "page": page,
       "size": size,
     };
