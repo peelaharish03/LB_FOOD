@@ -21,6 +21,7 @@ import 'package:local_basket/data/datasource/cart/createCart/createCart_dataSour
 import 'package:local_basket/data/datasource/cart/getCart/getCart_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/productsAddToCart/productsAddtoCart_dataSource.dart';
 import 'package:local_basket/data/datasource/cart/updateCartItems/updateCartItems_dataSource.dart';
+import 'package:local_basket/data/datasource/cart/applyCoupon/applyCoupon_dataSource.dart';
 import 'package:local_basket/data/datasource/complaints/create_complaints_datasource.dart';
 import 'package:local_basket/data/datasource/location/location_remotedatasource.dart';
 import 'package:local_basket/data/datasource/notifications/fcmToken/fcm_token_dataSource.dart';
@@ -60,6 +61,7 @@ import 'package:local_basket/data/repositoryImpl/cart/createCart/createCart_repo
 import 'package:local_basket/data/repositoryImpl/cart/getCart/getCart_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/productsAddToCart/productsAddtoCart_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/cart/updateCartItems/updateCartItems_repoImpl.dart';
+import 'package:local_basket/data/repositoryImpl/cart/applyCoupon/applyCoupon_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/complaints/create_complaints_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/location/location_repoImpl.dart';
 import 'package:local_basket/data/repositoryImpl/notifications/notifications_repoImpl.dart';
@@ -99,6 +101,7 @@ import 'package:local_basket/domain/repository/cart/createCart/createCart_reposi
 import 'package:local_basket/domain/repository/cart/getCart/getCart_repository.dart';
 import 'package:local_basket/domain/repository/cart/productsAddToCart/productsAddtoCart_repository.dart';
 import 'package:local_basket/domain/repository/cart/updateCartItems/updateCartItems_repository.dart';
+import 'package:local_basket/domain/repository/cart/applyCoupon/applyCoupon_repository.dart';
 import 'package:local_basket/domain/repository/complaints/create_complaints_repository.dart';
 import 'package:local_basket/domain/repository/location/location_repo.dart';
 import 'package:local_basket/domain/repository/notifications/notifications_repository.dart';
@@ -138,6 +141,7 @@ import 'package:local_basket/domain/usecase/cart/createCart/createCart_usecase.d
 import 'package:local_basket/domain/usecase/cart/getCart/getCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/productsAddToCart/productsAddtoCart_usecase.dart';
 import 'package:local_basket/domain/usecase/cart/updateCartItems/updateCartItems_usecase.dart';
+import 'package:local_basket/domain/usecase/cart/applyCoupon/applyCoupon_usecase.dart';
 import 'package:local_basket/domain/usecase/complaints/create_complaints_usecase.dart';
 import 'package:local_basket/domain/usecase/location/location_usecase.dart';
 import 'package:local_basket/domain/usecase/notifications/notifications_usecase.dart';
@@ -177,6 +181,7 @@ import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/applyCoupon/applyCoupon_cubit.dart';
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
@@ -414,6 +419,25 @@ void init() {
   sl.registerFactory(
     () => UpdateCartItemsCubit(
       sl<UpdateCartItemsUseCase>(),
+      sl<NetworkService>(),
+    ),
+  );
+
+  //ApplyCoupon (cart-level promo code)
+  sl.registerLazySingleton<ApplyCouponRemoteDataSource>(
+    () => ApplyCouponRemoteDataSourceImpl(client: sl<DioClient>().dio),
+  );
+  sl.registerLazySingleton<ApplyCouponRepository>(
+    () => ApplyCouponRepositoryImpl(
+      remoteDataSource: sl<ApplyCouponRemoteDataSource>(),
+    ),
+  );
+  sl.registerLazySingleton(
+    () => ApplyCouponUseCase(repository: sl<ApplyCouponRepository>()),
+  );
+  sl.registerFactory(
+    () => ApplyCouponCubit(
+      sl<ApplyCouponUseCase>(),
       sl<NetworkService>(),
     ),
   );

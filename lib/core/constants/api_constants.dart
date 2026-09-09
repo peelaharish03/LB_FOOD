@@ -137,6 +137,19 @@ String updateCartItemsUrl(String cartId, String itemId) {
   return '/api/carts/$cartId/items/$itemId';
 }
 
+// Cart-level coupon / promo code. Applied and removed on the cart itself
+// (not on a single cart line). Both return the full updated cart.
+// NOTE the query-param name differs between the two:
+//   POST   $baseUrl/api/carts/{cartId}/coupon?code={code}
+//   DELETE $baseUrl/api/carts/{cartId}/coupon?coupon={code}
+String applyCartCouponUrl(String cartId, String code) {
+  return '/api/carts/$cartId/coupon?code=${Uri.encodeQueryComponent(code)}';
+}
+
+String removeCartCouponUrl(String cartId, String code) {
+  return '/api/carts/$cartId/coupon?coupon=${Uri.encodeQueryComponent(code)}';
+}
+
 String deleteCartItemsUrl(String cartId) {
   return '/order/api/carts/items/$cartId';
 }

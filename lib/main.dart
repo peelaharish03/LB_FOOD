@@ -21,6 +21,7 @@ import 'package:local_basket/presentation/cubit/cart/createCart/createCart_cubit
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/applyCoupon/applyCoupon_cubit.dart';
 import 'package:local_basket/presentation/cubit/complaints/create_complaints_cubit.dart';
 import 'package:local_basket/presentation/cubit/location/location_cubit.dart';
 import 'package:local_basket/presentation/cubit/notifications/notifications_cubit.dart';
@@ -119,6 +120,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<GetCartCubit>()),
         BlocProvider(create: (_) => di.sl<ProductsAddToCartCubit>()),
         BlocProvider(create: (_) => di.sl<UpdateCartItemsCubit>()),
+        BlocProvider(create: (_) => di.sl<ApplyCouponCubit>()),
         BlocProvider(create: (_) => di.sl<SaveAddressCubit>()),
         BlocProvider(create: (_) => di.sl<GetAddressCubit>()),
         BlocProvider(create: (_) => di.sl<GetStatesCubit>()),

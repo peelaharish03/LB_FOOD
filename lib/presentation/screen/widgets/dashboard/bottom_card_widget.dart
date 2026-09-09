@@ -6,13 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 class BottomCartCard extends StatelessWidget {
   final int itemCount;
   final VoidCallback onTap;
-  final VoidCallback onDeletePressed;
 
   const BottomCartCard({
     super.key,
     required this.itemCount,
     required this.onTap,
-    required this.onDeletePressed,
   });
 
   @override
@@ -67,14 +65,6 @@ class BottomCartCard extends StatelessWidget {
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: onDeletePressed,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: const Icon(Icons.delete_outline,
-                            color: Colors.white, size: 22),
                       ),
                     ),
                     ElevatedButton.icon(
