@@ -22,8 +22,10 @@ import 'package:local_basket/presentation/screen/cart/cart_prefs.dart';
 import 'package:local_basket/presentation/screen/cart/razorpay_checkout_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_basket/core/utils/location_validator.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
@@ -1044,12 +1046,77 @@ class _CartScreenState extends State<CartScreen> {
     return initiated;
   }
 
+  /// Verifies the buyer is still inside the delivery service area before a
+  /// checkout is allowed. Items may have been added to the cart while in range
+  /// and the buyer since travelled away (e.g. left town without ordering) — in
+  /// that case the order must be blocked with a "you're out of range" message.
+  ///
+  /// Fails open: if the current location genuinely can't be determined, the
+  /// checkout is allowed and the backend remains the final authority.
+  Future<bool> _ensureWithinServiceArea() async {
+    try {
+      Position? position;
+      final permission = await Geolocator.checkPermission();
+      final hasPermission = permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
+
+      if (hasPermission) {
+        try {
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 8),
+            ),
+          );
+        } catch (_) {
+          position = await Geolocator.getLastKnownPosition();
+        }
+      } else {
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      double? lat = position?.latitude;
+      double? lng = position?.longitude;
+      if (lat == null || lng == null) {
+        final prefs = await SharedPreferences.getInstance();
+        lat = prefs.getDouble('saved_latitude');
+        lng = prefs.getDouble('saved_longitude');
+      }
+      if (lat == null || lng == null) return true;
+
+      if (LocationValidator.isWithinServiceArea(lat, lng)) return true;
+
+      final distance = LocationValidator.calculateDistance(
+        lat,
+        lng,
+        ANAKAPALLI_LATITUDE,
+        ANAKAPALLI_LONGITUDE,
+      );
+      if (mounted) {
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: "You're out of range",
+          message:
+              "You're ${distance.toStringAsFixed(1)} km away from the store's "
+              "delivery area. Move back within range to place this order.",
+        );
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[Checkout] service-area check failed, allowing: $e');
+      return true;
+    }
+  }
+
   /// Entry point for the bottom bar's "Place Order" button. Checks out with
   /// the payment method chosen in the dropdown:
   ///  - coupon applied → forced Cash on Delivery;
   ///  - nothing selected → prompt the buyer to pick one;
   ///  - COD → COD checkout API; online → Razorpay checkout.
   Future<void> _onPlaceOrderPressed() async {
+    if (!await _ensureWithinServiceArea()) return;
+    if (!mounted) return;
+
     if (_isCouponApplied) {
       await openCodCheckout();
       return;
