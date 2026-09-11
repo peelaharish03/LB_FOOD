@@ -37,107 +37,115 @@ class PromoCodeDropdown extends StatelessWidget {
     this.disabledHint = "Select a payment method first",
   });
 
+  static DropdownMenuItem<String> _infoRow(String text) => DropdownMenuItem(
+        enabled: false,
+        child: Text(text, style: const TextStyle(color: Colors.white70)),
+      );
+
+  static DropdownMenuItem<String> _promoRow(String value, String label) =>
+      DropdownMenuItem(
+        value: value,
+        child: Row(
+          children: [
+            const Icon(Icons.local_offer_rounded, size: 16),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final hasPromoCodes = promoCodes.isNotEmpty;
-    final busy = enabled && (loading || applying);
+    final selected = selectedPromoCode?.trim();
+    final hasSelection = selected != null && selected.isNotEmpty;
 
-    final List<DropdownMenuItem<String>> items = !enabled
-        ? [
-            DropdownMenuItem<String>(
-              enabled: false,
-              child: Text(
-                disabledHint,
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ),
-          ]
-        : loading
-            ? const [
-                DropdownMenuItem<String>(
-                  enabled: false,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        "Checking available promo codes...",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
+    // A coupon already applied to the cart is shown (and can be changed /
+    // removed) even before a payment method is picked — the applied code
+    // doesn't depend on the eligible-promotions list.
+    final active = enabled || hasSelection;
+    final busy = active && (loading || applying);
+
+    List<DropdownMenuItem<String>> items;
+    if (!active) {
+      items = [_infoRow(disabledHint)];
+    } else if (loading && !hasSelection) {
+      items = const [
+        DropdownMenuItem<String>(
+          enabled: false,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
                 ),
-              ]
-            : hasPromoCodes
-                ? <DropdownMenuItem<String>>[
-                    if (selectedPromoCode != null &&
-                        selectedPromoCode!.isNotEmpty)
-                      const DropdownMenuItem<String>(
-                        value: noneValue,
-                        child: Row(
-                          children: [
-                            Icon(Icons.block_rounded, size: 16),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text("Don't apply a promo code"),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ...promoCodes.map(
-                      (promo) => DropdownMenuItem<String>(
-                        value: promo.value,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_offer_rounded, size: 16),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                promo.description?.trim().isNotEmpty == true
-                                    ? "${promo.displayLabel} — ${promo.description}"
-                                    : promo.displayLabel,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ]
-                : const [
-                    DropdownMenuItem<String>(
-                      enabled: false,
-                      child: Text(
-                        "No promo codes available",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  ];
+              ),
+              SizedBox(width: 10),
+              Text(
+                "Checking available promo codes...",
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      ];
+    } else {
+      items = [];
+      // "Don't apply a promo code" — only when something is currently applied.
+      if (hasSelection) {
+        items.add(
+          const DropdownMenuItem<String>(
+            value: noneValue,
+            child: Row(
+              children: [
+                Icon(Icons.block_rounded, size: 16),
+                SizedBox(width: 10),
+                Expanded(child: Text("Don't apply a promo code")),
+              ],
+            ),
+          ),
+        );
+      }
+      if (enabled && !loading) {
+        for (final promo in promoCodes) {
+          final label = promo.description?.trim().isNotEmpty == true
+              ? "${promo.displayLabel} — ${promo.description}"
+              : promo.displayLabel;
+          items.add(_promoRow(promo.value, label));
+        }
+      }
+      // The applied coupon commonly drops out of the eligible list once it's
+      // on the cart — keep it selectable/visible so the field keeps showing it
+      // through to checkout rather than snapping back to the hint.
+      if (hasSelection && !items.any((i) => i.value == selected)) {
+        items.add(_promoRow(selected, selected));
+      }
+      if (items.isEmpty) {
+        items = [_infoRow(enabled ? "No promo codes available" : disabledHint)];
+      }
+    }
+
+    // Picking is possible when there are eligible codes to choose from, or
+    // when there's an applied code that can be cleared / re-picked.
+    final canPick = active && !applying && !loading && (hasPromoCodes || hasSelection);
 
     return CartSelectField(
       icon: Icons.local_offer_outlined,
       label: "Promo code",
-      hint: enabled ? "Select a promo code" : disabledHint,
-      value: enabled ? selectedPromoCode : null,
+      hint: active ? "Select a promo code" : disabledHint,
+      value: active ? selected : null,
       items: items,
       // Shown on the closed field itself, not just inside the opened menu,
       // so it doesn't look idle/unresponsive while promo codes are fetched
       // or a coupon apply / remove call is in flight.
       busy: busy,
-      // Keep the field tappable even with nothing to pick, so opening it is
-      // what reveals "No promo codes available" rather than it just being
-      // greyed out. Only fully disable it before a payment method is chosen.
-      onChanged: !enabled
+      onChanged: !active
           ? null
-          : ((hasPromoCodes && !loading && !applying)
+          : (canPick
               ? (value) => onChanged(value == noneValue ? null : value)
               : (_) {}),
     );

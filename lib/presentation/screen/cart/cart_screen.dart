@@ -13,6 +13,8 @@ import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validat
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_state.dart';
+import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
+import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/address_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
@@ -25,7 +27,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:local_basket/core/utils/location_validator.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/components/custom_topbar.dart';
@@ -115,10 +116,6 @@ class _CartScreenState extends State<CartScreen> {
 
   bool _chargesPreviewInFlight = false;
 
-  // Set once, after the first cart has loaded, so the payment picker can be
-  // defaulted to Online Payment when the cart carries no saved method.
-  bool _defaultPaymentApplied = false;
-
   // Promo codes (promotions/eligible API) — when the cart has any eligible
   // promo code, Cash on Delivery becomes available and delivery charges are
   // waived for the order, same as the legacy single-item coupon flow.
@@ -127,6 +124,12 @@ class _CartScreenState extends State<CartScreen> {
   bool _promotionsFetched = false;
   String? _selectedPromoCode;
   String? _promotionsFetchedForCartId;
+
+  // The coupon code the cart itself currently carries, from the last getCart
+  // response. This is the source of truth for what the promo field shows — it
+  // survives an eligible-promotions refresh even when the applied code is no
+  // longer returned in the "eligible" list.
+  String? _cartCouponCode;
 
   // True while a cart-level coupon apply / remove call is in flight — shown as
   // a spinner on the promo field so the pick doesn't look ignored.
@@ -142,12 +145,17 @@ class _CartScreenState extends State<CartScreen> {
   static const String _codPaymentCode = PaymentMethodDropdown.codCode;
   static const String _onlinePaymentCode = PaymentMethodDropdown.onlineCode;
 
-  // Starts null so the buyer always makes an explicit choice. Once a choice
-  // has been persisted onto the cart it is restored from the getCart response
-  // (`paymentMethod`) on every re-entry, so the buyer isn't asked again for
-  // the same cart.
+  // Starts null so the buyer always makes an explicit choice — never
+  // auto-defaulted. Once picked it is kept in local state and shown on screen
+  // until the cart itself changes (a new cart id, e.g. the cart was cleared
+  // and a fresh one started).
   String? _selectedPaymentMethod;
   String? _selectedDeliveryMode;
+
+  // The cart id the current `_selectedPaymentMethod` belongs to. When a
+  // getCart response carries a different id the payment choice is dropped and
+  // re-seeded from that cart.
+  String? _paymentMethodCartId;
 
   /// Maps whatever the cart reports in `paymentMethod` back onto one of the
   /// two picker codes (COD / online), so a previously chosen method is
@@ -248,6 +256,7 @@ class _CartScreenState extends State<CartScreen> {
           _eligiblePromotions = [];
           _promotionsFetched = false;
           _selectedPromoCode = null;
+          _cartCouponCode = null;
         });
       }
       return;
@@ -290,20 +299,35 @@ class _CartScreenState extends State<CartScreen> {
     // The previously picked promo may no longer apply to the new method — drop
     // it from the cart via the coupon endpoint before switching.
     final promoToClear = _selectedPromoCode;
+    final activeCartId = await _ensureCartId();
+    if (!mounted) return;
+
     setState(() {
       _selectedPaymentMethod = code;
+      _paymentMethodCartId = _hasValidCartId(activeCartId)
+          ? activeCartId
+          : (cartId ?? _paymentMethodCartId);
       _selectedPromoCode = null;
       _paymentContextSyncing = true;
     });
+
+    // Persist the choice locally, keyed to this cart, so it's still shown
+    // after leaving and re-entering the cart screen — until the cart changes.
+    if (_hasValidCartId(_paymentMethodCartId)) {
+      if (code != null && code.isNotEmpty) {
+        await CartPrefs.savePaymentMethod(_paymentMethodCartId!, code);
+      } else {
+        await CartPrefs.clearPaymentMethod();
+      }
+    }
+    if (!mounted) return;
+
     try {
-      if (promoToClear != null) {
-        final activeCartId = await _ensureCartId();
-        if (mounted && _hasValidCartId(activeCartId)) {
-          await context.read<ApplyCouponCubit>().removeCoupon(
-            activeCartId!,
-            promoToClear,
-          );
-        }
+      if (promoToClear != null && _hasValidCartId(activeCartId)) {
+        await context.read<ApplyCouponCubit>().removeCoupon(
+          activeCartId!,
+          promoToClear,
+        );
         if (!mounted) return;
       }
       _maybeFetchEligiblePromotions(force: true, background: true);
@@ -313,6 +337,42 @@ class _CartScreenState extends State<CartScreen> {
       await _refreshChargesPreview();
     } finally {
       if (mounted) setState(() => _paymentContextSyncing = false);
+    }
+  }
+
+  /// Restores the payment method the buyer saved for this cart (from prefs),
+  /// falling back to whatever the cart itself carries. Runs after every
+  /// getCart. Does nothing while a pick is being written, or when a pick for
+  /// this same cart is already on screen.
+  Future<void> _syncPaymentMethodForCart(GetCartModel loadedCart) async {
+    if (_paymentContextSyncing) return;
+    final loadedCartId = loadedCart.id;
+    if (!_hasValidCartId(loadedCartId)) return;
+
+    if (_selectedPaymentMethod != null &&
+        _paymentMethodCartId == loadedCartId) {
+      return;
+    }
+
+    final stored = await CartPrefs.readPaymentMethod(loadedCartId!);
+    if (!mounted) return;
+
+    final resolved =
+        stored ?? _normalizePaymentMethod(loadedCart.paymentMethod);
+
+    if (resolved == _selectedPaymentMethod &&
+        _paymentMethodCartId == loadedCartId) {
+      return;
+    }
+
+    setState(() {
+      _selectedPaymentMethod = resolved;
+      _paymentMethodCartId = loadedCartId;
+    });
+
+    if (resolved != null) {
+      _maybeFetchEligiblePromotions();
+      _refreshChargesPreview();
     }
   }
 
@@ -559,6 +619,7 @@ class _CartScreenState extends State<CartScreen> {
         message: 'Payment Successful!',
       );
       CartPrefs.clearOfferFlowAndApplied();
+      CartPrefs.clearPaymentMethod();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -793,26 +854,20 @@ class _CartScreenState extends State<CartScreen> {
     _cartTotalDiscount = (loadedCart.totalDiscount ?? 0).toDouble();
     _cartGrandTotal = (loadedCart.grandTotal ?? 0).toDouble();
 
-    // Restore the payment method the cart already carries — but never
-    // clobber a choice the buyer just made that is still being written
-    // (`_paymentContextSyncing`) or one already selected this session.
-    final restoredPaymentMethod =
-        _normalizePaymentMethod(loadedCart.paymentMethod);
-    if (restoredPaymentMethod != null &&
-        _selectedPaymentMethod == null &&
-        !_paymentContextSyncing) {
-      _selectedPaymentMethod = restoredPaymentMethod;
-    }
+    // Payment method restore is handled separately (async, from prefs) in
+    // `_syncPaymentMethodForCart` — it's the buyer's own choice, never
+    // auto-defaulted, and must not be touched here.
 
     // Reflect a coupon already applied to the cart server-side in the promo
-    // dropdown — but never clobber a pick the buyer is mid-applying
-    // (`_promoApplying`).
+    // dropdown — the cart's own `couponCode` is the source of truth. Never
+    // clobber a pick the buyer is mid-applying (`_promoApplying`).
+    final appliedCoupon = loadedCart.couponCode?.trim();
+    _cartCouponCode =
+        (appliedCoupon != null && appliedCoupon.isNotEmpty)
+            ? appliedCoupon
+            : null;
     if (!_promoApplying) {
-      final restoredCoupon = loadedCart.couponCode?.trim();
-      _selectedPromoCode =
-          (restoredCoupon != null && restoredCoupon.isNotEmpty)
-              ? restoredCoupon
-              : null;
+      _selectedPromoCode = _cartCouponCode;
     }
     debugPrint(
       '[Cart] synced cartId=${loadedCart.id} '
@@ -1046,66 +1101,167 @@ class _CartScreenState extends State<CartScreen> {
     return initiated;
   }
 
-  /// Verifies the buyer is still inside the delivery service area before a
-  /// checkout is allowed. Items may have been added to the cart while in range
-  /// and the buyer since travelled away (e.g. left town without ordering) — in
-  /// that case the order must be blocked with a "you're out of range" message.
-  ///
-  /// Fails open: if the current location genuinely can't be determined, the
-  /// checkout is allowed and the backend remains the final authority.
-  Future<bool> _ensureWithinServiceArea() async {
-    try {
-      Position? position;
-      final permission = await Geolocator.checkPermission();
-      final hasPermission = permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always;
+  // The cart's store must be within this many km of the buyer's current
+  // location for checkout to be allowed — the same radius the dashboard uses
+  // to list nearby stores.
+  static const double _storeDeliveryRadiusKm = 3.0;
 
-      if (hasPermission) {
+  /// Before checkout, confirms the store the cart belongs to still delivers to
+  /// where the buyer is *now*. Items may have been added while near the store
+  /// and the buyer since travelled away — that order is blocked with a popup
+  /// instead of failing later at the payment step.
+  ///
+  /// It re-queries the nearby-stores API (radius [_storeDeliveryRadiusKm]) for
+  /// the buyer's current location: if the cart's store comes back, the backend
+  /// has confirmed it's in range; if it doesn't, the buyer is outside its
+  /// delivery area.
+  ///
+  /// Fails open: if the buyer's location or the store list can't be
+  /// determined, checkout is allowed and the backend stays the final
+  /// authority — only a store that is positively out of range blocks the order.
+  Future<bool> _ensureStoreInDeliveryRange() async {
+    try {
+      final cartStoreId = _cartStoreId();
+      if (cartStoreId == null) return true;
+
+      final coords = await _currentCoordinates();
+      if (coords == null) return true;
+      if (!mounted) return true;
+
+      await context.read<GetNearbyRestaurantsCubit>().pollNearbyRestaurants({
+        "latitude": coords.lat,
+        "longitude": coords.lng,
+        "radius": _storeDeliveryRadiusKm,
+        "page": 0,
+        "size": 100,
+      });
+      if (!mounted) return true;
+
+      final nearbyState = context.read<GetNearbyRestaurantsCubit>().state;
+      if (nearbyState is! GetNearbyRestaurantsLoaded) return true;
+
+      final storeInRange = nearbyState.model.content
+          .any((store) => store.id?.toString() == cartStoreId);
+      if (storeInRange) return true;
+
+      await _showOutOfDeliveryRangeDialog();
+      return false;
+    } catch (e) {
+      debugPrint('[Checkout] store-range check failed, allowing: $e');
+      return true;
+    }
+  }
+
+  /// The store id the current cart belongs to, from the loaded getCart state.
+  /// Null when it can't be determined.
+  String? _cartStoreId() {
+    final state = context.read<GetCartCubit>().state;
+    if (state is GetCartLoaded) {
+      final id = state.cart.storeId?.trim();
+      if (id != null && id.isNotEmpty && id != '0') return id;
+    }
+    return null;
+  }
+
+  /// Buyer's current coordinates — a last-known fix first (instant), then a
+  /// tight live fix, then the saved coordinates. Null when nothing is
+  /// available (checkout then fails open).
+  Future<({double lat, double lng})?> _currentCoordinates() async {
+    Position? position = await Geolocator.getLastKnownPosition();
+    if (position == null) {
+      final permission = await Geolocator.checkPermission();
+      final granted = permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
+      if (granted) {
         try {
           position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.medium,
-              timeLimit: Duration(seconds: 8),
+              accuracy: LocationAccuracy.low,
+              timeLimit: Duration(seconds: 6),
             ),
           );
         } catch (_) {
-          position = await Geolocator.getLastKnownPosition();
+          position = null;
         }
-      } else {
-        position = await Geolocator.getLastKnownPosition();
       }
-
-      double? lat = position?.latitude;
-      double? lng = position?.longitude;
-      if (lat == null || lng == null) {
-        final prefs = await SharedPreferences.getInstance();
-        lat = prefs.getDouble('saved_latitude');
-        lng = prefs.getDouble('saved_longitude');
-      }
-      if (lat == null || lng == null) return true;
-
-      if (LocationValidator.isWithinServiceArea(lat, lng)) return true;
-
-      final distance = LocationValidator.calculateDistance(
-        lat,
-        lng,
-        ANAKAPALLI_LATITUDE,
-        ANAKAPALLI_LONGITUDE,
-      );
-      if (mounted) {
-        CustomSnackbars.showErrorSnack(
-          context: context,
-          title: "You're out of range",
-          message:
-              "You're ${distance.toStringAsFixed(1)} km away from the store's "
-              "delivery area. Move back within range to place this order.",
-        );
-      }
-      return false;
-    } catch (e) {
-      debugPrint('[Checkout] service-area check failed, allowing: $e');
-      return true;
     }
+    if (position != null) {
+      return (lat: position.latitude, lng: position.longitude);
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble('saved_latitude');
+    final lng = prefs.getDouble('saved_longitude');
+    if (lat != null && lng != null) return (lat: lat, lng: lng);
+    return null;
+  }
+
+  /// Blocking popup shown when the cart's store no longer delivers to the
+  /// buyer's current location. Replaces the old transient snackbar so the
+  /// message can't be swiped away or missed, and makes clear the cart is kept.
+  Future<void> _showOutOfDeliveryRangeDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppColor.White,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.wrong_location_outlined,
+                  size: 40,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "You're out of range",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You're far from the store, so this order can't be placed "
+                "from here.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColor.PrimaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text("Got it"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Entry point for the bottom bar's "Place Order" button. Checks out with
@@ -1114,7 +1270,7 @@ class _CartScreenState extends State<CartScreen> {
   ///  - nothing selected → prompt the buyer to pick one;
   ///  - COD → COD checkout API; online → Razorpay checkout.
   Future<void> _onPlaceOrderPressed() async {
-    if (!await _ensureWithinServiceArea()) return;
+    if (!await _ensureStoreInDeliveryRange()) return;
     if (!mounted) return;
 
     if (_isCouponApplied) {
@@ -1187,6 +1343,7 @@ class _CartScreenState extends State<CartScreen> {
           'orderStatus=${result.orderStatus}',
         );
         CartPrefs.clearOfferFlowAndApplied();
+        CartPrefs.clearPaymentMethod();
 
         Navigator.pushAndRemoveUntil(
           context,
@@ -1273,7 +1430,6 @@ class _CartScreenState extends State<CartScreen> {
 
       try {
         if (!mounted) return;
-        await Future<void>.delayed(const Duration(milliseconds: 200));
         WidgetsBinding.instance.addPostFrameCallback((_) {
           try {
             debugPrint(
@@ -1390,19 +1546,10 @@ class _CartScreenState extends State<CartScreen> {
               });
               _maybeAutoValidateOffer();
 
-              // Default the payment picker to Online Payment on the first
-              // cart load, but only when the cart carries no method of its
-              // own — a previously saved choice (restored inside
-              // `_syncCartFromGetCart`) always wins. Routed through
-              // `_onPaymentMethodChanged` so the pick is persisted onto the
-              // cart and the promo list / charge preview refresh, exactly as
-              // a manual pick would.
-              if (!_defaultPaymentApplied && selectedItems.isNotEmpty) {
-                _defaultPaymentApplied = true;
-                if (_selectedPaymentMethod == null) {
-                  _onPaymentMethodChanged(_onlinePaymentCode);
-                }
-              }
+              // No auto-default. Restore the payment method the buyer saved
+              // for this cart (prefs), else whatever the cart carries, else
+              // leave it on "Select payment method".
+              _syncPaymentMethodForCart(state.cart);
 
               _maybeFetchEligiblePromotions();
               _refreshCheckout();
@@ -1524,7 +1671,12 @@ class _CartScreenState extends State<CartScreen> {
                 _eligiblePromotions = state.model.promotions;
                 _promotionsLoading = false;
                 _promotionsFetched = true;
+                // Only drop the local selection if it's neither the coupon the
+                // cart actually carries nor one of the eligible codes — an
+                // applied coupon commonly stops appearing in the eligible list
+                // and must keep showing until it's removed from the cart.
                 if (_selectedPromoCode != null &&
+                    _selectedPromoCode != _cartCouponCode &&
                     !_eligiblePromotions.any(
                       (p) => p.value == _selectedPromoCode,
                     )) {

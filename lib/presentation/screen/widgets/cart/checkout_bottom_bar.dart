@@ -1,4 +1,5 @@
 import 'package:local_basket/components/custom_button.dart' as local_basket_button;
+import 'package:local_basket/core/constants/colors.dart';
 import 'package:flutter/material.dart';
 
 class CheckoutBottomBar extends StatefulWidget {
@@ -44,10 +45,19 @@ class CheckoutBottomBar extends StatefulWidget {
 class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
   bool _expanded = false;
 
+  // Only a few lines are colour-coded; the rest stay neutral so the panel
+  // doesn't look busy:
+  //  • Delivery Charge / Platform Fee – red   (added charges)
+  //  • Discount                       – green (money you save)
+  //  • Total                          – header colour, bold
+  static const Color _chargeColor = Color(0xFFE53935); // red 600
+  static const Color _discountColor = Color(0xFF2E7D32); // green 800
+  static const Color _neutralColor = Color(0xFF5A5A5A);
+
   Widget _buildPriceRow(
     String label,
     double value, {
-    bool isTotal = false,
+    Color color = _neutralColor,
     bool negative = false,
   }) {
     return Padding(
@@ -58,17 +68,17 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
           Text(
             label,
             style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
-              color: isTotal ? Colors.black : Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: color,
             ),
           ),
           Text(
             "${negative ? '-' : ''}₹${value.toStringAsFixed(2)}",
             style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
-              color: isTotal ? Colors.black : Colors.grey.shade800,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -82,11 +92,24 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildPriceRow("Item Total", widget.itemTotal),
-        _buildPriceRow("Delivery Charge", widget.deliveryCharge),
+        _buildPriceRow(
+          "Delivery Charge",
+          widget.deliveryCharge,
+          color: _chargeColor,
+        ),
         _buildPriceRow("Taxes & Fees", widget.tax),
         if (widget.discount > 0)
-          _buildPriceRow("Discount", widget.discount, negative: true),
-        _buildPriceRow("Platform Fee", widget.platformFee),
+          _buildPriceRow(
+            "Discount",
+            widget.discount,
+            color: _discountColor,
+            negative: true,
+          ),
+        _buildPriceRow(
+          "Platform Fee",
+          widget.platformFee,
+          color: _chargeColor,
+        ),
         const Divider(height: 24, thickness: 1),
       ],
     );
@@ -95,16 +118,17 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
   /// Always-visible Total row with the expand/collapse toggle for the
   /// breakdown above it.
   Widget _buildTotalRow() {
+    final totalColor = AppColor.PrimaryColor;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Text(
+          Text(
             "Total",
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w800,
+              color: totalColor,
             ),
           ),
           InkWell(
@@ -117,17 +141,17 @@ class _CheckoutBottomBarState extends State<CheckoutBottomBar> {
                     ? Icons.keyboard_arrow_up_rounded
                     : Icons.keyboard_arrow_down_rounded,
                 size: 22,
-                color: Colors.grey.shade700,
+                color: totalColor,
               ),
             ),
           ),
           const Spacer(),
           Text(
             "₹${widget.total.toStringAsFixed(2)}",
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
+            style: TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w800,
+              color: totalColor,
             ),
           ),
         ],

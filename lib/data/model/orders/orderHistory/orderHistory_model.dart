@@ -115,6 +115,7 @@ class Content {
     required this.createdDate,
     required this.updatedDate,
     required this.orderItems,
+    required this.fulfillmentAgent,
   });
 
   final String? id;
@@ -137,6 +138,7 @@ class Content {
   final DateTime? createdDate;
   final DateTime? updatedDate;
   final List<OrderItem> orderItems;
+  final FulfillmentAgent? fulfillmentAgent;
 
   factory Content.fromJson(Map<String, dynamic> json) {
     final orderItemsJson = json["orderItems"] ?? json["lineItems"];
@@ -175,6 +177,12 @@ class Content {
       createdDate: _asDateTime(json["createdDate"]),
       updatedDate: _asDateTime(json["updatedDate"]),
       orderItems: _modelList(orderItemsJson, OrderItem.fromJson),
+      fulfillmentAgent:
+          json["fulfillmentAgent"] is Map
+              ? FulfillmentAgent.fromJson(
+                _asStringKeyMap(json["fulfillmentAgent"]),
+              )
+              : null,
     );
   }
 
@@ -199,6 +207,71 @@ class Content {
     "createdDate": createdDate?.toIso8601String(),
     "updatedDate": updatedDate?.toIso8601String(),
     "orderItems": orderItems.map((x) => x.toJson()).toList(),
+    "fulfillmentAgent": fulfillmentAgent?.toJson(),
+  };
+}
+
+/// The delivery agent assigned to fulfil an order. Shown on the order card
+/// with a one-tap call action once the backend attaches one.
+class FulfillmentAgent {
+  FulfillmentAgent({
+    required this.agentId,
+    required this.agentType,
+    required this.userId,
+    required this.firstName,
+    required this.lastName,
+    required this.displayName,
+    required this.mobileNumber,
+    required this.email,
+    required this.status,
+  });
+
+  final String? agentId;
+  final String? agentType;
+  final String? userId;
+  final String? firstName;
+  final String? lastName;
+  final String? displayName;
+  final String? mobileNumber;
+  final String? email;
+  final String? status;
+
+  /// Best available name for the agent.
+  String get name {
+    final full =
+        [firstName, lastName].whereType<String>().join(' ').trim();
+    if (full.isNotEmpty) return full;
+    final display = displayName?.trim();
+    if (display != null && display.isNotEmpty) return display;
+    return 'Delivery Agent';
+  }
+
+  bool get hasPhone => (mobileNumber?.trim().isNotEmpty ?? false);
+
+  factory FulfillmentAgent.fromJson(Map<String, dynamic> json) {
+    return FulfillmentAgent(
+      agentId: _asString(json["agentId"]),
+      agentType: _asString(json["agentType"]),
+      userId: _asString(json["userId"]),
+      firstName: _asString(json["firstName"]),
+      lastName: _asString(json["lastName"]),
+      displayName: _asString(json["displayName"]),
+      mobileNumber: _asString(json["mobileNumber"] ?? json["mobile"]),
+      email: _asString(json["email"]),
+      status: _asString(json["status"]),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    "agentId": agentId,
+    "agentType": agentType,
+    "userId": userId,
+    "firstName": firstName,
+    "lastName": lastName,
+    "displayName": displayName,
+    "mobileNumber": mobileNumber,
+    "email": email,
+    "status": status,
   };
 }
 
