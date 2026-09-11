@@ -20,7 +20,35 @@ class CartPrefs {
   static const _kDeliveryAddress = 'delivery_address';
   static const _kDeliveryAddressId = 'delivery_address_id';
 
+  // Selected payment method, stored together with the cart id it was picked
+  // for. It survives leaving/re-entering the cart screen and only stops
+  // applying once the cart itself changes (a new cart id).
+  static const _kPaymentMethod = 'cart_payment_method';
+  static const _kPaymentMethodCartId = 'cart_payment_method_cart_id';
+
   static const defaultAddressLabel = 'Add Address';
+
+  /// The payment method saved for [cartId], or null when nothing was saved or
+  /// it belongs to a different (older) cart.
+  static Future<String?> readPaymentMethod(String cartId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedCartId = prefs.getString(_kPaymentMethodCartId);
+    if (storedCartId == null || storedCartId != cartId) return null;
+    final method = prefs.getString(_kPaymentMethod)?.trim();
+    return (method == null || method.isEmpty) ? null : method;
+  }
+
+  static Future<void> savePaymentMethod(String cartId, String method) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPaymentMethodCartId, cartId);
+    await prefs.setString(_kPaymentMethod, method);
+  }
+
+  static Future<void> clearPaymentMethod() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kPaymentMethod);
+    await prefs.remove(_kPaymentMethodCartId);
+  }
 
   /// Clears the transient offer-flow keys but keeps the sticky
   /// `offer_applied` flag (used after validating an offer).

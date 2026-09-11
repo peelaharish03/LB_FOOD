@@ -138,7 +138,10 @@ class RazorpayCheckoutHelper {
       'notes': notes,
       'config': upiFirstConfig(),
       'retry': {'enabled': true, 'max_count': 1},
-      'timeout': 60,
+      // Seconds before the Razorpay checkout sheet auto-closes on its own —
+      // was 60 (1 min), bumped to 300 (5 min) so the buyer has more time to
+      // complete the payment (e.g. switching to a UPI app and back).
+      'timeout': 300,
       'theme': {'color': '#081724'},
     };
   }

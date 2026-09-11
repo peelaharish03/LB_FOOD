@@ -829,6 +829,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       if (idx != -1) menuItems[idx] = item;
     });
 
+    // Show / refresh the persistent cart bar straight away — it is driven
+    // purely by the local `totalItems` just set above, so it must not wait on
+    // the add-to-cart + getCart round-trips below (that was the ~2s delay
+    // before the bar showed up after adding an item).
+    _syncPersistentCart();
+
     if (previousQty <= 0 && qty > 0) {
       final payload = _singleItemCartPayload(item, 1);
       if (payload == null) return;
@@ -843,8 +849,19 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       await _updateExistingCartItemQuantity(activeCartId!, item, qty);
     }
     await context.read<GetCartCubit>().fetchCart(context);
+    if (!mounted) return;
 
+    // Re-sync once the backend has the authoritative cart (a quantity may
+    // have been clamped or an item merged server-side).
+    _syncPersistentCart();
+  }
+
+  /// Brings the persistent cart bar in line with the current local
+  /// `totalItems` — opens it, closes it, or just refreshes its contents.
+  /// Safe to call on every cart mutation.
+  void _syncPersistentCart() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (totalItems > 0 && !isBottomSheetVisible) {
         showPersistentCart();
       } else if (totalItems == 0 && isBottomSheetVisible) {

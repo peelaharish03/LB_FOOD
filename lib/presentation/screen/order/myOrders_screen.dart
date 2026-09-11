@@ -11,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MyOrders extends StatefulWidget {
   const MyOrders({super.key});
@@ -470,6 +471,15 @@ class _MyOrdersState extends State<MyOrders> {
 
           _buildMiniTracker(_effectiveStatus(order)),
 
+          // The agent contact is only useful while the order is still on its
+          // way — once it's delivered (or completed) there's nothing to call
+          // about, so hide it.
+          if ((order.fulfillmentAgent?.hasPhone ?? false) &&
+              !_isDeliveredStatus(_effectiveStatus(order))) ...[
+            const SizedBox(height: 14),
+            _buildDeliveryAgent(order.fulfillmentAgent!),
+          ],
+
           const SizedBox(height: 14),
 
           Row(
@@ -531,6 +541,99 @@ class _MyOrdersState extends State<MyOrders> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isDeliveredStatus(String status) {
+    final s = status.toUpperCase().replaceAll('_', ' ').trim();
+    return s == 'DELIVERED' || s == 'COMPLETED';
+  }
+
+  Future<void> _callAgent(String phoneNumber) async {
+    final sanitized = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri(scheme: 'tel', path: sanitized);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Error launching phone call: $e');
+    }
+  }
+
+  /// Delivery-agent contact row shown on the order card once an agent is
+  /// assigned — tapping the call button dials the agent straight away.
+  Widget _buildDeliveryAgent(FulfillmentAgent agent) {
+    final phone = agent.mobileNumber!.trim();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColor.PrimaryColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColor.PrimaryColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColor.PrimaryColor.withValues(alpha: 0.12),
+            child: Icon(
+              Icons.delivery_dining,
+              size: 20,
+              color: AppColor.PrimaryColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Delivery Agent',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    letterSpacing: 0.6,
+                    fontWeight: FontWeight.w700,
+                    color: AppColor.PrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  agent.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  phone,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => _callAgent(phone),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColor.PrimaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.call, size: 18, color: Colors.white),
+            ),
           ),
         ],
       ),
