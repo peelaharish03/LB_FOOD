@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/utils/app_update_checker.dart';
@@ -58,11 +59,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _outOfServiceMessage = '';
   Timer? _storeStatusPollTimer;
   static const Duration _storeStatusPollInterval = Duration(seconds: 30);
+  StreamSubscription<Position>? _positionStreamSubscription;
+  bool _isBackgroundLocationRefreshing = false;
+  // Only re-check nearby stores once the user has actually moved this far,
+  // instead of on a fixed timer — avoids constant background fetches (and
+  // the resulting UI churn) while stationary, and picks up movement fast
+  // while travelling.
+  static const int _travelDistanceFilterMeters = 50;
 
   @override
   void initState() {
     super.initState();
     _searchFocusNode = FocusNode();
+    _logAccessToken();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Show the last known location + cached store list straight away so the
@@ -82,6 +91,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     _scrollController.addListener(_scrollListener);
+  }
+
+  Future<void> _logAccessToken() async {
+    try {
+      const storage = FlutterSecureStorage();
+      final accessToken = await storage.read(key: 'TOKEN');
+      debugPrint('🔑 ACCESS TOKEN => ${accessToken ?? 'null'}');
+    } catch (e) {
+      debugPrint('⚠️ Failed to read access token: $e');
+    }
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -159,6 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           permission == LocationPermission.always) {
         debugPrint("✅ Permission granted → fetching coordinates");
         await _loadCoordinatesAndFetchRestaurants();
+        _startLocationTracking();
       } else {
         debugPrint("⚠️ Permission denied or forever denied → using fallback");
 
@@ -211,9 +231,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (state is GetCartLoaded) {
         final hasItems = (state.cart.totalCount ?? 0) > 0;
         if (hasItems) {
-          await context
-              .read<ClearCartCubit>()
-              .clearCart(context, cartId: state.cart.id);
+          await context.read<ClearCartCubit>().clearCart(
+            context,
+            cartId: state.cart.id,
+          );
           await cartCubit.fetchCart(context);
         }
       }
@@ -359,18 +380,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _startStoreStatusPolling() {
     _storeStatusPollTimer?.cancel();
     _storeStatusPollTimer = Timer.periodic(_storeStatusPollInterval, (_) {
-      if (!mounted || _isOutOfServiceArea || latitude == null || longitude == null) {
+      if (!mounted ||
+          _isOutOfServiceArea ||
+          latitude == null ||
+          longitude == null) {
         return;
       }
-      context
-          .read<GetNearbyRestaurantsCubit>()
-          .pollNearbyRestaurants(_nearbyStoresParams());
+      context.read<GetNearbyRestaurantsCubit>().pollNearbyRestaurants(
+        _nearbyStoresParams(),
+      );
     });
   }
 
   void _stopStoreStatusPolling() {
     _storeStatusPollTimer?.cancel();
     _storeStatusPollTimer = null;
+  }
+
+  // Listens for real GPS movement (not a fixed timer) so the nearby-stores
+  // list picks up changes as the user actually travels. Fires only once the
+  // device has moved _travelDistanceFilterMeters, fetches + updates entirely
+  // in the background (no shimmer/spinner), and the cubit itself skips the
+  // UI update when the refreshed list turns out unchanged.
+  void _startLocationTracking() {
+    if (_positionStreamSubscription != null) return;
+
+    final locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: _travelDistanceFilterMeters,
+    );
+
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      _onPositionUpdate,
+      onError: (e) => debugPrint('⚠️ Location stream error: $e'),
+    );
+  }
+
+  void _stopLocationTracking() {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = null;
+  }
+
+  Future<void> _onPositionUpdate(Position position) async {
+    if (!mounted || _isBackgroundLocationRefreshing) return;
+    _isBackgroundLocationRefreshing = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      if (_coordsChanged(position.latitude, position.longitude)) {
+        setState(() {
+          latitude = position.latitude;
+          longitude = position.longitude;
+        });
+      }
+
+      await prefs.setDouble('saved_latitude', position.latitude);
+      await prefs.setDouble('saved_longitude', position.longitude);
+
+      _checkServiceArea(position.latitude, position.longitude);
+      if (!mounted || _isOutOfServiceArea) return;
+
+      debugPrint(
+        '🧭 Travelled ≥${_travelDistanceFilterMeters}m → refreshing nearby stores silently',
+      );
+      context.read<GetNearbyRestaurantsCubit>().pollNearbyRestaurants(
+        _nearbyStoresParams(),
+      );
+    } finally {
+      _isBackgroundLocationRefreshing = false;
+    }
   }
 
   void _checkServiceArea(double lat, double lon) {
@@ -598,6 +679,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     _disposed = true;
     _stopStoreStatusPolling();
+    _stopLocationTracking();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _searchFocusNode.dispose();
@@ -809,6 +891,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (cartList.isNotEmpty && (cartData?.totalCount ?? 0) > 0)
               ? BottomCartCard(
                 itemCount: cartData?.totalCount ?? 0,
+                totalPrice: cartData?.grandTotal?.toDouble(),
                 onTap: () async {
                   await Navigator.push(
                     context,

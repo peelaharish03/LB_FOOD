@@ -6,7 +6,7 @@ class PaymentMethodsUseCase {
 
   PaymentMethodsUseCase({required this.repository});
 
-  Future<PaymentMethodsModel> call() async {
-    return await repository.getPaymentMethods();
+  Future<PaymentMethodsModel> call(String cartId) async {
+    return await repository.getPaymentMethods(cartId);
   }
 }

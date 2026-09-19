@@ -8,10 +8,10 @@ class PaymentMethodsCubit extends Cubit<PaymentMethodsState> {
 
   PaymentMethodsCubit(this.useCase) : super(PaymentMethodsInitial());
 
-  Future<void> fetchPaymentMethods() async {
+  Future<void> fetchPaymentMethods(String cartId) async {
     emit(PaymentMethodsLoading());
     try {
-      final result = await useCase();
+      final result = await useCase(cartId);
       emit(PaymentMethodsLoaded(model: result));
     } catch (e) {
       emit(PaymentMethodsFailure(error: friendlyErrorMessage(e)));

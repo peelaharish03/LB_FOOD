@@ -5,4 +5,5 @@ abstract class CheckoutRepository {
   Future<CheckoutModel> initiateCheckout(Map<String, dynamic> payload);
   Future<CheckoutModel> checkoutCod(Map<String, dynamic> payload);
   Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload);
+  Future<CheckoutModel> cancelCheckout(String cartId);
 }

@@ -65,4 +65,20 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       return null;
     }
   }
+
+  /// Releases a cart held by an abandoned/failed online-payment checkout,
+  /// restoring it to the items it had before checkout was triggered. Must
+  /// only be called when the payment did NOT succeed.
+  Future<CheckoutModel?> cancelCheckout(String cartId) async {
+    emit(CheckoutLoading());
+
+    try {
+      final result = await useCase.cancelCheckout(cartId);
+      emit(CheckoutSuccess(model: result));
+      return result;
+    } catch (e) {
+      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      return null;
+    }
+  }
 }

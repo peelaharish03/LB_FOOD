@@ -257,18 +257,28 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   String? _storeIdForItem(Content item) {
-    final itemStoreId = item.businessId?.toString();
+    // The menu was fetched for this store, so the item belongs to this store.
+    // item.businessId can be a parent business id rather than the actual store
+    // id, which would falsely trigger the replace-cart dialog, so it is only
+    // used as a fallback when the menu store id is missing.
+    final menuStoreId = widget.restaurantId.trim();
+    if (menuStoreId.isNotEmpty && menuStoreId != '0') {
+      return menuStoreId;
+    }
+    final itemStoreId = item.businessId?.toString().trim();
     if (itemStoreId != null && itemStoreId.isNotEmpty && itemStoreId != '0') {
       return itemStoreId;
     }
-    return widget.restaurantId;
+    return menuStoreId.isEmpty ? null : menuStoreId;
   }
 
   String? _cartStoreIdFromState() {
     final cartState = context.read<GetCartCubit>().state;
     if (cartState is! GetCartLoaded) return null;
-    final storeId = cartState.cart.storeId;
-    return storeId == null || storeId.isEmpty ? null : storeId;
+    final storeId = cartState.cart.storeId?.trim();
+    return storeId == null || storeId.isEmpty || storeId == '0'
+        ? null
+        : storeId;
   }
 
   bool _cartHasBackendItems() {
@@ -1247,12 +1257,37 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             },
           );
         }),
-        if (_isLoadingMore)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: CupertinoActivityIndicator(),
-          ),
+        _buildMenuBottomIndicator(),
       ],
+    );
+  }
+
+  Widget _buildMenuBottomIndicator() {
+    // A spinner is only meaningful while pagination is actually in flight.
+    if (_isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: CupertinoActivityIndicator(),
+      );
+    }
+    if (_isLastMenuPage) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: Text(
+            "No more items to show",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: OutlinedButton(
+        onPressed: _loadMoreMenu,
+        child: const Text('Load more'),
+      ),
     );
   }
 
@@ -1297,6 +1332,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             if (!mounted) return;
             _maybeAutoloadOfferPages();
           });
+        } else if (state is GetMenuByRestaurantIdError) {
+          if (_isLoadingMore && mounted) {
+            setState(() => _isLoadingMore = false);
+          }
         }
       },
       builder: (context, state) {
@@ -1354,15 +1393,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   },
                 );
               }),
-              if (_isLoadingMore) const CupertinoActivityIndicator(),
-              if (!_isLastMenuPage && !_isLoadingMore)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: OutlinedButton(
-                    onPressed: _loadMoreMenu,
-                    child: const Text('Load more'),
-                  ),
-                ),
+              _buildMenuBottomIndicator(),
             ],
           );
         } else if (state is GetMenuByRestaurantIdError) {
@@ -1401,7 +1432,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   },
                 );
               }),
-              if (_isLoadingMore) const CupertinoActivityIndicator(),
+              _buildMenuBottomIndicator(),
             ],
           );
         }

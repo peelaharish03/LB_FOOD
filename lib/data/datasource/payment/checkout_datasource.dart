@@ -19,6 +19,11 @@ abstract class CheckoutRemoteDataSource {
 
   /// Reports the outcome of a Razorpay payment attempt back to the backend.
   Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload);
+
+  /// Releases a cart held by an abandoned/failed online-payment checkout,
+  /// restoring it to the items it had before checkout was triggered. Must
+  /// only be called when the payment did NOT succeed.
+  Future<CheckoutModel> cancelCheckout(String cartId);
 }
 
 class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
@@ -95,5 +100,10 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
   @override
   Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload) {
     return _post('verify-payment', '$baseUrl$checkoutVerifyPaymentUrl', payload);
+  }
+
+  @override
+  Future<CheckoutModel> cancelCheckout(String cartId) {
+    return _post('cancel', '$baseUrl${checkoutCancelUrl(cartId)}', const {});
   }
 }

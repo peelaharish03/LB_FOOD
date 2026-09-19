@@ -26,4 +26,9 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload) async {
     return await remoteDataSource.verifyPayment(payload);
   }
+
+  @override
+  Future<CheckoutModel> cancelCheckout(String cartId) async {
+    return await remoteDataSource.cancelCheckout(cartId);
+  }
 }

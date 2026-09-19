@@ -6,7 +6,7 @@ import 'package:local_basket/core/constants/global_exception_handler.dart';
 import 'package:local_basket/data/model/payment/paymentMethods/payment_methods_model.dart';
 
 abstract class PaymentMethodsRemoteDataSource {
-  Future<PaymentMethodsModel> getPaymentMethods();
+  Future<PaymentMethodsModel> getPaymentMethods(String cartId);
 }
 
 class PaymentMethodsRemoteDataSourceImpl
@@ -16,8 +16,8 @@ class PaymentMethodsRemoteDataSourceImpl
   PaymentMethodsRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<PaymentMethodsModel> getPaymentMethods() async {
-    final url = '$baseUrl$paymentMethodsUrl';
+  Future<PaymentMethodsModel> getPaymentMethods(String cartId) async {
+    final url = '$baseUrl${eligiblePaymentMethodsUrl(cartId)}';
     try {
       log('[PaymentMethodsRemoteDataSource] GET $url');
       final response = await client.get(url);
