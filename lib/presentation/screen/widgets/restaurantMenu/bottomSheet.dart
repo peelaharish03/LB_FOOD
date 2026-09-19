@@ -16,6 +16,11 @@ class RestaurantCartBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
+      // Some devices (mainly certain Android OEM builds) under-report the
+      // bottom system-nav inset, so this bar ends up hidden behind the
+      // gesture/button bar. `minimum` guarantees a floor clearance while
+      // still growing to match a larger real inset when the device reports one.
+      minimum: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
@@ -45,13 +50,15 @@ class RestaurantCartBottomSheet extends StatelessWidget {
             GestureDetector(
               onTap: onViewCartPressed,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       AppColor.PrimaryColor,
-                      AppColor.PrimaryColor.withOpacity(0.85)
+                      AppColor.PrimaryColor.withOpacity(0.85),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -67,8 +74,11 @@ class RestaurantCartBottomSheet extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.shopping_cart_outlined,
-                        color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.shopping_cart_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'View Cart',

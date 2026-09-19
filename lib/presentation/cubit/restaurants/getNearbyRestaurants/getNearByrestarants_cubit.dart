@@ -57,20 +57,50 @@ class GetNearbyRestaurantsCubit extends Cubit<GetNearbyRestaurantsState> {
     }
   }
 
-  /// Silently re-fetches nearby stores in the background (e.g. on a timer)
-  /// to pick up active/inactive status changes, without flashing a loading
-  /// state and without surfacing a transient network failure as an error —
-  /// the last good list just stays on screen until the next successful poll.
+  /// Silently re-fetches nearby stores in the background (e.g. on a timer or
+  /// as the user travels) to pick up active/inactive status changes and new
+  /// stores coming into range, without flashing a loading state and without
+  /// surfacing a transient network failure as an error — the last good list
+  /// just stays on screen until the next successful poll.
+  ///
+  /// Only emits when the result actually differs from what's on screen, so a
+  /// poll that returns the same stores (the common case) never triggers a
+  /// list rebuild in the UI.
   Future<void> pollNearbyRestaurants(Map<String, dynamic> params) async {
     final cacheKey = _generateCacheKey(params);
     try {
       final result = await getNearbyRestaurantsUseCase(params);
       await _repositoryCache.setData(cacheKey, result, ttl: const Duration(minutes: 30));
+
+      final currentState = state;
+      if (currentState is GetNearbyRestaurantsLoaded &&
+          _sameStores(currentState.model.content, result.content)) {
+        return;
+      }
+
       emit(GetNearbyRestaurantsLoaded(result));
     } catch (e) {
       print('⚠️ Background store status poll failed: $e');
     }
   }
+
+  /// Compares two store lists on the fields that actually matter to the UI
+  /// (identity, order, active status, distance) so GPS jitter — which nudges
+  /// distanceKm by a few meters on every poll — doesn't register as a change.
+  bool _sameStores(List<StoreContent> a, List<StoreContent> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].active != b[i].active ||
+          _roundedKm(a[i].distanceKm) != _roundedKm(b[i].distanceKm)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Rounds to the nearest 100m so small GPS drift doesn't count as a change.
+  double? _roundedKm(double? km) => km == null ? null : (km * 10).round() / 10;
 
   /// Generate unique cache key based on request parameters
   String _generateCacheKey(Map<String, dynamic> params) {

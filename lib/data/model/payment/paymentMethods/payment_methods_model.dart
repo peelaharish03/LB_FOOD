@@ -1,10 +1,13 @@
-/// Response model for `GET /api/payment-methods`.
+/// Response model for `GET /api/carts/{cartId}/eligible-payment-methods`.
 ///
-/// The API returns a Spring-style page:
+/// The API returns a plain array of the methods eligible for that specific
+/// cart (COD can drop out above certain order values, in certain zones, etc):
 /// ```json
-/// { "content": [ { "id": ..., "code": "RAZORPAY", "name": "Online Payment",
-///   "description": "...", "active": true }, ... ], ... }
+/// [ { "code": "RAZORPAY", "name": "Online Payment",
+///     "description": "Pay via Razorpay (UPI/Card/NetBanking)" } ]
 /// ```
+/// A Spring-style page (`{"content": [...]}`) is also accepted for
+/// forwards-compatibility.
 class PaymentMethodsModel {
   PaymentMethodsModel({required this.methods});
 

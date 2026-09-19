@@ -8,6 +8,8 @@ import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligible
 import 'package:local_basket/presentation/cubit/cart/eligiblePromotions/eligiblePromotions_state.dart';
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_cubit.dart';
 import 'package:local_basket/presentation/cubit/payment/deliveryModes/delivery_modes_state.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_cubit.dart';
+import 'package:local_basket/presentation/cubit/payment/paymentMethods/payment_methods_state.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/payment_method_dropdown.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_cubit.dart';
 import 'package:local_basket/presentation/cubit/offers/restaurant_offers/validate_offers/validate_offer_state.dart';
@@ -15,6 +17,7 @@ import 'package:local_basket/presentation/cubit/payment/checkout/checkout_cubit.
 import 'package:local_basket/presentation/cubit/payment/checkout/checkout_state.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_cubit.dart';
 import 'package:local_basket/presentation/cubit/restaurants/getNearbyRestaurants/getNearByrestarants_state.dart';
+import 'package:local_basket/data/model/restaurants/getNearbyRestaurants/getNearByrestarants_model.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/address_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/cart_item_card.dart';
 import 'package:local_basket/presentation/screen/widgets/cart/checkout_bottom_bar.dart';
@@ -221,6 +224,24 @@ class _CartScreenState extends State<CartScreen> {
 
   List<DeliveryMode> _deliveryModesOf(DeliveryModesState state) =>
       state is DeliveryModesLoaded ? state.model.activeModes : const [];
+
+  // Codes eligible for the current cart (COD can drop out above certain
+  // order values, in certain zones, etc). Null while loading/on failure/
+  // before a cart id exists — deliberately fail-open so a slow or broken
+  // eligibility check never blocks the buyer from picking a payment method.
+  Set<String>? _eligiblePaymentCodesOf(PaymentMethodsState state) {
+    if (state is! PaymentMethodsLoaded) return null;
+    return state.model.activeMethods.map((m) => m.checkoutCode).toSet();
+  }
+
+  String? _paymentMethodsFetchedForCartId;
+
+  void _maybeFetchEligiblePaymentMethods(String? cartId) {
+    if (!_hasValidCartId(cartId)) return;
+    if (_paymentMethodsFetchedForCartId == cartId) return;
+    _paymentMethodsFetchedForCartId = cartId;
+    context.read<PaymentMethodsCubit>().fetchPaymentMethods(cartId!);
+  }
 
   /// `shippingMethod` for checkout — the picked mode, else the first
   /// available mode, else the STANDARD fallback.
@@ -639,9 +660,10 @@ class _CartScreenState extends State<CartScreen> {
     // The buyer closed the Razorpay sheet without attempting a payment at
     // all (back button / swipe-away) — Razorpay reports this the same way as
     // a real failure, but no payment was ever made, so there is nothing to
-    // verify with the backend. Reporting it as a "FAILURE" anyway is what
-    // was finalizing the order tied to this cart server-side and left the
-    // cart looking cleared on return. Just leave the cart exactly as it was.
+    // verify with the backend. Reporting it as a "FAILURE" anyway used to
+    // finalize the order tied to this cart server-side and left the cart
+    // looking cleared on return. Instead, release the checkout hold via
+    // _cancelCheckoutHold() so the cart goes back to its pre-checkout items.
     if (failure?.code == Razorpay.PAYMENT_CANCELLED) {
       debugPrint('[Razorpay] cancelled by user before any payment attempt');
       CustomSnackbars.showInfoSnack(
@@ -649,6 +671,7 @@ class _CartScreenState extends State<CartScreen> {
         title: 'Payment Cancelled',
         message: 'You cancelled the payment. Your cart is unchanged.',
       );
+      await _cancelCheckoutHold();
       setState(() => loading = false);
       return;
     }
@@ -676,8 +699,23 @@ class _CartScreenState extends State<CartScreen> {
     debugPrint('[Razorpay] verify-payment (failure) payload: $payload');
     setState(() => loading = true);
     await context.read<CheckoutCubit>().verifyPayment(payload);
+    await _cancelCheckoutHold();
     if (!mounted) return;
     setState(() => loading = false);
+  }
+
+  /// Releases the cart held by checkout after a payment that did NOT
+  /// succeed (user backed out of the Razorpay sheet, or a genuine payment
+  /// failure) so the cart goes back to being editable with the same items
+  /// it had before checkout was triggered. Must never be called on the
+  /// success path.
+  Future<void> _cancelCheckoutHold() async {
+    final id = cartId;
+    if (id == null || id.isEmpty) return;
+
+    await context.read<CheckoutCubit>().cancelCheckout(id);
+    if (!mounted) return;
+    await context.read<GetCartCubit>().fetchCart(context);
   }
 
   void _onExternalWallet(_) {
@@ -1056,6 +1094,8 @@ class _CartScreenState extends State<CartScreen> {
       return null;
     }
 
+    final distanceKm = await _calculateDistanceToStoreKm();
+
     final payload = {
       "cartId": activeCartId,
       "shippingMethod": _shippingMethod,
@@ -1063,6 +1103,7 @@ class _CartScreenState extends State<CartScreen> {
       "shippingAddressId": _selectedAddressId ?? "",
       "b2bUnitId": defaultB2bUnitId,
       if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
+      if (distanceKm != null) "distanceKm": distanceKm,
     };
 
     debugPrint(
@@ -1161,6 +1202,48 @@ class _CartScreenState extends State<CartScreen> {
       if (id != null && id.isNotEmpty && id != '0') return id;
     }
     return null;
+  }
+
+  /// Straight-line distance (km) between the buyer's current location and the
+  /// cart's store, computed from their latitude/longitude. Reuses whatever
+  /// store list is already loaded in [GetNearbyRestaurantsCubit] (populated by
+  /// [_ensureStoreInDeliveryRange] just before checkout) instead of firing a
+  /// fresh API call. Null when either coordinate pair isn't available.
+  Future<double?> _calculateDistanceToStoreKm() async {
+    final cartStoreId = _cartStoreId();
+    if (cartStoreId == null) return null;
+
+    final userCoords = await _currentCoordinates();
+    if (userCoords == null || !mounted) return null;
+
+    final nearbyState = context.read<GetNearbyRestaurantsCubit>().state;
+    if (nearbyState is! GetNearbyRestaurantsLoaded) return null;
+
+    StoreContent? store;
+    for (final s in nearbyState.model.content) {
+      if (s.id?.toString() == cartStoreId) {
+        store = s;
+        break;
+      }
+    }
+    final storeLat = store?.latitude;
+    final storeLng = store?.longitude;
+    if (storeLat == null || storeLng == null) return null;
+
+    final distanceMeters = Geolocator.distanceBetween(
+      userCoords.lat,
+      userCoords.lng,
+      storeLat,
+      storeLng,
+    );
+    final distanceKm = distanceMeters / 1000;
+
+    debugPrint(
+      '[Checkout] distance: user=(${userCoords.lat}, ${userCoords.lng}), '
+      'store=($storeLat, $storeLng), distanceKm=$distanceKm',
+    );
+
+    return distanceKm;
   }
 
   /// Buyer's current coordinates — a last-known fix first (instant), then a
@@ -1505,9 +1588,14 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     // Delivery modes are read straight from the cubit so the dropdown renders
     // as soon as the API responds. The payment picker is a fixed two-choice
-    // control that needs no API.
+    // control (COD / online) whose options are gated by what the
+    // eligible-payment-methods API allows for this cart.
     final deliveryModesState = context.watch<DeliveryModesCubit>().state;
     final deliveryModes = _deliveryModesOf(deliveryModesState);
+
+    final paymentMethodsState = context.watch<PaymentMethodsCubit>().state;
+    final eligiblePaymentCodes = _eligiblePaymentCodesOf(paymentMethodsState);
+    final paymentMethodsLoading = paymentMethodsState is PaymentMethodsLoading;
 
     // Selected code, but only if it's still one of the available options —
     // DropdownButtonFormField asserts the value exists in its items.
@@ -1550,6 +1638,7 @@ class _CartScreenState extends State<CartScreen> {
               // for this cart (prefs), else whatever the cart carries, else
               // leave it on "Select payment method".
               _syncPaymentMethodForCart(state.cart);
+              _maybeFetchEligiblePaymentMethods(state.cart.id);
 
               _maybeFetchEligiblePromotions();
               _refreshCheckout();
@@ -1711,6 +1800,24 @@ class _CartScreenState extends State<CartScreen> {
             }
           },
         ),
+        // If the buyer already picked a method (or it was restored from
+        // prefs/the cart) and the eligibility check then rules it out for
+        // this cart, drop the pick instead of silently checking out with a
+        // method the backend will reject — never auto-pick a replacement,
+        // same "no auto-default" rule as the initial pick.
+        BlocListener<PaymentMethodsCubit, PaymentMethodsState>(
+          listener: (context, state) {
+            if (state is! PaymentMethodsLoaded) return;
+            final codes = state.model.activeMethods
+                .map((m) => m.checkoutCode)
+                .toSet();
+            if (_selectedPaymentMethod != null &&
+                !codes.contains(_selectedPaymentMethod)) {
+              setState(() => _selectedPaymentMethod = null);
+              CartPrefs.clearPaymentMethod();
+            }
+          },
+        ),
         BlocListener<ValidateOfferCubit, ValidateOfferState>(
           listener: (context, state) {
             if (state is ValidateOfferSuccess) {
@@ -1803,6 +1910,8 @@ class _CartScreenState extends State<CartScreen> {
                     selectedPaymentMethod: _selectedPaymentMethod,
                     paymentBusy: _paymentContextSyncing,
                     onPaymentMethodChanged: _onPaymentMethodChanged,
+                    eligiblePaymentCodes: eligiblePaymentCodes,
+                    paymentMethodsLoading: paymentMethodsLoading,
                     deliveryModes: deliveryModes,
                     deliveryModesLoading:
                         deliveryModesState is DeliveryModesLoading,

@@ -138,7 +138,10 @@ AppException mapHttpStatusToException(int? statusCode, String message) {
         statusCode!,
       );
     case 401:
-      return UnauthorizedException("Your session has expired. Please log in again.", statusCode!);
+      return UnauthorizedException(
+        message.isNotEmpty ? message : "Your session has expired. Please log in again.",
+        statusCode!,
+      );
     case 403:
       return ForbiddenException("You don't have permission to perform this action.", statusCode!);
     case 404:

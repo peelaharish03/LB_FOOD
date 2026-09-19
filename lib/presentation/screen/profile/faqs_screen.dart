@@ -13,10 +13,6 @@ class FaqsScreen extends StatelessWidget {
         'a': 'Go to My Orders in Profile and select an order to see its status.'
       },
       {
-        'q': 'How can I reorder items?',
-        'a': 'Open a past order in My Orders and use the Reorder option if available.'
-      },
-      {
         'q': 'How do I add or edit my address?',
         'a': 'Go to Saved Addresses in Profile to add, edit, or remove addresses.'
       },

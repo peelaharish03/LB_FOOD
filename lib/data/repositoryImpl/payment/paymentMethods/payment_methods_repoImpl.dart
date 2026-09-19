@@ -8,7 +8,7 @@ class PaymentMethodsRepositoryImpl implements PaymentMethodsRepository {
   PaymentMethodsRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<PaymentMethodsModel> getPaymentMethods() async {
-    return await remoteDataSource.getPaymentMethods();
+  Future<PaymentMethodsModel> getPaymentMethods(String cartId) async {
+    return await remoteDataSource.getPaymentMethods(cartId);
   }
 }

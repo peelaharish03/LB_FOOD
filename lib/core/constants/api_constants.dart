@@ -122,7 +122,12 @@ String validateOfferUrl(String offerId) {
 
 const eligiblePromotionsUrl = '/api/promotions/eligible';
 
-const paymentMethodsUrl = '/api/payment-methods';
+/// Payment methods eligible for a specific cart (COD may drop out above
+/// certain order values, in certain zones, etc.) — replaces the old
+/// non-cart-scoped `/api/payment-methods`.
+String eligiblePaymentMethodsUrl(String cartId) {
+  return '/api/carts/$cartId/eligible-payment-methods';
+}
 
 const deliveryModesUrl = '/api/delivery-modes';
 
@@ -132,6 +137,13 @@ const checkoutUrl = '/api/carts/checkout';
 const checkoutInitiateUrl = '/api/carts/checkout/initiate';
 const checkoutCodUrl = '/api/carts/checkout/cod';
 const checkoutVerifyPaymentUrl = '/api/carts/checkout/verify-payment';
+
+/// Releases a cart held by an abandoned/failed online-payment checkout,
+/// restoring it to the same items it had before checkout was triggered.
+/// Must only be called when payment did NOT succeed.
+String checkoutCancelUrl(String cartId) {
+  return '/api/carts/checkout/cancel?cartId=${Uri.encodeQueryComponent(cartId)}';
+}
 
 String updateCartItemsUrl(String cartId, String itemId) {
   return '/api/carts/$cartId/items/$itemId';

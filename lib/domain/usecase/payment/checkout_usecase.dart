@@ -21,4 +21,8 @@ class CheckoutUseCase {
   Future<CheckoutModel> verifyPayment(Map<String, dynamic> payload) async {
     return await repository.verifyPayment(payload);
   }
+
+  Future<CheckoutModel> cancelCheckout(String cartId) async {
+    return await repository.cancelCheckout(cartId);
+  }
 }

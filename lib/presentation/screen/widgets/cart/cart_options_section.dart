@@ -14,6 +14,12 @@ class CartOptionsSection extends StatelessWidget {
   final bool paymentBusy;
   final ValueChanged<String?> onPaymentMethodChanged;
 
+  /// Codes the eligible-payment-methods API allows for this cart. Null while
+  /// loading/on failure/before a cart exists — the picker then shows both
+  /// options rather than blocking checkout on a flaky eligibility check.
+  final Set<String>? eligiblePaymentCodes;
+  final bool paymentMethodsLoading;
+
   final List<DeliveryMode> deliveryModes;
   final bool deliveryModesLoading;
   final String? deliveryDropdownValue;
@@ -30,6 +36,8 @@ class CartOptionsSection extends StatelessWidget {
     required this.selectedPaymentMethod,
     required this.paymentBusy,
     required this.onPaymentMethodChanged,
+    this.eligiblePaymentCodes,
+    this.paymentMethodsLoading = false,
     required this.deliveryModes,
     required this.deliveryModesLoading,
     required this.deliveryDropdownValue,
@@ -55,6 +63,8 @@ class CartOptionsSection extends StatelessWidget {
             selectedCode: selectedPaymentMethod,
             busy: paymentBusy,
             onChanged: onPaymentMethodChanged,
+            eligibleCodes: eligiblePaymentCodes,
+            loading: paymentMethodsLoading,
           ),
         ),
         // Delivery-mode dropdown is only shown when the API returns more than

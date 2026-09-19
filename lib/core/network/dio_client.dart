@@ -98,24 +98,47 @@ class DioClient {
             'auth/refresh',
           );
 
+          // Some endpoints (e.g. checkout) return a plain 401 for a
+          // business-state conflict — "Cart is not active:
+          // CHECKOUT_IN_PROGRESS" — rather than an expired token. Without
+          // this flag, retrying such a request after a token refresh keeps
+          // 401ing, which re-enters this handler and refreshes/retries
+          // forever. Capping it to a single retry per request breaks that
+          // loop regardless of why the 401 keeps happening.
+          final alreadyRetried =
+              error.requestOptions.extra['_retriedAfter401'] == true;
+
           if (statusCode == 401 &&
               !isRefreshingToken &&
+              !alreadyRetried &&
               error.requestOptions.extra['requiresAuth'] != false) {
+            final String newToken;
             try {
               // Shares one in-flight refresh across all requests that 401
               // at the same time, instead of each racing to rotate the
               // refresh token independently.
-              final newToken = await _refreshAccessToken();
-
-              final RequestOptions requestOptions = error.requestOptions;
-              requestOptions.headers["Authorization"] = "Bearer $newToken";
-
-              final response = await dio.fetch(requestOptions);
-              return handler.resolve(response);
+              newToken = await _refreshAccessToken();
             } catch (e) {
               log('Token refresh failed: $e');
               await _signOutAndReturnToLogin();
               return handler.reject(error);
+            }
+
+            try {
+              final RequestOptions requestOptions = error.requestOptions;
+              requestOptions.headers["Authorization"] = "Bearer $newToken";
+              requestOptions.extra = {
+                ...requestOptions.extra,
+                '_retriedAfter401': true,
+              };
+
+              final response = await dio.fetch(requestOptions);
+              return handler.resolve(response);
+            } on DioException catch (retryError) {
+              // The refresh succeeded — the token wasn't the problem — so
+              // this is the request's own error (e.g. that cart-state
+              // conflict). Surface it as-is instead of signing the user out.
+              return handler.next(retryError);
             }
           }
 
