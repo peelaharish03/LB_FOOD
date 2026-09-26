@@ -25,11 +25,17 @@ class ApplyCouponCubit extends Cubit<ApplyCouponState> {
 
   /// Removes [code] from the cart via `DELETE /api/carts/{cartId}/coupon`.
   /// Returns true on success.
-  Future<bool> removeCoupon(String cartId, String code, {context}) async {
+  Future<bool> removeCoupon(
+    String cartId,
+    String code, {
+    context,
+    bool silent = false,
+  }) async {
     return _run(
       cartId: cartId,
       code: null,
       context: context,
+      silent: silent,
       action: () => applyCouponUseCase.remove(cartId, code),
     );
   }
@@ -39,9 +45,10 @@ class ApplyCouponCubit extends Cubit<ApplyCouponState> {
     required String? code,
     required dynamic context,
     required Future<void> Function() action,
+    bool silent = false,
   }) async {
     if (!_hasValidId(cartId)) {
-      emit(ApplyCouponFailure('Cart id is missing'));
+      emit(ApplyCouponFailure('Cart id is missing', silent: silent));
       return false;
     }
 
@@ -54,7 +61,9 @@ class ApplyCouponCubit extends Cubit<ApplyCouponState> {
           message: 'Please check Internet Connection',
         );
       }
-      emit(ApplyCouponFailure('Please check Internet Connection'));
+      emit(
+        ApplyCouponFailure('Please check Internet Connection', silent: silent),
+      );
       return false;
     }
 
@@ -64,7 +73,7 @@ class ApplyCouponCubit extends Cubit<ApplyCouponState> {
       emit(ApplyCouponSuccess(code: code));
       return true;
     } catch (e) {
-      emit(ApplyCouponFailure(friendlyErrorMessage(e)));
+      emit(ApplyCouponFailure(friendlyErrorMessage(e), silent: silent));
       return false;
     }
   }

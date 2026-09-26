@@ -9,7 +9,12 @@ class CheckoutCubit extends Cubit<CheckoutState> {
 
   CheckoutCubit({required this.useCase}) : super(CheckoutInitial());
 
-  Future<CheckoutModel?> fetchCheckout(Map<String, dynamic> payload) async {
+  /// [silent] marks a failure as coming from a background refresh, so the
+  /// screen doesn't show an error popup for it.
+  Future<CheckoutModel?> fetchCheckout(
+    Map<String, dynamic> payload, {
+    bool silent = false,
+  }) async {
     emit(CheckoutLoading());
 
     try {
@@ -17,7 +22,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      emit(CheckoutFailure(error: friendlyErrorMessage(e), silent: silent));
       return null;
     }
   }

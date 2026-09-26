@@ -19,5 +19,9 @@ class ApplyCouponSuccess extends ApplyCouponState {
 class ApplyCouponFailure extends ApplyCouponState {
   final String error;
 
-  ApplyCouponFailure(this.error);
+  /// True when the failed call was a background clean-up (dropping the old
+  /// promo when the payment method changes) — no error popup for it.
+  final bool silent;
+
+  ApplyCouponFailure(this.error, {this.silent = false});
 }

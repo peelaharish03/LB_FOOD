@@ -118,6 +118,10 @@ class _CartScreenState extends State<CartScreen> {
   double? _previewGrandTotal;
 
   bool _chargesPreviewInFlight = false;
+  // Set when a preview is requested while one is already running, so a
+  // follow-up run picks up the latest payment method / promo / address.
+  bool _chargesPreviewQueued = false;
+  Future<void>? _chargesPreviewRun;
 
   // Promo codes (promotions/eligible API) — when the cart has any eligible
   // promo code, Cash on Delivery becomes available and delivery charges are
@@ -330,6 +334,12 @@ class _CartScreenState extends State<CartScreen> {
           : (cartId ?? _paymentMethodCartId);
       _selectedPromoCode = null;
       _paymentContextSyncing = true;
+      // The last preview was priced for the previous method — drop it so the
+      // bar falls back to the cart figures until the new preview lands.
+      _previewItemsTotal = null;
+      _previewTaxTotal = null;
+      _previewDeliveryCharge = null;
+      _previewGrandTotal = null;
     });
 
     // Persist the choice locally, keyed to this cart, so it's still shown
@@ -348,6 +358,7 @@ class _CartScreenState extends State<CartScreen> {
         await context.read<ApplyCouponCubit>().removeCoupon(
           activeCartId!,
           promoToClear,
+          silent: true,
         );
         if (!mounted) return;
       }
@@ -514,6 +525,7 @@ class _CartScreenState extends State<CartScreen> {
       activeCartId!,
       cartItemId!,
       context,
+      silent: true,
     );
     if (!mounted) return;
     await context.read<GetCartCubit>().fetchCart(context);
@@ -534,8 +546,33 @@ class _CartScreenState extends State<CartScreen> {
   /// under the collapsible charges section by calling the checkout preview
   /// endpoint — the only source of the applied charges. Needs an address and
   /// a payment method to be chosen first.
-  Future<void> _refreshChargesPreview() async {
-    if (_chargesPreviewInFlight) return;
+  ///
+  /// Requests are serialised: a call made while one is in flight isn't
+  /// dropped but queued, and a single follow-up run fires once the current
+  /// one finishes, using the state at that moment. Otherwise a preview started
+  /// mid-way through a payment-method switch (e.g. by a getCart refresh
+  /// before the new method was saved onto the cart) would swallow the one
+  /// made after the save, leaving the breakdown on the stale figures.
+  Future<void> _refreshChargesPreview() {
+    if (_chargesPreviewInFlight) {
+      _chargesPreviewQueued = true;
+      return _chargesPreviewRun ?? Future.value();
+    }
+    _chargesPreviewInFlight = true;
+    return _chargesPreviewRun = () async {
+      try {
+        do {
+          _chargesPreviewQueued = false;
+          await _runChargesPreview();
+        } while (_chargesPreviewQueued && mounted);
+      } finally {
+        _chargesPreviewInFlight = false;
+        _chargesPreviewRun = null;
+      }
+    }();
+  }
+
+  Future<void> _runChargesPreview() async {
     if (selectedItems.isEmpty) return;
     if (_selectedPaymentMethod == null) return;
     if (_selectedAddressId == null || _selectedAddressId!.isEmpty) return;
@@ -543,21 +580,16 @@ class _CartScreenState extends State<CartScreen> {
     final activeCartId = await _ensureCartId();
     if (!mounted || !_hasValidCartId(activeCartId)) return;
 
-    _chargesPreviewInFlight = true;
-    try {
-      final payload = {
-        "cartId": activeCartId,
-        "shippingMethod": _shippingMethod,
-        "paymentMethod": _selectedPaymentMethod,
-        "shippingAddressId": _selectedAddressId ?? "",
-        "b2bUnitId": defaultB2bUnitId,
-        if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
-      };
-      debugPrint('[Checkout] charge preview: $payload');
-      await context.read<CheckoutCubit>().fetchCheckout(payload);
-    } finally {
-      _chargesPreviewInFlight = false;
-    }
+    final payload = {
+      "cartId": activeCartId,
+      "shippingMethod": _shippingMethod,
+      "paymentMethod": _selectedPaymentMethod,
+      "shippingAddressId": _selectedAddressId ?? "",
+      "b2bUnitId": defaultB2bUnitId,
+      if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
+    };
+    debugPrint('[Checkout] charge preview: $payload');
+    await context.read<CheckoutCubit>().fetchCheckout(payload, silent: true);
   }
 
   @override
@@ -1692,6 +1724,10 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<UpdateCartItemsCubit, UpdateCartItemsState>(
           listener: (context, state) {
             if (state is UpdateCartItemsFailure) {
+              if (state.silent) {
+                debugPrint('[CartContext] background sync failed: ${state.error}');
+                return;
+              }
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Error",
@@ -1728,6 +1764,13 @@ class _CartScreenState extends State<CartScreen> {
                 _applyFlatCharges();
               });
             } else if (state is CheckoutFailure) {
+              // A failed background charges preview (e.g. right after picking
+              // a payment method) isn't something the buyer did — keep the
+              // last known totals and don't pop an error.
+              if (state.silent) {
+                debugPrint('[Checkout] charge preview failed: ${state.error}');
+                return;
+              }
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Error",
@@ -1742,6 +1785,12 @@ class _CartScreenState extends State<CartScreen> {
         BlocListener<ApplyCouponCubit, ApplyCouponState>(
           listener: (context, state) {
             if (state is ApplyCouponFailure) {
+              if (state.silent) {
+                debugPrint(
+                  '[Promotions] coupon removal failed: ${state.error}',
+                );
+                return;
+              }
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Promo code",

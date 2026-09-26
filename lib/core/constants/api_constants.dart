@@ -85,11 +85,16 @@ String orderHistoryUrl(int page, int size, String searchQuery) {
   return '/api/orders/me?page=$page&size=$size&sort=createdDate%2Cdesc$searchParam';
 }
 
+String getOrderByIdUrl(String orderId) {
+  return '/api/orders/$orderId';
+}
+
 // const createCartUrl = 'order/api/carts/create';
 const createCartUrl = '/api/carts';
 String getCartUrl() {
   return '/api/carts?b2bUnitId=$defaultB2bUnitId';
 }
+
 String clearCartByIdUrl(String cartId) {
   return '/api/carts/$cartId';
 }

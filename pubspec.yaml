@@ -2,7 +2,7 @@ name: local_basket
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 4.0.2+56
+version: 4.0.2+58
 
 environment:
   sdk: ^3.7.0
@@ -29,7 +29,7 @@ dependencies:
   file_picker: ^9.0.0
   pdfx: ^2.8.0
   flutter_pdfview: ^1.4.0
-  google_fonts: ^6.1.0
+  google_fonts: ^8.2.1
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.4
   flutter_local_notifications: ^18.0.1

@@ -15,10 +15,13 @@ class UpdateCartItemsCubit extends Cubit<UpdateCartItemsState> {
     Map<String, dynamic> payload,
     String cartId,
     String itemId,
-    context,
-  ) async {
+    context, {
+    bool silent = false,
+  }) async {
     if (!_hasValidId(cartId) || !_hasValidId(itemId)) {
-      emit(UpdateCartItemsFailure('Cart id or item id is missing'));
+      emit(
+        UpdateCartItemsFailure('Cart id or item id is missing', silent: silent),
+      );
       return;
     }
 
@@ -38,7 +41,7 @@ class UpdateCartItemsCubit extends Cubit<UpdateCartItemsState> {
         final result = await updateCartItemsUseCase(payload, cartId, itemId);
         emit(UpdateCartItemsSuccess(result));
       } catch (e) {
-        emit(UpdateCartItemsFailure(friendlyErrorMessage(e)));
+        emit(UpdateCartItemsFailure(friendlyErrorMessage(e), silent: silent));
       }
     }
   }

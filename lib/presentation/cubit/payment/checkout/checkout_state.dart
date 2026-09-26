@@ -13,5 +13,9 @@ class CheckoutSuccess extends CheckoutState {
 
 class CheckoutFailure extends CheckoutState {
   final String error;
-  CheckoutFailure({required this.error});
+
+  /// True when the failed call was a background refresh (the charges
+  /// preview) — the screen shouldn't pop an error the buyer didn't cause.
+  final bool silent;
+  CheckoutFailure({required this.error, this.silent = false});
 }

@@ -15,5 +15,9 @@ class UpdateCartItemsSuccess extends UpdateCartItemsState {
 class UpdateCartItemsFailure extends UpdateCartItemsState {
   final String error;
 
-  UpdateCartItemsFailure(this.error);
+  /// True when the failed call was a background sync (e.g. persisting the
+  /// payment method) — the screen shouldn't pop an error for it.
+  final bool silent;
+
+  UpdateCartItemsFailure(this.error, {this.silent = false});
 }
