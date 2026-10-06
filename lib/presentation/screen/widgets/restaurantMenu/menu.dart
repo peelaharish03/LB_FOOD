@@ -46,6 +46,9 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
     if (oldWidget.quantity != widget.quantity && quantity != widget.quantity) {
       quantity = widget.quantity;
     }
+    if (oldWidget.item.imageUrl != widget.item.imageUrl) {
+      _imageLoaded = false;
+    }
   }
 
   bool computeVisibility(Content item) {
@@ -143,8 +146,7 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
 
     final item = widget.item;
     final isUnavailable = item.available != true;
-    final mediaUrl =
-        item.media?.isNotEmpty == true ? item.media!.first.url : null;
+    final mediaUrl = item.imageUrl;
 
     final typeAttr = item.attributes.firstWhere(
       (attr) => attr.attributeName?.toLowerCase() == 'type',
@@ -179,9 +181,10 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
+            child: Container(
               height: 140,
               width: 140,
+              color: Colors.grey.shade100,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -210,6 +213,8 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
                       child: Image.network(
                         mediaUrl,
                         fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) {
                             if (!_imageLoaded) {

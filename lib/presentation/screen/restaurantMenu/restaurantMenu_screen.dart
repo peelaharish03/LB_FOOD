@@ -1238,6 +1238,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ...filteredItems.map((item) {
           final qty = cart[item.name ?? ""] ?? 0;
           return MenuItemWidget(
+            key: ValueKey(_menuItemKey(item)),
             item: item,
             quantity: qty,
             restaurantId: widget.restaurantId,
@@ -1371,6 +1372,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               ...filteredItems.map((item) {
                 final qty = cart[item.name ?? ""] ?? 0;
                 return MenuItemWidget(
+                  key: ValueKey(_menuItemKey(item)),
                   item: item,
                   quantity: qty,
                   restaurantId: widget.restaurantId,
@@ -1410,6 +1412,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               ...menuItems.map((item) {
                 final qty = cart[item.name ?? ""] ?? 0;
                 return MenuItemWidget(
+                  key: ValueKey(_menuItemKey(item)),
                   item: item,
                   quantity: qty,
                   restaurantId: widget.restaurantId,

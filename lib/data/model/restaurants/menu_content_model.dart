@@ -68,6 +68,15 @@ class Content {
     this.status,
   });
 
+  /// First non-empty image url (from `imageUrls[0]` for the new API), or null.
+  String? get imageUrl {
+    for (final m in media ?? const <Media>[]) {
+      final url = m.url?.trim();
+      if (url != null && url.isNotEmpty) return url;
+    }
+    return null;
+  }
+
   String get foodType {
     final text = '${categoryName ?? ''} ${shortCode ?? ''}'.toLowerCase();
     if (text.contains('non-veg') ||
@@ -145,7 +154,7 @@ class Content {
     if (imageUrls is List) {
       for (final image in imageUrls) {
         if (image is String) {
-          urls.add(image);
+          urls.add(image.trim());
         } else if (image is Map && image["url"] != null) {
           urls.add(image["url"].toString());
         }
