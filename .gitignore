@@ -46,3 +46,13 @@ app.*.map.json
 .DS_Store
 .dart_tool/
 pubspec.lock
+
+# Large build outputs / binaries
+*.apk
+*.aab
+*.ipa
+*.dill
+*.zip
+*.app.dSYM.zip
+/android/app/build/
+/ios/build/
