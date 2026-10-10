@@ -61,7 +61,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   String? cartId;
 
   // Cache variables
-  bool _isDataCached = false;
   List<Map<String, dynamic>>? _cachedMenuItems;
   static const String _menuCacheTimestampKey = 'menu_cache_timestamp';
   static const String _menuCacheRestaurantIdKey = 'menu_cache_restaurant_id';
@@ -70,7 +69,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     minutes: 5,
   ); // Cache for 5 minutes
 
-  // Background refresh
+
   static const Duration _menuRefreshInterval = Duration(seconds: 30);
   Timer? _menuRefreshTimer;
   bool _isRefreshingMenu = false;
@@ -552,6 +551,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (_isLastMenuPage) return;
     if (_isLoadingMore) return;
     if (!_isMenuLoaded) return;
+    if (_isRefreshingMenu) return;
     setState(() => _isLoadingMore = true);
     page = page + 1;
     await context.read<GetMenuByRestaurantIdCubit>().fetchMenu({
@@ -567,6 +567,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (!mounted) return;
     if (_isRefreshingMenu) return;
     if (!_isMenuLoaded) return;
+    // Refreshing page 0 replaces the list, which would drop pages the user
+    // has already loaded, so only refresh while just the first page is shown.
+    if (_isLoadingMore || page > 0) return;
 
     _isRefreshingMenu = true;
     try {
@@ -702,10 +705,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             )
             .toList();
 
-    setState(() {
-      _isMenuLoaded = true;
-      _isDataCached = true;
-    });
+    setState(() => _isMenuLoaded = true);
   }
 
   Future<void> _saveMenuToCache(List<Content> menuData) async {
@@ -1211,11 +1211,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  Widget _buildCachedMenuItems() {
-    if (menuItems.isEmpty) {
-      return const Center(child: Text("No cached menu items available"));
-    }
-
+  Widget _buildMenuList() {
     // Filtering by food type only — text search is handled server-side via searchTerm.
     final filteredItems =
         menuItems.where((item) {
@@ -1229,12 +1225,21 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           return matchesFilter;
         }).toList();
 
-    if (filteredItems.isEmpty) {
-      return const Center(child: Text("No items to display"));
-    }
-
     return Column(
       children: [
+        // Keep the bottom indicator visible even when the current pages have
+        // no matching items, so the user can still load the next page.
+        if (filteredItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                searchText.trim().isEmpty
+                    ? "No menu items available"
+                    : "No items to display",
+              ),
+            ),
+          ),
         ...filteredItems.map((item) {
           final qty = cart[item.name ?? ""] ?? 0;
           return MenuItemWidget(
@@ -1247,9 +1252,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             onQuantityChanged: (newQty) async {
               if (_isOfferFlow) {
                 final alreadySelected = cart.entries.any(
-                  (entry) => entry.value > 0 && entry.key != item.name,
+                  (entry) => entry.value > 0 && entry.key != (item.name ?? ""),
                 );
-                if (alreadySelected && newQty > 0) {
+                if (alreadySelected && newQty == 1 && qty == 0) {
                   _showReplaceItemDialog(item);
                   return;
                 }
@@ -1293,14 +1298,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Widget _buildUserMenuItems() {
-    // If we have cached data, show it immediately without any loading
-    if (_isDataCached &&
-        _cachedMenuItems != null &&
-        _cachedMenuItems!.isNotEmpty) {
-      print('📦 Displaying cached user menu items - no loading');
-      return _buildCachedMenuItems();
-    }
-
+    // The listener must stay mounted even when the first page came from the
+    // local cache, otherwise "load more" responses are never appended.
     return BlocConsumer<GetMenuByRestaurantIdCubit, GetMenuByRestaurantIdState>(
       listener: (context, state) {
         if (state is GetMenuByRestaurantIdLoaded) {
@@ -1335,70 +1334,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           });
         } else if (state is GetMenuByRestaurantIdError) {
           if (_isLoadingMore && mounted) {
-            setState(() => _isLoadingMore = false);
+            // Roll back so the failed page is retried on the next "Load more".
+            setState(() {
+              _isLoadingMore = false;
+              if (page > 0) page = page - 1;
+            });
           }
         }
       },
       builder: (context, state) {
-        if (state is GetMenuByRestaurantIdLoading && menuItems.isEmpty) {
-          return const Center(child: CupertinoActivityIndicator());
-        } else if (state is GetMenuByRestaurantIdLoaded) {
-          // Filtering by food type only — text search is handled server-side via searchTerm.
-          final filteredItems =
-              menuItems.where((item) {
-                if (_isOfferFlow && (widget.couponCode?.isNotEmpty ?? false)) {
-                  if (!_matchesOfferBiryani(item)) return false;
-                }
-                final matchesFilter =
-                    filterType == 'All' ||
-                    (filterType.toLowerCase() == 'veg' &&
-                        item.foodType == 'veg') ||
-                    (filterType.toLowerCase() == 'nonveg' &&
-                        item.foodType == 'nonveg');
-                return matchesFilter;
-              }).toList();
-
-          if (filteredItems.isEmpty) {
-            return Center(
-              child: Text(
-                searchText.trim().isEmpty
-                    ? "No menu items available"
-                    : "No items to display",
-              ),
-            );
-          }
-          return Column(
-            children: [
-              ...filteredItems.map((item) {
-                final qty = cart[item.name ?? ""] ?? 0;
-                return MenuItemWidget(
-                  key: ValueKey(_menuItemKey(item)),
-                  item: item,
-                  quantity: qty,
-                  restaurantId: widget.restaurantId,
-                  restaurantName: widget.restaurantName,
-                  isCouponFlow: _isOfferFlow,
-                  onQuantityChanged: (newQty) async {
-                    if (_isOfferFlow) {
-                      final alreadySelected = cart.entries.any(
-                        (entry) =>
-                            entry.value > 0 && entry.key != (item.name ?? ""),
-                      );
-                      if (alreadySelected && newQty == 1 && qty == 0) {
-                        _showReplaceItemDialog(item);
-                      } else {
-                        await update_Cart(item, newQty);
-                      }
-                    } else {
-                      await update_Cart(item, newQty);
-                    }
-                  },
-                );
-              }),
-              _buildMenuBottomIndicator(),
-            ],
-          );
-        } else if (state is GetMenuByRestaurantIdError) {
+        if (menuItems.isNotEmpty) return _buildMenuList();
+        if (state is GetMenuByRestaurantIdError) {
           return Center(
             child: Text(
               state.message.isEmpty ? "Error loading menu" : state.message,
@@ -1406,40 +1352,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             ),
           );
         }
-        if (menuItems.isNotEmpty) {
-          return Column(
-            children: [
-              ...menuItems.map((item) {
-                final qty = cart[item.name ?? ""] ?? 0;
-                return MenuItemWidget(
-                  key: ValueKey(_menuItemKey(item)),
-                  item: item,
-                  quantity: qty,
-                  restaurantId: widget.restaurantId,
-                  restaurantName: widget.restaurantName,
-                  isCouponFlow: _isOfferFlow,
-                  onQuantityChanged: (newQty) async {
-                    if (_isOfferFlow) {
-                      final alreadySelected = cart.entries.any(
-                        (entry) =>
-                            entry.value > 0 && entry.key != (item.name ?? ""),
-                      );
-                      if (alreadySelected && newQty == 1 && qty == 0) {
-                        _showReplaceItemDialog(item);
-                      } else {
-                        await update_Cart(item, newQty);
-                      }
-                    } else {
-                      await update_Cart(item, newQty);
-                    }
-                  },
-                );
-              }),
-              _buildMenuBottomIndicator(),
-            ],
-          );
-        }
-        return const Center(child: Text("Loading..."));
+        if (state is GetMenuByRestaurantIdLoaded) return _buildMenuList();
+        return const Center(child: CupertinoActivityIndicator());
       },
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
 import 'package:local_basket/components/custom_button.dart';
+import 'package:local_basket/components/otp_input_field.dart';
 import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/core/constants/colors.dart';
 import 'package:local_basket/core/constants/img_const.dart';
@@ -70,6 +71,19 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _navigateBasedOnCustomerStatus(BuildContext context) {
     context.read<CurrentCustomerCubit>().GetCurrentCustomer(context);
+  }
+
+  void _submitOtp(BuildContext context, String otp) {
+    if (otp.length != 6 || context.read<SignInCubit>().state is SignInLoading) {
+      return;
+    }
+    context.read<SignInCubit>().signIn(
+      context,
+      widget.primaryContact,
+      otp,
+      widget.fullName,
+      widget.deviceId,
+    );
   }
 
   @override
@@ -265,22 +279,34 @@ class _OtpScreenState extends State<OtpScreen> {
                                 _buildOtpCallNotice(),
                                 const SizedBox(height: 24),
 
-                                /// OTP Input
+                                /// OTP Input (Android SMS autofill + resend timer)
                                 Center(
-                                  child: Pinput(
+                                  child: OtpInputField(
                                     controller: otpController,
                                     length: 6,
-                                    onCompleted: (value) {
-                                      if (value.length == 6) {
-                                        context.read<SignInCubit>().signIn(
-                                          context,
-                                          widget.primaryContact,
-                                          value,
-                                          widget.fullName,
-                                          widget.deviceId,
-                                        );
-                                      }
-                                    },
+                                    // Switch to OtpSmsAutofillMode.retriever once
+                                    // the backend SMS ends with the app hash.
+                                    androidSmsMode:
+                                        OtpSmsAutofillMode.userConsent,
+                                    onCompleted:
+                                        (value) => _submitOtp(context, value),
+                                    onResend:
+                                        () => context
+                                            .read<TriggerOtpCubit>()
+                                            .resendOtp(
+                                              context,
+                                              widget.primaryContact,
+                                            ),
+                                    resendTextStyle: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                    resendActionStyle: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColor.PrimaryColor,
+                                    ),
                                     defaultPinTheme: PinTheme(
                                       width: 48,
                                       height: 48,
@@ -322,13 +348,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               isLoading: state is SignInLoading,
                               onPressed: () {
                                 if (otpController.text.length == 6) {
-                                  context.read<SignInCubit>().signIn(
-                                    context,
-                                    widget.primaryContact,
-                                    otpController.text,
-                                    widget.fullName,
-                                    widget.deviceId,
-                                  );
+                                  _submitOtp(context, otpController.text);
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -342,23 +362,6 @@ class _OtpScreenState extends State<OtpScreen> {
                               },
                             );
                           },
-                        ),
-                        const SizedBox(height: 14),
-                        GestureDetector(
-                          onTap: () {
-                            context.read<TriggerOtpCubit>().resendOtp(
-                              context,
-                              widget.primaryContact,
-                            );
-                          },
-                          child: Text(
-                            "Didn’t receive it? Resend OTP",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
                         ),
                       ],
                     ),
