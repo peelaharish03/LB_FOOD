@@ -842,6 +842,12 @@
       "languageVersion": "3.11"
     },
     {
+      "name": "smart_auth",
+      "rootUri": "file:///Users/kalla/.pub-cache/hosted/pub.dev/smart_auth-3.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.16"
+    },
+    {
       "name": "source_span",
       "rootUri": "file:///Users/kalla/.pub-cache/hosted/pub.dev/source_span-1.10.1",
       "packageUri": "lib/",

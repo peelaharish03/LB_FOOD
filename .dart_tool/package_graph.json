@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "local_basket",
-      "version": "4.0.2+58",
+      "version": "4.0.2+59",
       "dependencies": [
         "carousel_slider",
         "connectivity_plus",
@@ -40,6 +40,7 @@
         "razorpay_flutter",
         "shared_preferences",
         "shimmer",
+        "smart_auth",
         "speech_to_text",
         "sqflite",
         "table_calendar",
@@ -90,6 +91,13 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "smart_auth",
+      "version": "3.2.0",
+      "dependencies": [
+        "flutter"
       ]
     },
     {

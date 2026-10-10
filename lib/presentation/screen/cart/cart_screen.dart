@@ -216,10 +216,26 @@ class _CartScreenState extends State<CartScreen> {
           ? _previewTaxTotal!
           : _cartTaxTotal;
 
-  double get _displayGrandTotal =>
-      (_previewGrandTotal != null && _previewGrandTotal! > 0)
-          ? _previewGrandTotal!
-          : _effectiveGrandTotal;
+  /// Sum of the lines shown in the bottom bar's breakdown.
+  double get _displayLinesTotal =>
+      _displayItemTotal +
+      _displayDeliveryCharge +
+      _displayTax +
+      _cartPlatformFee -
+      _cartTotalDiscount;
+
+  /// Total shown on the bottom bar. Prefers the reported total (preview, then
+  /// cart), but if it comes back below the itemised lines — e.g. the preview
+  /// echoing the product value only after a payment-method switch — the
+  /// charges were dropped from it, so the sum of the lines is shown instead
+  /// and the Total always agrees with the breakdown above it.
+  double get _displayGrandTotal {
+    final reported = (_previewGrandTotal != null && _previewGrandTotal! > 0)
+        ? _previewGrandTotal!
+        : _effectiveGrandTotal;
+    final lines = _displayLinesTotal;
+    return reported + 0.01 < lines ? lines : reported;
+  }
 
   // True while a just-picked payment method is being persisted onto the cart
   // and the promo/charges preview is being refreshed for it — shown as a
@@ -580,6 +596,12 @@ class _CartScreenState extends State<CartScreen> {
     final activeCartId = await _ensureCartId();
     if (!mounted || !_hasValidCartId(activeCartId)) return;
 
+    // Sent the same as on the real checkout — the backend prices the
+    // delivery charge from it, so without it the preview came back with no
+    // delivery charge.
+    final distanceKm = await _calculateDistanceToStoreKm();
+    if (!mounted) return;
+
     final payload = {
       "cartId": activeCartId,
       "shippingMethod": _shippingMethod,
@@ -587,6 +609,7 @@ class _CartScreenState extends State<CartScreen> {
       "shippingAddressId": _selectedAddressId ?? "",
       "b2bUnitId": defaultB2bUnitId,
       if (_selectedPromoCode != null) "promoCode": _selectedPromoCode,
+      if (distanceKm != null) "distanceKm": distanceKm,
     };
     debugPrint('[Checkout] charge preview: $payload');
     await context.read<CheckoutCubit>().fetchCheckout(payload, silent: true);
@@ -1753,8 +1776,15 @@ class _CartScreenState extends State<CartScreen> {
                 final itemsTotal = breakdown?.itemsTotal?.toDouble();
                 final taxTotal = breakdown?.taxTotal?.toDouble();
                 final deliveryCharge = breakdown?.deliveryCharge?.toDouble();
+                // `grandTotal` first: `totalAmount` can be the order's item
+                // amount (product value only), not the charged total.
                 final grandTotal =
-                    (model.totalAmount ?? breakdown?.grandTotal)?.toDouble();
+                    (breakdown?.grandTotal ?? model.totalAmount)?.toDouble();
+                debugPrint(
+                  '[Checkout] preview: itemsTotal=$itemsTotal tax=$taxTotal '
+                  'delivery=$deliveryCharge grandTotal=${breakdown?.grandTotal} '
+                  'totalAmount=${model.totalAmount}',
+                );
                 if (itemsTotal != null) _previewItemsTotal = itemsTotal;
                 if (taxTotal != null) _previewTaxTotal = taxTotal;
                 if (deliveryCharge != null) {
