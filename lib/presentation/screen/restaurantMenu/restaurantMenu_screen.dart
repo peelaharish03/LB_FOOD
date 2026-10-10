@@ -69,7 +69,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     minutes: 5,
   ); // Cache for 5 minutes
 
-  // Background refresh
+
   static const Duration _menuRefreshInterval = Duration(seconds: 30);
   Timer? _menuRefreshTimer;
   bool _isRefreshingMenu = false;
