@@ -17,5 +17,13 @@ class CheckoutFailure extends CheckoutState {
   /// True when the failed call was a background refresh (the charges
   /// preview) — the screen shouldn't pop an error the buyer didn't cause.
   final bool silent;
-  CheckoutFailure({required this.error, this.silent = false});
+
+  /// True when checkout was rejected because the cart's store is inactive —
+  /// the screen shows a dedicated popup instead of a generic error.
+  final bool storeInactive;
+  CheckoutFailure({
+    required this.error,
+    this.silent = false,
+    this.storeInactive = false,
+  });
 }

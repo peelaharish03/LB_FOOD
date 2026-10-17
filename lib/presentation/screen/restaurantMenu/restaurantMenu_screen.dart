@@ -4,6 +4,8 @@ import 'package:local_basket/core/constants/restaurant_appbar.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_cubit.dart';
 import 'package:local_basket/presentation/cubit/cart/getCart/getCart_state.dart';
 import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_cubit.dart';
+import 'package:local_basket/presentation/cubit/cart/productsAddToCart/productsAddtoCart_state.dart';
+import 'package:local_basket/components/custom_snackbar.dart';
 import 'package:local_basket/presentation/cubit/cart/updateCartItems/updateCartItems_cubit.dart';
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/searchBar.dart';
 import 'package:local_basket/presentation/screen/widgets/restaurantMenu/bottomSheet.dart';
@@ -73,6 +75,19 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   static const Duration _menuRefreshInterval = Duration(seconds: 30);
   Timer? _menuRefreshTimer;
   bool _isRefreshingMenu = false;
+
+  /// Rapid +/- taps on an item are collected for this long, then written to
+  /// the backend as a single quantity update.
+  static const Duration _quantitySyncDelay = Duration(milliseconds: 350);
+  final Map<String, Timer> _pendingQuantityTimers = {};
+  final Map<String, Content> _pendingQuantityItems = {};
+
+  /// Items whose quantity is being written to the backend right now.
+  final Set<String> _syncingItems = {};
+
+  /// Items tapped again while their write was in flight; their latest
+  /// quantity is sent once that write finishes.
+  final Map<String, Content> _resyncItems = {};
 
   @override
   void initState() {
@@ -378,6 +393,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     await context.read<GetCartCubit>().fetchCart(context);
     if (!mounted) return false;
 
+    // Emptying the old store's cart can hand back a different cart; adds must
+    // go to that one, not the id captured before the switch.
+    final refreshedCartState = context.read<GetCartCubit>().state;
+    final refreshedCartId =
+        refreshedCartState is GetCartLoaded ? refreshedCartState.cart.id : null;
+    if (_hasValidCartId(refreshedCartId)) {
+      cartId = refreshedCartId;
+      await _persistCartId(refreshedCartId);
+      if (!mounted) return false;
+    }
+
     setState(() {
       cart.clear();
       selectedItems.clear();
@@ -407,6 +433,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       return;
     }
     if (!_isMenuLoaded) return;
+    // A cart change is still being written; replacing the local cart now would
+    // flash stale backend quantities. The sync reconciles when it finishes.
+    if (_syncingItems.isNotEmpty ||
+        _pendingQuantityItems.isNotEmpty ||
+        _resyncItems.isNotEmpty) {
+      return;
+    }
 
     int itemCounter = 0;
     Map<String, int> updatedCart = {};
@@ -778,47 +811,203 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       return;
     }
 
-    final activeCartId = await _ensureCartId();
-    if (!_hasValidCartId(activeCartId)) {
-      debugPrint('Cart id unavailable. Skipping cart update.');
-      return;
-    }
-
     final itemName = item.name ?? "";
     final previousQty = cart[itemName] ?? 0;
     if (qty == previousQty || (qty < previousQty && previousQty <= 0)) {
       return;
     }
 
-    if (qty > 0) {
+    final isBeingSynced =
+        _pendingQuantityItems.containsKey(itemName) ||
+        _syncingItems.contains(itemName) ||
+        _resyncItems.containsKey(itemName);
+    if (previousQty <= 0 && qty > 0 && !isBeingSynced) {
+      await _addNewItemToCart(item, qty);
+      return;
+    }
+
+    // Show the new count straight away; the backend is updated in the
+    // background with the final quantity once the taps settle, so rapid taps
+    // never race each other.
+    _setLocalQuantity(item, qty);
+    _scheduleQuantitySync(item);
+  }
+
+  void _scheduleQuantitySync(Content item) {
+    final itemName = item.name ?? "";
+    _pendingQuantityItems[itemName] = item;
+    _pendingQuantityTimers[itemName]?.cancel();
+    _pendingQuantityTimers[itemName] = Timer(_quantitySyncDelay, () {
+      _pendingQuantityTimers.remove(itemName);
+      final pendingItem = _pendingQuantityItems.remove(itemName);
+      if (pendingItem != null) _syncItemQuantity(pendingItem);
+    });
+  }
+
+  /// First add of an item: confirms a store switch if needed, shows it in the
+  /// cart right away, then creates the cart line in the background.
+  Future<void> _addNewItemToCart(Content item, int qty) async {
+    final itemName = item.name ?? "";
+    _syncingItems.add(itemName);
+    try {
+      final activeCartId = await _ensureCartId();
+      if (!_hasValidCartId(activeCartId)) {
+        debugPrint('Cart id unavailable. Skipping cart update.');
+        return;
+      }
+
       final canUpdateCart = await _confirmStoreSwitchIfNeeded(
         activeCartId!,
         item,
-        previousQty,
+        0,
       );
-      if (!canUpdateCart) {
-        if (mounted) setState(() {});
+      if (!canUpdateCart || !mounted) return;
+      // A store switch may have moved us to a new cart.
+      final targetCartId = _hasValidCartId(cartId) ? cartId! : activeCartId;
+
+      // The offer allows a single item, so the others are cleared first.
+      final itemsToClear =
+          _isOfferFlow
+              ? selectedItems
+                  .where(
+                    (i) => !_sameId(i.id, item.id) && (cart[i.name] ?? 0) > 0,
+                  )
+                  .toList()
+              : <Content>[];
+
+      // Show the count and the persistent cart bar straight away — they must
+      // not wait on the add-to-cart + getCart round-trips below.
+      _setLocalQuantity(item, qty, clearOthers: _isOfferFlow);
+
+      for (final selectedItem in itemsToClear) {
+        await _updateExistingCartItemQuantity(targetCartId, selectedItem, 0);
+        if (!mounted) return;
+      }
+
+      final payload = _singleItemCartPayload(item, 1);
+      if (payload == null) return;
+      debugPrint('ProductsAddToCart Payload: $payload');
+      final addToCartCubit = context.read<ProductsAddToCartCubit>();
+      await addToCartCubit.addToCart(targetCartId, payload, context: context);
+      if (!mounted) return;
+
+      // Without this a failed add is silent — the count would just drop back
+      // to ADD once the backend cart is re-read below.
+      final addState = addToCartCubit.state;
+      if (addState is ProductsAddToCartFailure) {
+        CustomSnackbars.showErrorSnack(
+          context: context,
+          title: 'Failed',
+          message:
+              addState.message.isEmpty
+                  ? "Couldn't add the item to your cart"
+                  : addState.message,
+        );
+      }
+      await context.read<GetCartCubit>().fetchCart(context);
+    } finally {
+      _finishItemSync(item);
+    }
+  }
+
+  /// Writes the item's current local quantity to the backend in the
+  /// background. If a write for the item is already in flight, the newer
+  /// quantity is sent as soon as that one finishes.
+  Future<void> _syncItemQuantity(Content item) async {
+    final itemName = item.name ?? "";
+    if (_syncingItems.contains(itemName)) {
+      _resyncItems[itemName] = item;
+      return;
+    }
+    if (!mounted) return;
+
+    _syncingItems.add(itemName);
+    try {
+      final activeCartId = await _ensureCartId();
+      if (!_hasValidCartId(activeCartId)) {
+        debugPrint('Cart id unavailable. Skipping cart update.');
         return;
       }
+      await _writeItemQuantity(activeCartId!, item);
+      if (!mounted) return;
+      await context.read<GetCartCubit>().fetchCart(context);
+    } finally {
+      _finishItemSync(item);
     }
+  }
 
-    if (_isOfferFlow && qty > 0) {
-      for (final selectedItem in List<Content>.from(selectedItems)) {
-        if (_sameId(selectedItem.id, item.id)) continue;
-        final selectedQty = cart[selectedItem.name] ?? 0;
-        if (selectedQty <= 0) continue;
-        await _updateExistingCartItemQuantity(activeCartId!, selectedItem, 0);
-      }
+  Future<void> _writeItemQuantity(String activeCartId, Content item) async {
+    final itemName = item.name ?? "";
+    final qty = cart[itemName] ?? 0;
+    final cartItemId = await _cartItemIdForProductId(item.id);
+    if (!mounted) return;
+
+    if (_hasValidCartId(cartItemId)) {
+      debugPrint('UpdateCartItems Payload: {"quantity": $qty}');
+      await context.read<UpdateCartItemsCubit>().updateCartItem(
+        {"quantity": qty},
+        activeCartId,
+        cartItemId!,
+        context,
+      );
+    } else if (qty > 0) {
+      // The line was removed meanwhile (e.g. 1 → 0 → 1): create it again.
+      final payload = _singleItemCartPayload(item, 1);
+      if (payload == null) return;
+      debugPrint('ProductsAddToCart Payload: $payload');
+      await context.read<ProductsAddToCartCubit>().addToCart(
+        activeCartId,
+        payload,
+        context: context,
+      );
+      // The line is created with quantity 1; send the rest as a follow-up.
+      if (qty != 1) _resyncItems[itemName] = item;
     }
+  }
 
-    var updatedCart = Map<String, int>.from(cart);
-    var updatedSelectedItems = List<Content>.from(selectedItems);
+  /// Runs when an item's background write finishes. Sends any taps that came
+  /// in meanwhile; otherwise brings the count in line with what the backend
+  /// stored (it only changes if the update failed or was clamped).
+  void _finishItemSync(Content item) {
+    final itemName = item.name ?? "";
+    _syncingItems.remove(itemName);
+    if (!mounted) return;
 
-    if (qty == 0) {
+    final followUp = _resyncItems.remove(itemName);
+    if (followUp != null) {
+      _syncItemQuantity(followUp);
+      return;
+    }
+    // A newer change is about to be sent; don't overwrite it.
+    if (_pendingQuantityItems.containsKey(itemName)) return;
+
+    final serverQty = _serverQuantityFor(item);
+    if (serverQty != null && serverQty != (cart[itemName] ?? 0)) {
+      _setLocalQuantity(item, serverQty);
+    }
+  }
+
+  /// The item's quantity in the loaded backend cart, or null when no cart is
+  /// loaded (e.g. the refresh failed) and the local count should stand.
+  int? _serverQuantityFor(Content item) {
+    final cartState = context.read<GetCartCubit>().state;
+    if (cartState is! GetCartLoaded) return null;
+    for (final cartItem in cartState.cart.cartItems) {
+      if (_sameId(cartItem.productId, item.id)) return cartItem.quantity ?? 0;
+    }
+    return 0;
+  }
+
+  void _setLocalQuantity(Content item, int qty, {bool clearOthers = false}) {
+    final itemName = item.name ?? "";
+    final updatedCart = Map<String, int>.from(cart);
+    final updatedSelectedItems = List<Content>.from(selectedItems);
+
+    if (qty <= 0) {
       updatedCart.remove(itemName);
       updatedSelectedItems.removeWhere((i) => i.name == item.name);
     } else {
-      if (_isOfferFlow) {
+      if (clearOthers) {
         updatedCart.clear();
         updatedSelectedItems.clear();
       }
@@ -828,42 +1017,37 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       }
     }
 
-    int newTotalItems = updatedCart.values.fold(0, (sum, qty) => sum + qty);
-
     if (!mounted) return;
     setState(() {
       cart = updatedCart;
       selectedItems = updatedSelectedItems;
-      totalItems = newTotalItems;
+      totalItems = updatedCart.values.fold(0, (sum, q) => sum + q);
       final idx = menuItems.indexWhere((m) => m.name == item.name);
       if (idx != -1) menuItems[idx] = item;
     });
-
-    // Show / refresh the persistent cart bar straight away — it is driven
-    // purely by the local `totalItems` just set above, so it must not wait on
-    // the add-to-cart + getCart round-trips below (that was the ~2s delay
-    // before the bar showed up after adding an item).
     _syncPersistentCart();
+  }
 
-    if (previousQty <= 0 && qty > 0) {
-      final payload = _singleItemCartPayload(item, 1);
-      if (payload == null) return;
-      debugPrint('ProductsAddToCart Payload: $payload');
-      await context.read<ProductsAddToCartCubit>().addToCart(
-        activeCartId,
-        payload,
-        context: context,
-      );
-    } else {
-      debugPrint('UpdateCartItems Payload: {"quantity": $qty}');
-      await _updateExistingCartItemQuantity(activeCartId!, item, qty);
+  /// Sends any quantity changes still waiting out their debounce right away
+  /// and waits (briefly) for in-flight writes, so leaving the screen never
+  /// drops the user's last taps.
+  Future<void> _settleQuantityUpdates() async {
+    for (final timer in _pendingQuantityTimers.values) {
+      timer.cancel();
     }
-    await context.read<GetCartCubit>().fetchCart(context);
-    if (!mounted) return;
+    _pendingQuantityTimers.clear();
+    final pendingItems = _pendingQuantityItems.values.toList();
+    _pendingQuantityItems.clear();
+    for (final item in pendingItems) {
+      _syncItemQuantity(item);
+    }
 
-    // Re-sync once the backend has the authoritative cart (a quantity may
-    // have been clamped or an item merged server-side).
-    _syncPersistentCart();
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (mounted &&
+        (_syncingItems.isNotEmpty || _resyncItems.isNotEmpty) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   /// Brings the persistent cart bar in line with the current local
@@ -891,6 +1075,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         totalItems: totalItems,
         onViewCartPressed: () async {
           _bottomSheetController?.close();
+          // The cart screen loads the backend cart, so it must see the last taps.
+          await _settleQuantityUpdates();
+          if (!rootContext.mounted) return;
           final result = await Navigator.push(
             rootContext,
             MaterialPageRoute(
@@ -1044,6 +1231,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     _isNavigatingBack = true;
 
     try {
+      await _settleQuantityUpdates();
+      if (!mounted) return;
+
       if (isBottomSheetVisible && _bottomSheetController != null) {
         _bottomSheetController?.close();
         await Future.delayed(const Duration(milliseconds: 150));
@@ -1065,6 +1255,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    for (final timer in _pendingQuantityTimers.values) {
+      timer.cancel();
+    }
     _menuRefreshTimer?.cancel();
     _menuRefreshTimer = null;
     _bottomSheetController?.close();

@@ -54,6 +54,14 @@ class RequestTimeoutException extends AppException {
   ]) : super(message, null);
 }
 
+/// The cart's store is inactive/closed, so it can't take orders right now.
+class StoreInactiveException extends AppException {
+  StoreInactiveException([
+    String message = "This store / restaurant is currently inactive. Please try again after some time.",
+    int? code,
+  ]) : super(message, code);
+}
+
 class UnknownBackendException extends AppException {
   UnknownBackendException(super.message, [super.code]);
 }

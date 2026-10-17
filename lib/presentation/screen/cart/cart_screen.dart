@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_cubit.dart';
 import 'package:local_basket/presentation/cubit/authentication/currentcustomer/get/current_customer_state.dart';
 import 'package:local_basket/data/model/cart/getCart/getCart_model.dart';
@@ -81,6 +83,19 @@ class _CartScreenState extends State<CartScreen> {
 
   final Map<String, int> cart = {};
   final List<Map<String, dynamic>> selectedItems = [];
+
+  /// Rapid +/- taps on an item are collected for this long, then written to
+  /// the backend as a single quantity update.
+  static const Duration _quantitySyncDelay = Duration(milliseconds: 350);
+  final Map<String, Timer> _pendingQuantityTimers = {};
+  final Map<String, Map<String, dynamic>> _pendingQuantityItems = {};
+
+  /// Items whose quantity is being written to the backend right now.
+  final Set<String> _syncingItems = {};
+
+  /// Items tapped again while their write was in flight; their latest
+  /// quantity is sent once that write finishes.
+  final Map<String, Map<String, dynamic>> _resyncItems = {};
   String? cartId;
   double? _pendingCheckoutAmount;
   String? _processedRazorpayPaymentId;
@@ -892,6 +907,13 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _syncCartFromGetCart(GetCartModel loadedCart) {
+    // Quantities not yet confirmed by the backend must survive a refresh —
+    // otherwise an older backend quantity replaces the count the user just
+    // set (the "shows 5, then drops back" bug). 0 means removed locally.
+    final unsentQuantities = <String, int>{
+      for (final name in _unsyncedItemNames) name: cart[name] ?? 0,
+    };
+
     cart.clear();
     selectedItems.clear();
 
@@ -929,18 +951,29 @@ class _CartScreenState extends State<CartScreen> {
         'media': cartItem.media.map((media) => media.toJson()).toList(),
       });
     }
+    unsentQuantities.forEach((name, quantity) {
+      if (quantity <= 0) {
+        cart.remove(name);
+        selectedItems.removeWhere((e) => e['name'] == name);
+      } else if (cart.containsKey(name)) {
+        cart[name] = quantity;
+      }
+    });
 
-    // Sum the items' own totalPrice rather than trusting the cart's subTotal
-    // field directly, so the total shown always matches what the items list
-    // displays even if the cart response's aggregate field lags behind.
-    final itemsTotalPrice = selectedItems.fold<double>(
-      0.0,
-      (sum, item) => sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0),
-    );
+    // Item total is the pre-tax `subTotal`. Each item's `totalPrice` already
+    // includes its `taxAmount`, so summing those and then adding `totalTax`
+    // in the breakdown counted tax twice (e.g. 475.20 instead of the cart's
+    // grandTotal 417.60). Fall back to unitPrice × quantity if subTotal is
+    // missing.
+    final cartSubTotal = (loadedCart.subTotal ?? 0).toDouble();
     _subtotal =
-        itemsTotalPrice > 0
-            ? itemsTotalPrice
-            : (loadedCart.subTotal ?? 0).toDouble();
+        cartSubTotal > 0
+            ? cartSubTotal
+            : selectedItems.fold<double>(0.0, (sum, item) {
+              final unit = (item['price'] as num?)?.toDouble() ?? 0.0;
+              final qty = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+              return sum + unit * qty;
+            });
     _cartDeliveryCharge = (loadedCart.deliveryCharge ?? 0).toDouble();
     _cartTaxTotal = (loadedCart.totalTax ?? 0).toDouble();
     _cartPlatformFee = (loadedCart.platformFee ?? 0).toDouble();
@@ -1115,23 +1148,143 @@ class _CartScreenState extends State<CartScreen> {
     return _hasValidCartId(cartItemId) ? cartItemId : null;
   }
 
-  Future<void> _updateExistingCartItemQuantity(
-    String activeCartId,
+  void _onCartItemQuantityChanged(
     Map<String, dynamic> item,
-    int quantity,
-  ) async {
-    final cartItemId = await _cartItemIdForProduct(item);
-    if (!_hasValidCartId(cartItemId)) {
-      debugPrint('Cart item id unavailable. Skipping cart item update.');
+    int currentQuantity,
+    int q,
+  ) {
+    final String? name = item['name'];
+    if (name == null || q == currentQuantity) return;
+
+    if (q <= 0) {
+      // The row goes away, so there's nothing to batch — remove it now.
+      _pendingQuantityTimers.remove(name)?.cancel();
+      _pendingQuantityItems.remove(name);
+      setState(() {
+        cart.remove(name);
+        selectedItems.removeWhere((e) => e['name'] == name);
+      });
+      _syncCartItemQuantity(item);
       return;
     }
 
-    await context.read<UpdateCartItemsCubit>().updateCartItem(
-      {"quantity": quantity},
-      activeCartId,
-      cartItemId!,
-      context,
-    );
+    // Show the new count straight away; the backend is updated in the
+    // background with the final quantity once the taps settle, so rapid taps
+    // never race each other.
+    setState(() => cart[name] = q);
+    _pendingQuantityItems[name] = item;
+    _pendingQuantityTimers[name]?.cancel();
+    _pendingQuantityTimers[name] = Timer(_quantitySyncDelay, () {
+      _pendingQuantityTimers.remove(name);
+      final pendingItem = _pendingQuantityItems.remove(name);
+      if (pendingItem != null) _syncCartItemQuantity(pendingItem);
+    });
+  }
+
+  /// Writes the item's current local quantity to the backend in the
+  /// background. If a write for the item is already in flight, the newer
+  /// quantity is sent as soon as that one finishes.
+  Future<void> _syncCartItemQuantity(Map<String, dynamic> item) async {
+    final String name = item['name'];
+    if (_syncingItems.contains(name)) {
+      _resyncItems[name] = item;
+      return;
+    }
+    if (!mounted) return;
+
+    _syncingItems.add(name);
+    try {
+      final activeCartId = await _ensureCartId();
+      if (!_hasValidCartId(activeCartId) || !mounted) return;
+      await _writeCartItemQuantity(activeCartId!, item);
+      if (!mounted) return;
+      await context.read<GetCartCubit>().fetchCart(context);
+      _refreshCheckout();
+    } finally {
+      _finishCartItemSync(item);
+    }
+  }
+
+  Future<void> _writeCartItemQuantity(
+    String activeCartId,
+    Map<String, dynamic> item,
+  ) async {
+    final String name = item['name'];
+    final quantity = cart[name] ?? 0;
+    final cartItemId = await _cartItemIdForProduct(item);
+    if (!mounted) return;
+
+    if (_hasValidCartId(cartItemId)) {
+      await context.read<UpdateCartItemsCubit>().updateCartItem(
+        {"quantity": quantity},
+        activeCartId,
+        cartItemId!,
+        context,
+      );
+    } else if (quantity > 0) {
+      final payload = _singleItemCartPayload(item, 1);
+      if (payload == null) return;
+      await context.read<ProductsAddToCartCubit>().addToCart(
+        activeCartId,
+        payload,
+        context: context,
+      );
+      // The line is created with quantity 1; send the rest as a follow-up.
+      if (quantity != 1) _resyncItems[name] = item;
+    }
+  }
+
+  /// Runs when an item's background write finishes. Sends any taps that came
+  /// in meanwhile; otherwise brings the list in line with what the backend
+  /// stored (it only changes if the update failed or was clamped).
+  void _finishCartItemSync(Map<String, dynamic> item) {
+    final String name = item['name'];
+    _syncingItems.remove(name);
+    if (!mounted) return;
+
+    final followUp = _resyncItems.remove(name);
+    if (followUp != null) {
+      _syncCartItemQuantity(followUp);
+      return;
+    }
+    // A newer change is about to be sent; don't overwrite it.
+    if (_pendingQuantityItems.containsKey(name)) return;
+
+    final cartState = context.read<GetCartCubit>().state;
+    if (cartState is GetCartLoaded) {
+      setState(() => _syncCartFromGetCart(cartState.cart));
+    }
+    widget.onBottomSheetVisibilityChanged?.call(cart.isNotEmpty);
+  }
+
+  /// Items whose local quantity is newer than the backend's: waiting out the
+  /// debounce, being written, or queued for a follow-up write.
+  Set<String> get _unsyncedItemNames => {
+    ..._pendingQuantityItems.keys,
+    ..._syncingItems,
+    ..._resyncItems.keys,
+  };
+
+  /// Sends any quantity changes still waiting out their debounce right away
+  /// and waits (briefly) for in-flight writes, so leaving the screen or
+  /// placing the order uses the user's last taps.
+  Future<void> _settleQuantityUpdates() async {
+    for (final timer in _pendingQuantityTimers.values) {
+      timer.cancel();
+    }
+    _pendingQuantityTimers.clear();
+    final pendingItems = _pendingQuantityItems.values.toList();
+    _pendingQuantityItems.clear();
+    for (final item in pendingItems) {
+      _syncCartItemQuantity(item);
+    }
+
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (mounted &&
+        (_syncingItems.isNotEmpty || _resyncItems.isNotEmpty) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   int getCartItemCount() => cart.values.fold(0, (sum, q) => sum + q);
@@ -1334,6 +1487,73 @@ class _CartScreenState extends State<CartScreen> {
     return null;
   }
 
+  /// Popup shown when checkout is rejected because the cart's store is
+  /// inactive — instead of the misleading "session expired" error.
+  Future<void> _showStoreInactiveDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppColor.White,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  size: 40,
+                  color: Colors.orange,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Store / Restaurant is inactive",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "This restaurant is inactive and isn't accepting orders "
+                "right now. Please try again after some time.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColor.PrimaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text("Got it"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Blocking popup shown when the cart's store no longer delivers to the
   /// buyer's current location. Replaces the old transient snackbar so the
   /// message can't be swiped away or missed, and makes clear the cart is kept.
@@ -1408,6 +1628,18 @@ class _CartScreenState extends State<CartScreen> {
   ///  - nothing selected → prompt the buyer to pick one;
   ///  - COD → COD checkout API; online → Razorpay checkout.
   Future<void> _onPlaceOrderPressed() async {
+    // Never check out against a cart whose quantities are still being saved.
+    await _settleQuantityUpdates();
+    if (!mounted) return;
+    if (_syncingItems.isNotEmpty || _resyncItems.isNotEmpty) {
+      CustomSnackbars.showErrorSnack(
+        context: context,
+        title: "Please wait",
+        message: "Updating your cart, try again in a moment",
+      );
+      return;
+    }
+
     if (!await _ensureStoreInDeliveryRange()) return;
     if (!mounted) return;
 
@@ -1619,7 +1851,9 @@ class _CartScreenState extends State<CartScreen> {
 
   /// Pops the cart screen back to its opener, handing back the current
   /// quantities, and drops the transient offer-flow prefs on the way out.
-  void _popWithCartResult({bool notifyBottomSheet = false}) {
+  Future<void> _popWithCartResult({bool notifyBottomSheet = false}) async {
+    await _settleQuantityUpdates();
+    if (!mounted) return;
     CartPrefs.clearOfferFlowAndApplied();
 
     final updatedCart = <dynamic, int>{};
@@ -1801,6 +2035,10 @@ class _CartScreenState extends State<CartScreen> {
                 debugPrint('[Checkout] charge preview failed: ${state.error}');
                 return;
               }
+              if (state.storeInactive) {
+                _showStoreInactiveDialog();
+                return;
+              }
               CustomSnackbars.showErrorSnack(
                 context: context,
                 title: "Error",
@@ -1943,7 +2181,7 @@ class _CartScreenState extends State<CartScreen> {
       ],
       child: WillPopScope(
         onWillPop: () async {
-          _popWithCartResult();
+          await _popWithCartResult();
           return false;
         },
         child: Scaffold(
@@ -2024,55 +2262,12 @@ class _CartScreenState extends State<CartScreen> {
                                   enableIncrement:
                                       widget.orderId == null &&
                                       !_isCouponApplied,
-                                  onQuantityChanged: (q) async {
-                                    final name = item['name'];
-                                    if (name == null) return;
-
-                                    if (q == currentQuantity) return;
-
-                                    if (q <= 0) {
-                                      setState(() {
-                                        cart.remove(name);
-                                        selectedItems.removeAt(i);
-                                      });
-                                    } else {
-                                      setState(() {
-                                        cart[name] = q;
-                                      });
-                                    }
-
-                                    final activeCartId = await _ensureCartId();
-                                    if (!_hasValidCartId(activeCartId)) return;
-
-                                    if (currentQuantity <= 0 && q > 0) {
-                                      final payload = _singleItemCartPayload(
+                                  onQuantityChanged:
+                                      (q) => _onCartItemQuantityChanged(
                                         item,
-                                        1,
-                                      );
-                                      if (payload == null) return;
-                                      await context
-                                          .read<ProductsAddToCartCubit>()
-                                          .addToCart(
-                                            activeCartId,
-                                            payload,
-                                            context: context,
-                                          );
-                                    } else {
-                                      await _updateExistingCartItemQuantity(
-                                        activeCartId!,
-                                        item,
+                                        currentQuantity,
                                         q,
-                                      );
-                                    }
-                                    await context
-                                        .read<GetCartCubit>()
-                                        .fetchCart(context);
-                                    _refreshCheckout();
-
-                                    widget.onBottomSheetVisibilityChanged?.call(
-                                      cart.isNotEmpty,
-                                    );
-                                  },
+                                      ),
                                 );
                               }
 
@@ -2118,6 +2313,9 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   void dispose() {
+    for (final timer in _pendingQuantityTimers.values) {
+      timer.cancel();
+    }
     _razorpay.clear();
     super.dispose();
   }

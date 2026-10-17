@@ -47,13 +47,18 @@ class ProductsAddToCartCubit extends Cubit<ProductsAddToCartState> {
         if (e.toString().contains('403') &&
             context != null &&
             context.mounted) {
-          final result = await useCase(
-            activeCartId,
-            payload,
-            forceReplace: true,
-          );
-          emit(ProductsAddToCartSuccess(result));
-
+          // The retry can fail too; report it rather than letting it escape
+          // to the caller as an unhandled exception.
+          try {
+            final result = await useCase(
+              activeCartId,
+              payload,
+              forceReplace: true,
+            );
+            emit(ProductsAddToCartSuccess(result));
+          } catch (retryError) {
+            emit(ProductsAddToCartFailure(friendlyErrorMessage(retryError)));
+          }
           return;
         }
         emit(ProductsAddToCartFailure(friendlyErrorMessage(e)));

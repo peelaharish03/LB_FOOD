@@ -9,6 +9,12 @@ class CheckoutCubit extends Cubit<CheckoutState> {
 
   CheckoutCubit({required this.useCase}) : super(CheckoutInitial());
 
+  CheckoutFailure _failure(Object e, {bool silent = false}) => CheckoutFailure(
+    error: friendlyErrorMessage(e),
+    silent: silent,
+    storeInactive: e is StoreInactiveException,
+  );
+
   /// [silent] marks a failure as coming from a background refresh, so the
   /// screen doesn't show an error popup for it.
   Future<CheckoutModel?> fetchCheckout(
@@ -22,7 +28,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e), silent: silent));
+      emit(_failure(e, silent: silent));
       return null;
     }
   }
@@ -37,7 +43,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      emit(_failure(e));
       return null;
     }
   }
@@ -51,7 +57,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      emit(_failure(e));
       return null;
     }
   }
@@ -66,7 +72,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      emit(_failure(e));
       return null;
     }
   }
@@ -82,7 +88,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(CheckoutSuccess(model: result));
       return result;
     } catch (e) {
-      emit(CheckoutFailure(error: friendlyErrorMessage(e)));
+      emit(_failure(e));
       return null;
     }
   }

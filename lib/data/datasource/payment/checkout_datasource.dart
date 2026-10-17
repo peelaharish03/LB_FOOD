@@ -72,7 +72,21 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
           'Checkout request timed out. Please check your internet and try again.',
         );
       }
-      throw handleDioError(e);
+      final storeInactive = _storeInactiveError(e);
+      if (storeInactive != null) throw storeInactive;
+      final mapped = handleDioError(e);
+      // Checkout endpoints reply 401 / auth-style codes for business-state
+      // problems too (cart or store not active). A genuinely expired session
+      // was already handled by the Dio interceptor (refresh or sign-out), so
+      // don't tell the buyer to log in again — show the backend's reason.
+      if (mapped is UnauthorizedException) {
+        throw UnknownBackendException(
+          _backendMessage(e) ??
+              "Unable to complete checkout right now. Please try again after some time.",
+          mapped.code,
+        );
+      }
+      throw mapped;
     } catch (e) {
       log('[CheckoutRemoteDataSource:$tag] error=$e');
       if (e is AppException) rethrow;
@@ -80,6 +94,35 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         "Unable to complete checkout right now. Please try again after some time.",
       );
     }
+  }
+
+  static String? _backendMessage(DioException e) {
+    final data = e.response?.data;
+    final message =
+        data is Map ? data['message']?.toString() : (data is String ? data : null);
+    final trimmed = message?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
+
+  static final RegExp _storeInactivePattern = RegExp(
+    r'(store|restaurant|outlet|shop).*(inactive|not active|closed|unavailable|offline|disabled)'
+    r'|(inactive|closed|unavailable|offline|disabled).*(store|restaurant|outlet|shop)',
+    caseSensitive: false,
+  );
+
+  /// Detects the backend's "store is inactive/closed" rejection, whatever
+  /// HTTP status or business code it arrives with.
+  static StoreInactiveException? _storeInactiveError(DioException e) {
+    final message = _backendMessage(e);
+    if (message == null || !_storeInactivePattern.hasMatch(message)) {
+      return null;
+    }
+    final data = e.response?.data;
+    final code = data is Map ? data['code'] : null;
+    return StoreInactiveException(
+      "This store / restaurant is currently inactive. Please try again after some time.",
+      code is int ? code : e.response?.statusCode,
+    );
   }
 
   @override

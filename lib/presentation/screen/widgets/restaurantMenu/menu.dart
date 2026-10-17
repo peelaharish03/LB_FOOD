@@ -43,7 +43,9 @@ class _MenuItemWidgetState extends State<MenuItemWidget> {
   @override
   void didUpdateWidget(covariant MenuItemWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.quantity != widget.quantity && quantity != widget.quantity) {
+    // The parent's cart is the source of truth (it may correct a tap to the
+    // quantity the backend actually stored), so always follow it.
+    if (quantity != widget.quantity) {
       quantity = widget.quantity;
     }
     if (oldWidget.item.imageUrl != widget.item.imageUrl) {
